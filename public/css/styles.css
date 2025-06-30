@@ -1,0 +1,86 @@
+/* Global Styles */
+body {
+  background-color: #f9f9f9;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+h2 {
+  margin-bottom: 20px;
+}
+
+/* Calendar Button Styles */
+#calendar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 20px;
+  justify-content: center;
+}
+
+#calendar button {
+  min-width: 120px;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease-in-out;
+}
+
+#calendar button:hover {
+  transform: scale(1.05);
+}
+
+/* Booking Form Visibility */
+#bookingForm {
+  display: show;
+}
+
+/* Time Dropdown */
+#timeSelect:empty::before {
+  content: 'Seleccione un día para ver horarios';
+  color: #999;
+}
+
+/* Button States */
+.btn-outline-secondary {
+  border-color: #6c757d;
+  color: #6c757d;
+}
+
+.btn-outline-secondary:hover {
+  background-color: #6c757d;
+  color: #fff;
+}
+
+.btn-dark {
+  background-color: #343a40 !important;
+  border: none;
+  color: white !important;
+}
+
+.btn-secondary {
+  background-color: #adb5bd !important;
+  border: none;
+  color: white !important;
+}
+
+.btn-primary {
+  background-color: #0d6efd;
+  color: white;
+  font-weight: bold;
+}
+
+.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Form Input Spacing */
+form input,
+form select,
+form textarea {
+  font-size: 1rem;
+}
+
+form textarea {
+  resize: vertical;
+}
