@@ -14,7 +14,7 @@ CREATE TABLE appointments (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-
+--
 CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   full_name VARCHAR(100) NOT NULL,
@@ -27,13 +27,13 @@ CREATE TABLE users (
 
 -- clients table - stores all customers even if not registered, if registered, they will also be in the users table
 
--- CREATE TABLE clients (
---   id INT AUTO_INCREMENT PRIMARY KEY,
---   name VARCHAR(100) NOT NULL,
---   email VARCHAR(100),
---   phone VARCHAR(20),
---   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
--- );
+CREATE TABLE allCli (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(100),
+  phone VARCHAR(20),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 -- this table is for user roles, e.g., admin, user, etc.
 
