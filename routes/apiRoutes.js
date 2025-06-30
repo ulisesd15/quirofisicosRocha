@@ -27,6 +27,22 @@ router.delete('/appointments/:id', (req, res) => {
   });
 });
 
+//get single
+router.get("/appointments/:id", (req, res) => {
+  const appointmentId = req.params.id;
+  db.query("SELECT * FROM appointments WHERE id = ?", [appointmentId], (err, results) => {
+    if (err) {
+      console.error("Error al obtener la cita:", err);
+      return res.status(500).json({ message: "Error al obtener la cita" });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ message: "Cita no encontrada" });
+    }
+    res.status(200).json(results[0]);
+  });
+});
+
+// Register user
 router.post("/register", async (req, res) => {
   const { full_name, username, email, phone } = req.body;
 
@@ -45,13 +61,46 @@ router.post("/register", async (req, res) => {
       return res.status(500).json({ message: "Error al registrar usuario" });
     }
 
-    const userId = results.insertId;
 
     // If you already have an appointment_id to associate, you can add it here:
     // const appointment_id = some logic...
     // const linkSql = `INSERT INTO registered_users (appointment_id, user_id) VALUES (?, ?)`
 
-    res.status(200).json({ message: "Registro exitoso", userId });
+    return res.status(200).json({ message: "Registro exitoso", userId: result.insertId });
+  });
+});
+
+//get all registered users
+router.get("/registeredUsers", (req, res) => {
+  db.query("SELECT * FROM users", (err, results) => {
+    if (err) {
+      console.error("Error al obtener los usuarios registrados:", err);
+      return res.status(500).json({ message: "Error al obtener los usuarios registrados" });
+    }
+    res.status(200).json(results);
+  });
+});
+
+// Get all registered users
+router.get('/registered_users', (req, res) => {
+  db.query('SELECT * FROM users', (err, results) => {
+    if (err) return res.status(500).json(err);
+    res.json(results);
+  });
+});
+
+//Get registered user by ID
+router.get('/registered_users/:id', (req, res) => {
+  const userId = req.params.id;
+  db.query('SELECT * FROM users WHERE id = ?', [userId], (err, results) => {
+    if (err) {
+      console.error("Error al obtener el usuario:", err);
+      return res.status(500).json(err);
+    }
+    if (results.length === 0){
+       return res.status(404).json({ message: 'User not found' });
+    }
+    res.status(200).json(results[0]);
   });
 });
 
