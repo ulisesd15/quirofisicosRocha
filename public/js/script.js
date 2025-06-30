@@ -6,6 +6,20 @@ const timeSelect = document.getElementById('timeSelect');
 
 const HOURS = ["12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"];
 
+const isLoggedIn = localStorage.getItem('user_id'); // Set this after login
+
+// Check if user is logged in
+if (isLoggedIn) {
+  document.querySelector('[name="name"]').style.display = 'none';
+  document.querySelector('[name="email"]').style.display = 'none';
+  document.querySelector('[name="phone"]').style.display = 'none';
+} else {
+  document.querySelector('[name="name"]').required = true;
+  document.querySelector('[name="email"]').required = true;
+  document.querySelector('[name="phone"]').required = true;
+}
+
+
 // Simulate fetching taken times from backend
 async function fetchAppointments(date) {
   const res = await fetch('/api/appointments');
@@ -75,12 +89,33 @@ function generateCalendar() {
   }
 }
 
+if (localStorage.getItem('user_id')) {
+  document.getElementById('guestFields').style.display = 'none';
+}
+
+
 generateCalendar();
 
 // Booking form submission
 document.getElementById('bookingForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const data = Object.fromEntries(new FormData(e.target).entries());
+
+  const formData = new FormData(e.target);
+  const user_id = localStorage.getItem('user_id');
+
+  const data = {
+    date: formData.get('date'),
+    time: formData.get('time'),
+    note: formData.get('note')
+  };
+
+  if (user_id) {
+    data.user_id = user_id;
+  } else {
+    data.name = formData.get('name');
+    data.email = formData.get('email');
+    data.phone = formData.get('phone');
+  }
 
   try {
     const res = await fetch('/api/appointments', {
@@ -92,13 +127,12 @@ document.getElementById('bookingForm').addEventListener('submit', async (e) => {
     const result = await res.json();
     alert(result.message || 'Cita agendada correctamente');
     e.target.reset();
-    bookingForm.style.display = 'none';
   } catch (err) {
     alert('Error al agendar la cita');
     console.error(err);
   }
-
 });
+
 
 // Check if a day is fully booked
 async function isDayFullyBooked(date) {

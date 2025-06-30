@@ -10,9 +10,12 @@
   <div class="container"></div>
     <h2>Agendar Tu Cita</h2>
     <form id="bookingForm" class="bg-light p-4 rounded shadow">
-      <input class="form-control mb-2" name="name" placeholder="Nombre completo" required />
-      <input class="form-control mb-2" name="email" type="email" placeholder="Correo electrónico" required />
-      <input class="form-control mb-2" name="phone" placeholder="Teléfono" required />
+      <div id="guestFields">
+        <input class="form-control mb-2" name="name" placeholder="Nombre completo" required />
+        <input class="form-control mb-2" name="email" type="email" placeholder="Correo electrónico" required />
+        <input class="form-control mb-2" name="phone" placeholder="Teléfono" required />
+      </div>
+
       <input id="dateInput" class="form-control mb-2" name="date" type="date" required />
       <div class="mb-4" id="calendar"></div>
       <select id="timeSelect" class="form-control mb-2" name="time" required></select>    

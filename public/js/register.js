@@ -17,10 +17,14 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
 
       const result = await res.json();
       console.log(result);
-      if (res.ok) {
-        alert('Registro exitoso');
-        e.target.reset();
-      } else {
+    if (res.ok) {
+      // Store user_id so it's available later
+      localStorage.setItem('user_id', result.userId);
+
+      window.location.href = '/appointment.html'; // redirect
+      e.target.reset();
+    }
+    else {
         alert(`Error: ${result.message || 'No se pudo registrar'}`);
       }
     } catch (error) {
