@@ -16,7 +16,7 @@ CREATE TABLE users (
 -- Appointments (only optional link to registered users)
 CREATE TABLE appointments (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
+  full_name VARCHAR(100) NOT NULL,
   email VARCHAR(100),
   phone VARCHAR(20),
   date DATE NOT NULL,
@@ -26,6 +26,7 @@ CREATE TABLE appointments (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   user_id INT,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+  
 );
 
 -- this table is for user roles, e.g., admin, user, etc.

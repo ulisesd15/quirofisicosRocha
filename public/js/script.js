@@ -1,160 +1,69 @@
-const calendarEl = document.getElementById('calendar');
-const timeContainer = document.getElementById('times');
-const bookingForm = document.getElementById('bookingForm');
-const dateInput = document.getElementById('dateInput');
-const timeSelect = document.getElementById('timeSelect');
+const guestBtn = document.getElementById('guestBtn');
+const registerBtn = document.getElementById('registerBtn');
+const loginBtn = document.getElementById('loginBtn');
+const signOutBtn = document.getElementById('signOutBtn');
+const menuToggle = document.getElementById('menu_toggle');
 
-const HOURS = ["12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"];
+document.addEventListener('DOMContentLoaded', () => {
+    const navItems = document.getElementById('nav-items');
+    const userId = localStorage.getItem('user_id');
 
-const isLoggedIn = localStorage.getItem('user_id'); // Set this after login
+    navItems.innerHTML = userId
+      ? `
+        <li><a href="/appointment.html" class="btn btn-outline-primary w-100 mb-2">Agendar Cita</a></li>
+        <li><a href="#" id="logoutBtn" class="btn btn-danger w-100 mb-2">Cerrar Sesión</a></li>
+      `
+      : `
+        <li><a href="/login.html" class="btn btn-outline-success w-100 mb-2">Iniciar Sesión</a></li>
+        <li><a href="/appointment.html?guest=true" class="btn btn-outline-primary w-100 mb-2">Agendar como Invitado</a></li>
+        <li><a href="/register.html" class="btn btn-outline-secondary w-100 mb-2">Crear Cuenta</a></li>
+      `;
 
-// Check if user is logged in
-if (isLoggedIn) {
-  document.querySelector('[name="name"]').style.display = 'none';
-  document.querySelector('[name="email"]').style.display = 'none';
-  document.querySelector('[name="phone"]').style.display = 'none';
-} else {
-  document.querySelector('[name="name"]').required = true;
-  document.querySelector('[name="email"]').required = true;
-  document.querySelector('[name="phone"]').required = true;
-}
-
-
-// Simulate fetching taken times from backend
-async function fetchAppointments(date) {
-  const res = await fetch('/api/appointments');
-  const all = await res.json();
-  return all.filter(appt => appt.date === date).map(appt => appt.time.slice(0, 5));
-}
-
-function generateCalendar() {
-  const today = new Date();
-  for (let i = 0; i < 7; i++) {
-    const day = new Date(today);
-    day.setDate(today.getDate() + i);
-    const yyyyMMdd = day.toISOString().split('T')[0];
-
-    const button = document.createElement('button');
-    button.textContent = day.toDateString().slice(0, 10);
-    button.className = 'btn btn-outline-secondary';
-    button.dataset.date = yyyyMMdd;
-
-    button.addEventListener('click', async () => {
-      dateInput.value = yyyyMMdd;
-      const taken = await fetchAppointments(yyyyMMdd);
-      timeSelect.innerHTML = '';
-
-      HOURS.forEach(time => {
-        if (!taken.includes(time)) {
-          const opt = document.createElement('option');
-          opt.value = time;
-          opt.textContent = time;
-          timeSelect.appendChild(opt);
-        }
-      });
-
-      if (timeSelect.children.length === 0) {
-        alert('No hay horarios disponibles para este día.');
-        bookingForm.style.display = 'none';
-      } else {
-        bookingForm.style.display = 'block';
+    document.addEventListener('click', (e) => {
+      if (e.target.id === 'logoutBtn') {
+        localStorage.removeItem('user_id');
+        alert('Sesión cerrada exitosamente.');
+        window.location.href = '/index.html';
       }
     });
+  });
 
-    // Disable past dates
-    if (day < today) {
-      button.disabled = true;
-      button.classList.add('disabled');
-    }
-
-    // Highlight today
-    if (i === 0) {
-      button.classList.add('btn-primary');
-      button.textContent += ' (Hoy)';
-    } else {
-      button.classList.add('btn-secondary');
-    }   
-
-    button.className = 'btn'; // base style
-
-    // Check if the day is fully booked
-
-    
-    isDayFullyBooked(yyyyMMdd).then(full => {
-      button.classList.add(full ? 'btn-dark' : 'btn-outline-secondary');
-    });
-
-
-    calendarEl.appendChild(button);
+document.getElementById('registerBtn').addEventListener('click', () => {
+    window.location.href = 'register.html';
+  });
+  
+  document.getElementById('guestBtn').addEventListener('click', () => {
+    window.location.href = 'appointment.html?guest=true';
+  });
+  
+  //hides guest button if user_id is in localStorage
+  if (localStorage.getItem('user_id')) {
+    guestBtn.style.display = 'none';
+    registerBtn.style.display = 'none';
+    loginBtn.style.display = 'none';
+    signOutBtn.style.display = 'block';
   }
-}
+//login
 
-if (localStorage.getItem('user_id')) {
-  document.getElementById('guestFields').style.display = 'none';
-}
-
-
-generateCalendar();
-
-// Booking form submission
-document.getElementById('bookingForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const formData = new FormData(e.target);
-  const user_id = localStorage.getItem('user_id');
-
-  const data = {
-    date: formData.get('date'),
-    time: formData.get('time'),
-    note: formData.get('note')
-  };
-
-  if (user_id) {
-    data.user_id = user_id;
-  } else {
-    data.name = formData.get('name');
-    data.email = formData.get('email');
-    data.phone = formData.get('phone');
-  }
-
-  try {
-    const res = await fetch('/api/appointments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-
-    const result = await res.json();
-    alert(result.message || 'Cita agendada correctamente');
-    e.target.reset();
-  } catch (err) {
-    alert('Error al agendar la cita');
-    console.error(err);
-  }
+document.getElementById('loginBtn').addEventListener('click', () => {
+  window.location.href = 'login.html';
 });
 
+document.addEventListener('DOMContentLoaded', () => {
+  const menuToggle = document.querySelector('#menu_toggle');
+  const offcanvas = document.getElementById('sideNav');
 
-// Check if a day is fully booked
-async function isDayFullyBooked(date) {
-  const taken = await fetchAppointments(date);
-  return taken.length >= HOURS.length;
-}
+  // Hide toggle button when offcanvas opens
+  offcanvas.addEventListener('show.bs.offcanvas', () => {
+    menuToggle.style.display = 'none';
+  });
 
-
-// Delete appointment
-// async function deleteAppointment(id) {  
-//   if (!confirm('¿Estás seguro de que quieres eliminar esta cita?')) return;
-
-//   try {
-//     const res = await fetch(`/api/appointments/${id}`, { method: 'DELETE' });
-//     if (res.ok) {
-//       alert('Cita eliminada correctamente');
-//       location.reload();
-//     } else {
-//       throw new Error('Error al eliminar la cita');
-//     }
-//   } catch (err) {
-//     alert(err.message);
-//     console.error(err);
-//   }
-// } 
+  // Show toggle button again when offcanvas closes
+  offcanvas.addEventListener('hidden.bs.offcanvas', () => {
+    menuToggle.style.display = 'block';
+  });
+});
+// Redirect to appointment page if user_id is in localStorage
+//   if (localStorage.getItem('user_id')) {
+//     window.location.href = 'appointment.html';
+// }
