@@ -1,45 +1,35 @@
-
-const menuToggle = document.getElementById('menu_toggle');
-
-
-
-document.getElementById('register-form').addEventListener('submit', async (e) => {
+//handle login form submission with async/await
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(e.target).entries());
-    
-    try{
-      const res = await fetch('api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          full_name: data.full_name,
-          username: data.username,
-          email: data.email,
-          phone: data.phone
-        })
 
-      });console.log(data);
+    try {
+        const res = await fetch('api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: data.email,
+                phone: data.phone
+            })
+        });
 
-      const result = await res.json();
-      console.log(result);
-    if (res.ok) {
-      // Store user_id so it's available later
-      localStorage.setItem('user_id', result.userId);
-
-      window.location.href = '/appointment.html'; // redirect
-      e.target.reset();
-    }
-    else {
-        alert(`Error: ${result.message || 'No se pudo registrar'}`);
-      }
+        const result = await res.json();
+        if (res.ok) {
+            // Store user_id so it's available later
+            localStorage.setItem('user_id', result.userId);
+            window.location.href = '/appointment.html'; // redirect
+            e.target.reset();
+        } else {
+            document.getElementById('loginMessage').textContent = result.message || 'No se pudo iniciar sesión';
+        }
     } catch (error) {
-      console.error('Error al registrar:', error);
-      alert('Error al registrar. Inténtalo de nuevo más tarde.');
+        console.error('Error al iniciar sesión:', error);
+        document.getElementById('loginMessage').textContent = 'Error al iniciar sesión. Inténtalo de nuevo más tarde.';
     }
- 
+}
+);
 
-  });
-
+const menuToggle = document.getElementById('menu_toggle');
 
 document.addEventListener('DOMContentLoaded', () => {
     const navItems = document.getElementById('nav-items');
@@ -64,7 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
-document.addEventListener('DOMContentLoaded', () => {
+
+  
+ document.addEventListener('DOMContentLoaded', () => {
   const menuToggle = document.querySelector('#menu_toggle');
   const offcanvas = document.getElementById('sideNav');
 

@@ -1,0 +1,13 @@
+h2 {
+  margin-bottom: 20px;
+}
+
+    .offcanvas-start {
+      width: 250px;
+    }
+    .menu-toggle {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 1051;
+    }
