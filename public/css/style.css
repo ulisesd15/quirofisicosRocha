@@ -1,0 +1,25 @@
+h2 {
+  margin-bottom: 20px;
+}
+
+    .offcanvas-start {
+      width: 250px;
+    }
+    .menu-toggle {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 1051;
+    }
+
+    .hero {
+      background: url('./img/hero.jpg') center center/cover no-repeat;
+      color: white;
+      padding: 100px 20px;
+    }
+    .gallery img {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      object-fit: cover;
+    }
