@@ -174,6 +174,24 @@ router.post('/login', (req, res) => {
   );
 });
 
+// Get user email, phone and name info by ID
+router.get('/user/:id', (req, res) => {
+  const userId = req.params.id;
+
+  db.query('SELECT id, full_name, email, phone FROM users WHERE id = ?', [userId], (err, results) => {
+    if (err) {
+      console.error('Error fetching user:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(results[0]);
+  });
+});
+
 
 
 //Get registered user by ID
