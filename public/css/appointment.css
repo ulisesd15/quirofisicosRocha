@@ -1,14 +1,23 @@
+/* color root*/
+:root {
+  --primary-color: #0d6efd;
+  --secondary-color: #6c757d;
+  --secondary-color-hover: #5a6268;
+  --success-color: #198754;
+  --info-color: #0dcaf0;
+  --warning-color: #ffc107;
+  --danger-color: #dc3545;
+  --light-color: #f8f9fa;
+  --dark-color: #212529;
+  --body-bg: #f9f9f9;
+  --text-color: #212529;
+}
+
+
 /* Global Styles */
 body {
   background-color: #f9f9f9;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-#signOutBtn {
-    display: none;
-    position: absolute;
-    top: 10px;
-    left: 10px;
 }
 
 h2 {
@@ -47,43 +56,44 @@ h2 {
   transform: scale(1.05);
 }
 
+
 /* Booking Form Visibility */
 #bookingForm {
   display: show;
 }
 
 /* Time Dropdown */
-#timeSelect:empty::before {
+#timeSelect::before:empty {
   content: 'Seleccione un día para ver horarios';
-  color: #999;
+  color: var(--secondary-color-hover);
 }
 
 /* Button States */
 .btn-outline-secondary {
-  border-color: #6c757d;
-  color: #6c757d;
+  border-color: var(--secondary-color);
+  color: var(--dark-color);
 }
 
 .btn-outline-secondary:hover {
-  background-color: #6c757d;
-  color: #fff;
+  background-color: var(--secondary-color-hover);
+  color: var(--light-color);
 }
 
 .btn-dark {
-  background-color: #343a40 !important;
+  background-color: var(--dark-color) !important;
   border: none;
-  color: white !important;
+  color: var(--light-color) !important;
 }
 
 .btn-secondary {
-  background-color: #adb5bd !important;
+  background-color: var(--secondary-color) !important;
   border: none;
-  color: white !important;
+  color: var(--dark-color) !important;
 }
 
 .btn-primary {
-  background-color: #0d6efd;
-  color: white;
+  background-color: var(--primary-color);
+  color: var(--light-color);
   font-weight: bold;
 }
 
