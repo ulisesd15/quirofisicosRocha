@@ -46,6 +46,25 @@ document.addEventListener('DOMContentLoaded', () => {
     })
     .then(data => {
       currentUser = data;
+      document.getElementById('full_name').value = currentUser.full_name || '';
+      document.getElementById('email').value = currentUser.email || '';
+      document.getElementById('phone').value = currentUser.phone || '';
+      dateInput.value = new Date().toISOString().split('T')[0]; // Set default date to today
+      timeSelect.innerHTML = ''; // Clear previous options
+
+      // Populate time slots for today
+      fetchAppointments(dateInput.value).then(taken => {
+        HOURS.forEach(time => {
+          if (!taken.includes(time)) {
+            const opt = document.createElement('option');
+            opt.value = time;
+            opt.textContent = time;
+            timeSelect.appendChild(opt);
+          }
+        });
+      });
+
+      bookingForm.style.display = 'block';
     })
     .catch(err => {
       console.error('Error fetching user info:', err);
@@ -53,9 +72,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 }
 
+  else {
+    // Guest booking mode
+    guestFields.style.display = 'block';
+    guestFields.querySelectorAll('input').forEach(input => input.disabled = false);
+  }
 
-  } 
-);
+});
+
 
 // Handle form submission
 document.getElementById('bookingForm').addEventListener('submit', async (e) => {
