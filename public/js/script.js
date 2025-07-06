@@ -4,6 +4,7 @@ const loginBtn = document.getElementById('loginBtn');
 const signOutBtn = document.getElementById('signOutBtn');
 const menuToggle = document.getElementById('menu_toggle');
 
+// This script handles the navigation bar and user session management
 document.addEventListener('DOMContentLoaded', () => {
     const navItems = document.getElementById('nav-items');
     const userId = localStorage.getItem('user_id');
@@ -28,10 +29,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+// Event listeners for navigation buttons
 document.getElementById('registerBtn').addEventListener('click', () => {
     window.location.href = 'register.html';
   });
   
+
+// Redirect to appointment page as guest
   document.getElementById('guestBtn').addEventListener('click', () => {
     window.location.href = 'appointment.html?guest=true';
   });
@@ -43,27 +47,28 @@ document.getElementById('registerBtn').addEventListener('click', () => {
     loginBtn.style.display = 'none';
     signOutBtn.style.display = 'block';
   }
-//login
-
-document.getElementById('loginBtn').addEventListener('click', () => {
-  window.location.href = 'login.html';
-});
-
-document.addEventListener('DOMContentLoaded', () => {
-  const menuToggle = document.querySelector('#menu_toggle');
-  const offcanvas = document.getElementById('sideNav');
-
-  // Hide toggle button when offcanvas opens
-  offcanvas.addEventListener('show.bs.offcanvas', () => {
-    menuToggle.style.display = 'none';
+  //login
+  document.getElementById('loginBtn').addEventListener('click', () => {
+    window.location.href = 'login.html';
   });
-
-  // Show toggle button again when offcanvas closes
-  offcanvas.addEventListener('hidden.bs.offcanvas', () => {
-    menuToggle.style.display = 'block';
+  // Sign out button functionality
+  document.getElementById('signOutBtn').addEventListener('click', () => {
+    localStorage.removeItem('user_id');
+    alert('Sesión cerrada exitosamente.');
+    window.location.href = '/index.html';
   });
-});
-// Redirect to appointment page if user_id is in localStorage
-//   if (localStorage.getItem('user_id')) {
-//     window.location.href = 'appointment.html';
-// }
+  // Toggle button functionality for offcanvas menu
+  document.addEventListener('DOMContentLoaded', () => {
+    const menuToggle = document.querySelector('#menu_toggle');
+    const offcanvas = document.getElementById('sideNav');
+    
+    // Show toggle button when offcanvas opens
+    offcanvas.addEventListener('show.bs.offcanvas', () => {
+      menuToggle.style.display = 'none';
+    });
+
+    // Show toggle button again when offcanvas closes
+    offcanvas.addEventListener('hidden.bs.offcanvas', () => {
+      menuToggle.style.display = 'block';
+    });
+  });
