@@ -1,24 +1,188 @@
+// DOM references
 const calendarEl = document.getElementById('calendar');
+const timeCardsEl = document.getElementById('timeCards');
 const timeSelect = document.getElementById('timeSelect');
 const bookingForm = document.getElementById('bookingForm');
-const dateInput = document.getElementById('dateInput');
-const menuToggle = document.getElementById('menu_toggle');
 const guestFields = document.getElementById('guestFields');
+const menuToggle = document.getElementById('menu_toggle');
 const navItems = document.getElementById('nav-items');
-const userId = localStorage.getItem('user_id');
-let currentUser = null;
+const selectedDateInput = document.getElementById('selectedDate');
+const selectedTimeInput = document.getElementById('selectedTime');
+const prevWeekBtn = document.getElementById('prevWeek');
+const nextWeekBtn = document.getElementById('nextWeek');
 
-// This script handles the appointment booking page functionality
-document.addEventListener('DOMContentLoaded', () => {
-  // Setup menu toggle button show/hide
+
+
+
+// Constants// Add whatever extra slots you need ➜ 06:00–11:30, 12:00–17:30, 18:00–21:30
+const HOURS = [
+  '06:00','06:30','07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30',
+  '12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30',
+  '18:00','18:30','19:00','19:30','20:00','20:30','21:00','21:30'
+];
+
+function periodOf(time) {
+  const [h] = time.split(':').map(Number);
+  return h < 12          ? 'manana'  // 6 am – 11:30 am
+       : h < 18          ? 'tarde'   // 12 pm – 5:30 pm
+       :                  'noche';   // 6 pm – 9:30 pm
+}
+let weekOffset = 0, currentDateISO = null;
+
+// User and data
+const userId = localStorage.getItem('user_id');
+var currentUser = null;
+var userDataArray = [];
+
+// Fetch user if logged in
+if (userId) {
+  fetch(`/api/user/${userId}`)
+    .then(res => res.ok ? res.json() : Promise.reject('Error'))
+    .then(user => {
+      currentUser = user;
+      userDataArray = [user.full_name || '', user.email || '', user.phone || ''];
+    })
+    .catch(err => console.error('Error fetching user:', err));
+}
+
+// Utilities
+const iso = d => d.toISOString().split('T')[0];
+const startOfWeek = (offset=0) => {
+  const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() + offset * 7); return d;
+};
+
+async function fetchAppointments(dayISO) {
+  try {
+    const res = await fetch(`/api/appointments?date=${dayISO}`);
+    const appointments = await res.json();
+    return appointments.map(a => a.time);
+  } catch (err) {
+    console.error('Error fetching appointments:', err);
+    return [];
+  }
+}
+
+function renderWeek() {
+  calendarEl.innerHTML = '';
+  const base = startOfWeek(weekOffset), today = new Date(); today.setHours(0,0,0,0);
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(base); day.setDate(base.getDate() + i);
+    const dayISO = iso(day);
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.dataset.date = dayISO;
+    btn.textContent = day.toLocaleDateString('es-ES', { weekday:'short', day:'2-digit', month:'short' });
+    if (day < today) { btn.classList.add('btn-dark', 'disabled'); btn.disabled = true; }
+    else { btn.classList.add('btn-outline-secondary'); }
+    if (dayISO === currentDateISO) btn.classList.replace('btn-outline-secondary', 'btn-primary');
+    btn.addEventListener('click', () => selectDay(dayISO));
+    calendarEl.appendChild(btn);
+  }
+  prevWeekBtn.disabled = weekOffset <= 0;
+}
+
+async function selectDay(dayISO) {
+  currentDateISO = dayISO;
+  selectedDateInput.value = dayISO;
+  selectedTimeInput.value = '';
+
+  renderWeek();
+
+  const taken    = await fetchAppointments(dayISO);
+  const notTaken = HOURS.filter(t => !taken.includes(t));
+
+  if (notTaken.length === 0) {
+    timeCardsEl.replaceChildren(
+      Object.assign(document.createElement('div'), {
+        className: 'col-12 alert alert-warning text-center',
+        textContent: 'Sin horarios disponibles'
+      })
+    );
+    bookingForm.style.display = 'none';
+    return;
+  }
+
+  // --- build three <div class="row"> blocks -------------------------------
+  const sections = {manana: [], tarde: [], noche: []};
+
+  notTaken.forEach(time => {
+    const btn = Object.assign(document.createElement('button'), {
+      type: 'button', // ← prevents unwanted form submission
+      className: 'btn time-btn w-100 hour-card small-card',
+      textContent: time
+    });
+
+
+    btn.addEventListener('click', () => {
+      timeCardsEl.querySelectorAll('.hour-card').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedTimeInput.value = time;
+    });
+
+    const col = Object.assign(document.createElement('div'), { className: 'col-4 col-md-2 mb-2' });
+    col.appendChild(btn);
+    sections[periodOf(time)].push(col);
+  });
+
+  // helper that returns a <div>block with a heading and the cols
+  const makeBlock = (label, nodeList) => {
+    const frag = document.createDocumentFragment();
+    frag.append(
+      Object.assign(document.createElement('h6'), { textContent: label.charAt(0).toUpperCase()+label.slice(1) }),
+      Object.assign(document.createElement('div'), { className: 'row g-1' })
+    );
+    const row = frag.querySelector('.row');
+    nodeList.forEach(col => row.appendChild(col));
+    return frag;
+  };
+
+  const wrapper = document.createDocumentFragment();
+  wrapper.append(
+    makeBlock('mañana', sections.manana),
+    makeBlock('tarde',   sections.tarde),
+    makeBlock('noche',   sections.noche)
+  );
+
+  timeCardsEl.replaceChildren(wrapper);
+  bookingForm.style.display = 'block';
+}
+
+
+bookingForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+
+  const data = {
+    full_name: userDataArray[0] || fd.get('full_name') || '',
+    email: userDataArray[1] || fd.get('email') || '',
+    phone: userDataArray[2] || fd.get('phone') || '',
+    date: fd.get('date'),
+    time: fd.get('time'),
+    user_id: userId || null
+  };
+  if (!data.date || !data.time) return alert('Por favor, selecciona una fecha y hora válidas.');
+  try {
+    const res = await fetch('/api/appointments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    alert(result.message || 'Cita agendada correctamente');
+    e.target.reset();
+  } catch (err) {
+    console.error('Error al agendar la cita:', err);
+    alert('Error al agendar la cita');
+  }
+});
+
+// Nav and menu setup
+function setupUI() {
   const offcanvas = document.getElementById('sideNav');
   offcanvas.addEventListener('show.bs.offcanvas', () => menuToggle.style.display = 'none');
   offcanvas.addEventListener('hidden.bs.offcanvas', () => menuToggle.style.display = 'block');
 
-  // Setup calendar UI
-  generateCalendar();
-
-  // Setup navbar
+  if (!navItems) return;
   navItems.innerHTML = userId
     ? `<li><a href="/index.html" class="btn btn-outline-secondary w-100 mb-2">Inicio</a></li>
        <li><a href="#" id="logoutBtn" class="btn btn-danger w-100 mb-2">Cerrar Sesión</a></li>`
@@ -26,192 +190,37 @@ document.addEventListener('DOMContentLoaded', () => {
        <li><a href="/login.html" class="btn btn-outline-success w-100 mb-2">Iniciar Sesión</a></li>
        <li><a href="/register.html" class="btn btn-outline-secondary w-100 mb-2">Crear Cuenta</a></li>`;
 
-  document.addEventListener('click', (e) => {
-    if (e.target.id === 'logoutBtn') {
-      localStorage.removeItem('user_id');
-      alert('Sesión cerrada exitosamente.');
-      window.location.href = '/index.html';
-    }
+  const logoutBtn = document.getElementById('logoutBtn');
+  logoutBtn?.addEventListener('click', () => {
+    localStorage.removeItem('user_id');
+    window.location.href = '/index.html';
   });
+}
 
-  // Auth check: logged in vs guest
-  if (userId) {
+// Init
+prevWeekBtn.addEventListener('click', () => { weekOffset--; renderWeek(); timeCardsEl.innerHTML = ''; });
+nextWeekBtn.addEventListener('click', () => { weekOffset++; renderWeek(); timeCardsEl.innerHTML = ''; });
+
+// Initial render
+document.addEventListener('DOMContentLoaded', () => {
+  renderWeek();
+  selectDay(iso(new Date()));
+  setupUI();
+});
+
+
+const nameInput = guestFields.querySelector('[name="name"]');
+const emailInput = guestFields.querySelector('[name="email"]');
+const phoneInput = guestFields.querySelector('[name="phone"]');
+
+if (!userId) {
+  guestFields.style.display = 'block';
+  nameInput.required = true;
+  emailInput.required = true;
+  phoneInput.required = true;
+} else {
   guestFields.style.display = 'none';
-  guestFields.querySelectorAll('input').forEach(input => input.disabled = true);
-
-  fetch(`/api/user/${userId}`)
-    .then(res => {
-      if (!res.ok) throw new Error('User not found');
-      return res.json();
-    })
-    .then(data => {
-      currentUser = data;
-      document.getElementById('full_name').value = currentUser.full_name || '';
-      document.getElementById('email').value = currentUser.email || '';
-      document.getElementById('phone').value = currentUser.phone || '';
-      dateInput.value = new Date().toISOString().split('T')[0]; // Set default date to today
-      timeSelect.innerHTML = ''; // Clear previous options
-
-      // Populate time slots for today
-      fetchAppointments(dateInput.value).then(taken => {
-        HOURS.forEach(time => {
-          if (!taken.includes(time)) {
-            const opt = document.createElement('option');
-            opt.value = time;
-            opt.textContent = time;
-            timeSelect.appendChild(opt);
-          }
-        });
-      });
-
-      bookingForm.style.display = 'block';
-    })
-    .catch(err => {
-      console.error('Error fetching user info:', err);
-      alert('Error cargando tu perfil. Intenta más tarde.');
-    });
-}
-
-  else {
-    // Guest booking mode
-    guestFields.style.display = 'block';
-    guestFields.querySelectorAll('input').forEach(input => input.disabled = false);
-  }
-
-});
-
-
-// Handle form submission
-document.getElementById('bookingForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const formData = new FormData(e.target);
-
-  const data = {
-    full_name: formData.get('full_name'),
-    email: formData.get('email'),
-    phone: formData.get('phone'),
-  };
-
-  if (userId) {
-    if (!currentUser) {
-      alert('Espere un momento mientras cargamos su información...');
-      return;
-    }
-  
-
-  data.full_name = data.full_name || currentUser.full_name;
-  data.email = data.email || currentUser.email;
-  data.phone = data.phone || currentUser.phone;
-  data.date = formData.get('date');
-  data.time = formData.get('time');
-  data.note = formData.get('note') || '';
-  data.created_at = new Date().toISOString();
-  data.user_id = userId || null;
-  if (!data.date || !data.time) {
-    alert('Por favor, seleccione una fecha y hora válidas.');
-    return;
-  }
-  if (data.date < new Date().toISOString().split('T')[0]) {
-    alert('La fecha seleccionada no puede ser anterior a hoy.');
-    return;
-  }
-  
-  if (await isDayFullyBooked(data.date)) {
-    alert('Lo sentimos, todas las citas para este día están reservadas.');
-    return;
-  }
-  } else {
-    // Guest booking
-    data.full_name = formData.get('name');
-    data.email = formData.get('email');
-    data.phone = formData.get('phone');
-  } 
-
-  await submitAppointment(data, e);
-});
-
-
-// Submit helper
-async function submitAppointment(data, e) {
-  try {
-    const res = await fetch('/api/appointments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    console.log('data sent:', data);
-    const result = await res.json();
-    alert(result.message || 'Cita agendada correctamente');
-    e.target.reset();
-  } catch (err) {
-    alert('Error al agendar la cita');
-    console.error(err);
-  }
-}
-
-// Appointment calendar logic -- later to be alterable by admin
-const HOURS = ["12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30"];
-
-// Fetch appointments for a specific date
-async function fetchAppointments(date) {
-  const res = await fetch('/api/appointments');
-  const all = await res.json();
-  return all.filter(appt => appt.date === date).map(appt => appt.time.slice(0, 5));
-}
-
-// Check if a day is fully booked
-async function isDayFullyBooked(date) {
-  const taken = await fetchAppointments(date);
-  return taken.length >= HOURS.length;
-}
-
-// Generate the calendar buttons for the next 7 days
-function generateCalendar() {
-  const today = new Date();
-  for (let i = 0; i < 7; i++) {
-    const day = new Date(today);
-    day.setDate(today.getDate() + i);
-    const yyyyMMdd = day.toISOString().split('T')[0];
-
-    const button = document.createElement('button');
-    button.textContent = day.toDateString().slice(0, 10);
-    button.className = 'btn me-2 mb-2';
-    button.dataset.date = yyyyMMdd;
-
-    if (day < today) {
-      button.disabled = true;
-      button.classList.add('disabled');
-    }
-
-    if (i === 0) {
-      button.classList.add('btn-primary');
-      button.textContent += ' (Hoy)';
-    } else {
-      button.classList.add('btn-outline-secondary');
-    }
-
-    button.addEventListener('click', async () => {
-      dateInput.value = yyyyMMdd;
-      const taken = await fetchAppointments(yyyyMMdd);
-      timeSelect.innerHTML = '';
-
-      HOURS.forEach(time => {
-        if (!taken.includes(time)) {
-          const opt = document.createElement('option');
-          opt.value = time;
-          opt.textContent = time;
-          timeSelect.appendChild(opt);
-        }
-      });
-
-      bookingForm.style.display = timeSelect.children.length === 0 ? 'none' : 'block';
-    });
-
-    isDayFullyBooked(yyyyMMdd).then(full => {
-      if (full) button.classList.add('btn-dark');
-    });
-
-    calendarEl.appendChild(button);
-  }
+  nameInput.required = false;
+  emailInput.required = false;
+  phoneInput.required = false;
 }

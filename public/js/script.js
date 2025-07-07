@@ -1,14 +1,18 @@
-const guestBtn = document.getElementById('guestBtn');
-const registerBtn = document.getElementById('registerBtn');
-const loginBtn = document.getElementById('loginBtn');
-const signOutBtn = document.getElementById('signOutBtn');
-const menuToggle = document.getElementById('menu_toggle');
-
-// This script handles the navigation bar and user session management
 document.addEventListener('DOMContentLoaded', () => {
-    const navItems = document.getElementById('nav-items');
-    const userId = localStorage.getItem('user_id');
+  // DOM references
+  const guestBtn = document.getElementById('guestBtn');
+  const registerBtn = document.getElementById('registerBtn');
+  const loginBtn = document.getElementById('loginBtn');
+  const bABtn = document.getElementById('bABtn');
+  const navItems = document.getElementById('nav-items');
+  const menuToggle = document.getElementById('menu_toggle');
+  const offcanvas = document.getElementById('sideNav');
+  const signOutBtn = document.getElementById('logoutBtn');
 
+  const userId = localStorage.getItem('user_id');
+
+  // Navigation menu
+  if (navItems) {
     navItems.innerHTML = userId
       ? `
         <li><a href="/appointment.html" class="btn btn-outline-primary w-100 mb-2">Agendar Cita</a></li>
@@ -20,55 +24,62 @@ document.addEventListener('DOMContentLoaded', () => {
         <li><a href="/register.html" class="btn btn-outline-secondary w-100 mb-2">Crear Cuenta</a></li>
       `;
 
-    document.addEventListener('click', (e) => {
-      if (e.target.id === 'logoutBtn') {
+    // Re-attach logoutBtn listener after injecting it dynamically
+    if (userId) {
+      const logoutBtn = document.getElementById('logoutBtn');
+      logoutBtn?.addEventListener('click', () => {
         localStorage.removeItem('user_id');
         alert('Sesión cerrada exitosamente.');
         window.location.href = '/index.html';
-      }
-    });
-  });
+      });
+    }
+  }
 
-// Event listeners for navigation buttons
-document.getElementById('registerBtn').addEventListener('click', () => {
+  // UI control visibility
+  if (userId) {
+    guestBtn?.style?.setProperty('display', 'none');
+    registerBtn?.style?.setProperty('display', 'none');
+    loginBtn?.style?.setProperty('display', 'none');
+    signOutBtn?.style?.setProperty('display', 'block');
+    bABtn?.style?.setProperty('display', 'block');
+  } else {
+    guestBtn?.style?.setProperty('display', 'block');
+    registerBtn?.style?.setProperty('display', 'block');
+    loginBtn?.style?.setProperty('display', 'block');
+    signOutBtn?.style?.setProperty('display', 'none');
+    bABtn?.style?.setProperty('display', 'none');
+  }
+
+  // Button click listeners
+  registerBtn?.addEventListener('click', () => {
     window.location.href = 'register.html';
   });
-  
 
-// Redirect to appointment page as guest
-  document.getElementById('guestBtn').addEventListener('click', () => {
-    window.location.href = 'appointment.html?guest=true';
-  });
-  
-  //hides guest button if user_id is in localStorage
-  if (localStorage.getItem('user_id')) {
-    guestBtn.style.display = 'none';
-    registerBtn.style.display = 'none';
-    loginBtn.style.display = 'none';
-    signOutBtn.style.display = 'block';
-  }
-  //login
-  document.getElementById('loginBtn').addEventListener('click', () => {
+  loginBtn?.addEventListener('click', () => {
     window.location.href = 'login.html';
   });
-  // Sign out button functionality
-  document.getElementById('signOutBtn').addEventListener('click', () => {
+
+  guestBtn?.addEventListener('click', () => {
+    window.location.href = 'appointment.html?guest=true';
+  });
+
+  bABtn?.addEventListener('click', () => {
+    window.location.href = 'appointment.html';
+  });
+
+  signOutBtn?.addEventListener('click', () => {
     localStorage.removeItem('user_id');
-    alert('Sesión cerrada exitosamente.');
     window.location.href = '/index.html';
   });
-  // Toggle button functionality for offcanvas menu
-  document.addEventListener('DOMContentLoaded', () => {
-    const menuToggle = document.querySelector('#menu_toggle');
-    const offcanvas = document.getElementById('sideNav');
-    
-    // Show toggle button when offcanvas opens
+
+  // Offcanvas toggle visibility
+  if (offcanvas && menuToggle) {
     offcanvas.addEventListener('show.bs.offcanvas', () => {
       menuToggle.style.display = 'none';
     });
 
-    // Show toggle button again when offcanvas closes
     offcanvas.addEventListener('hidden.bs.offcanvas', () => {
       menuToggle.style.display = 'block';
     });
-  });
+  }
+});

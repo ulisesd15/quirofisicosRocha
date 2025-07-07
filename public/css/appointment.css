@@ -1,41 +1,42 @@
-/* color root*/
+/* Root Colors */
 :root {
-  --primary-color: #0d6efd;
-  --secondary-color: #6c757d;
-  --secondary-color-hover: #5a6268;
+  --primary-color: #4b4f56;              /* Dark muted gray */
+  --secondary-color: #6c757d;           /* Mid-gray */
+  --secondary-color-hover: #5a6268;     /* Slightly darker */
   --success-color: #198754;
-  --info-color: #0dcaf0;
+  --info-color: #5a6a6f;                /* Pastel bluish-gray */
   --warning-color: #ffc107;
   --danger-color: #dc3545;
   --light-color: #f8f9fa;
   --dark-color: #212529;
-  --body-bg: #f9f9f9;
+  --body-bg: #f0f1f3;
   --text-color: #212529;
 }
 
-
 /* Global Styles */
 body {
-  background-color: #f9f9f9;
+  background-color: var(--body-bg);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--text-color);
 }
 
 h2 {
   margin-bottom: 20px;
 }
 
-    .offcanvas-start {
-      width: 250px;
-    }
-    .menu-toggle {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      z-index: 1051;
-    }
+/* Layout Utility */
+.offcanvas-start {
+  width: 250px;
+}
 
+.menu-toggle {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 1051;
+}
 
-/* Calendar Button Styles */
+/* Calendar */
 #calendar {
   display: flex;
   flex-wrap: wrap;
@@ -49,32 +50,53 @@ h2 {
   padding: 10px;
   border-radius: 6px;
   font-size: 0.9rem;
-  transition: all 0.2s ease-in-out;
+  transition: transform 0.2s ease-in-out;
 }
 
 #calendar button:hover {
   transform: scale(1.05);
 }
 
-
-/* Booking Form Visibility */
-#bookingForm {
-  display: show;
+/* Time Cards */
+.hour-card {
+  transition: transform 0.15s ease-in-out;
 }
 
-/* Time Dropdown */
+.hour-card:hover {
+  transform: scale(1.05);
+}
+
+.hour-card.active,
+#timeCards button.active {
+  background-color: var(--secondary-color);
+  color: var(--light-color);
+  border-color: var(--dark-color);
+}
+
+.hour-card.small-card {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 0.4rem;
+}
+
+/* Booking Form */
+#bookingForm {
+  /* dynamically toggled with JS */
+}
+
+/* Dropdown Text Hint */
 #timeSelect::before:empty {
   content: 'Seleccione un día para ver horarios';
   color: var(--secondary-color-hover);
 }
 
-/* Button States */
-.btn-outline-secondary {
+/* Button Variants */
+.time-btn {
   border-color: var(--secondary-color);
   color: var(--dark-color);
 }
 
-.btn-outline-secondary:hover {
+.time-btn:hover {
   background-color: var(--secondary-color-hover);
   color: var(--light-color);
 }
@@ -88,21 +110,24 @@ h2 {
 .btn-secondary {
   background-color: var(--secondary-color) !important;
   border: none;
-  color: var(--dark-color) !important;
+  color: var(--light-color) !important;
 }
 
 .btn-primary {
-  background-color: var(--primary-color);
-  color: var(--light-color);
+  background-color: var(--primary-color) !important;
+  color: var(--light-color) !important;
   font-weight: bold;
+  border: none;
 }
 
+/* Disabled Styles */
+.btn-dark.disabled,
 .disabled {
-  opacity: 0.5;
   pointer-events: none;
+  opacity: 0.5;
 }
 
-/* Form Input Spacing */
+/* Form Styles */
 form input,
 form select,
 form textarea {
@@ -111,4 +136,9 @@ form textarea {
 
 form textarea {
   resize: vertical;
+}
+
+.hour-card:hover,
+#calendar button:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
