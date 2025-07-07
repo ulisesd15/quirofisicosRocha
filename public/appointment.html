@@ -34,12 +34,18 @@
       <input class="form-control mb-2" name="phone" placeholder="Teléfono" required />
     </div>
 
-    <div class="mb-3 d-flex align-items-center justify-content-between">
-      <button id="prevWeek" class="btn btn-sm btn-outline-secondary">&laquo;</button>
-      <div id="calendar" class="d-flex flex-wrap gap-2"></div>
-      <input type="hidden" name="date" id="selectedDate" required />
-      <button id="nextWeek" class="btn btn-sm btn-outline-secondary">&raquo;</button>
+<!-- center vertically and horizontally -->
+
+    <div class="calendar-row-wrapper mb-3">
+      <button id="prevWeek" class="btn-sm apple-btn" aria-label="Previous week">&laquo;</button>
+      <div class="calendar-scroll">
+        <div id="calendar" class="calendar-week"></div>
+      </div>
+      <button id="nextWeek" class="btn-sm apple-btn" aria-label="Next week">&raquo;</button>
     </div>
+    <input type="hidden" name="date" id="selectedDate" required />
+
+
 
     <div id="timeCards" class="row gx-2 gy-2 mb-3"></div>
     <input type="hidden" name="time" id="selectedTime" required />
