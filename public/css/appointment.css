@@ -1,144 +1,179 @@
-/* Root Colors */
+/* ───────── ROOT COLORS ───────── */
 :root {
-  --primary-color: #4b4f56;              /* Dark muted gray */
-  --secondary-color: #6c757d;           /* Mid-gray */
-  --secondary-color-hover: #5a6268;     /* Slightly darker */
-  --success-color: #198754;
-  --info-color: #5a6a6f;                /* Pastel bluish-gray */
-  --warning-color: #ffc107;
-  --danger-color: #dc3545;
-  --light-color: #f8f9fa;
-  --dark-color: #212529;
-  --body-bg: #f0f1f3;
-  --text-color: #212529;
+  --primary-color:#4b4f56;
+  --secondary-color:#6c757d;
+  --secondary-color-hover:#5a6268;
+  --success-color:#198754;
+  --info-color:#5a6a6f;
+  --warning-color:#ffc107;
+  --danger-color:#dc3545;
+  --light-color:#f8f9fa;
+  --dark-color:#212529;
+  --body-bg:#f0f1f3;
+  --text-color:#212529;
 }
 
-/* Global Styles */
-body {
-  background-color: var(--body-bg);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: var(--text-color);
+/* ───────── GLOBAL ───────── */
+body{
+  background:var(--body-bg);
+  font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+  color:var(--text-color);
+}
+h2{margin-bottom:20px;}
+
+/* ───────── APPLE ARROW BUTTONS ───────── */
+.apple-btn{
+  width:42px;
+  height:42px;
+  font-size:1.2rem;
+  border:none;
+  border-radius:12px;
+  background:#f1f2f4;
+  color:#333;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 2px 4px rgba(0,0,0,.08);
+  transition:all .2s ease-in-out;
+}
+.apple-btn:hover{
+  background:#e2e3e5;
+  transform:scale(1.05);}
+.apple-btn:active{
+  background:#dcdde1;
+  transform:scale(.96);
 }
 
-h2 {
-  margin-bottom: 20px;
-}
-
-/* Layout Utility */
-.offcanvas-start {
-  width: 250px;
-}
-
-.menu-toggle {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  z-index: 1051;
-}
-
-/* Calendar */
 #calendar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
   margin-bottom: 20px;
+  display: flex;
+  align-items: baseline;
+}
+
+.calendar-card-btn {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  border: none;
+  border-radius: 12px;
+  background: #f1f2f4;
+  color: #333;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease-in-out;
+  white-space: nowrap;
+  flex-shrink: 0;
+
 }
 
-#calendar button {
-  min-width: 120px;
-  padding: 10px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  transition: transform 0.2s ease-in-out;
-}
-
-#calendar button:hover {
+.calendar-card-btn:hover {
+  background: #e2e3e5;
   transform: scale(1.05);
 }
 
-/* Time Cards */
-.hour-card {
-  transition: transform 0.15s ease-in-out;
+.calendar-card-btn:active {
+  background: #dcdde1;
+  transform: scale(0.96);
 }
 
-.hour-card:hover {
-  transform: scale(1.05);
+
+
+/* ───────── CALENDAR WRAPPER ───────── */
+.calendar-row-wrapper{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:.5rem;
+  overflow:hidden;
 }
 
+/* allows horizontal swipe on mobile */
+.calendar-scroll{
+  flex-grow:1;
+  overflow-x:auto;
+  scroll-behavior:smooth;
+  -ms-overflow-style:none;
+  scrollbar-width:none;
+}
+.calendar-scroll::-webkit-scrollbar{
+  display:none;}
+
+.calendar-week{
+  display:flex;
+  flex-wrap:nowrap;
+  gap:.5rem;
+  min-width:max-content;
+  justify-content:center;
+}
+
+/* calendar date buttons */
+.calendar-date-btn{
+  min-width:110px;
+  height:42px;
+  font-size:.85rem;
+  text-align:center;
+  white-space:nowrap;
+}
+@media (max-width:576px),
+(orientation:portrait){
+  .calendar-date-btn{
+    min-width:70px;
+    font-size:.8rem;
+    padding:.25rem .4rem;
+  }
+}
+
+/* hover / active */
+#calendar button:hover{box-shadow:0 2px 6px rgba(0,0,0,.1);}
+.btn-dark{
+  background:var(--dark-color)!important;
+  color:var(--light-color)!important;
+  border:none;
+}
+
+.btn-primary{
+  background:var(--primary-color)!important;
+  color:var(--light-color)!important;font-weight:bold;
+  border:none;
+}
+
+/* ───────── TIME SLOTS ───────── */
+.hour-card{
+  transition:transform .15s ease-in-out;
+}
+.hour-card:hover{
+  transform:scale(1.05);
+}
 .hour-card.active,
-#timeCards button.active {
-  background-color: var(--secondary-color);
-  color: var(--light-color);
-  border-color: var(--dark-color);
+#timeCards button.active{
+  background:var(--secondary-color);
+  color:var(--light-color);
+  border-color:var(--dark-color);
+}
+.hour-card.small-card{
+  padding:.25rem .5rem;
+  font-size:.75rem;
+  border-radius:.4rem;
 }
 
-.hour-card.small-card {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  border-radius: 0.4rem;
+/* ───────── FORM & MISC ───────── */
+.offcanvas-start{width:250px;}
+.menu-toggle{position:fixed;
+  top:10px;
+  left:10px;
+  z-index:1051;
 }
-
-/* Booking Form */
-#bookingForm {
-  /* dynamically toggled with JS */
+form input,form select,form textarea{
+  font-size:1rem;
 }
-
-/* Dropdown Text Hint */
-#timeSelect::before:empty {
-  content: 'Seleccione un día para ver horarios';
-  color: var(--secondary-color-hover);
+form textarea{
+  resize:vertical;
 }
-
-/* Button Variants */
-.time-btn {
-  border-color: var(--secondary-color);
-  color: var(--dark-color);
+.btn-dark.disabled,.disabled{
+  pointer-events:none;opacity:.5;
 }
-
-.time-btn:hover {
-  background-color: var(--secondary-color-hover);
-  color: var(--light-color);
-}
-
-.btn-dark {
-  background-color: var(--dark-color) !important;
-  border: none;
-  color: var(--light-color) !important;
-}
-
-.btn-secondary {
-  background-color: var(--secondary-color) !important;
-  border: none;
-  color: var(--light-color) !important;
-}
-
-.btn-primary {
-  background-color: var(--primary-color) !important;
-  color: var(--light-color) !important;
-  font-weight: bold;
-  border: none;
-}
-
-/* Disabled Styles */
-.btn-dark.disabled,
-.disabled {
-  pointer-events: none;
-  opacity: 0.5;
-}
-
-/* Form Styles */
-form input,
-form select,
-form textarea {
-  font-size: 1rem;
-}
-
-form textarea {
-  resize: vertical;
-}
-
-.hour-card:hover,
-#calendar button:hover {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+#timeSelect::before:empty{
+  content:'Seleccione un día para ver horarios';
+  color:var(--secondary-color-hover);
 }
