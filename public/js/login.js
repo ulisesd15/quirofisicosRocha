@@ -1,33 +1,30 @@
 //handle login form submission with async/await
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const data = Object.fromEntries(new FormData(e.target).entries());
-
+    const formData = new FormData(e.target);
+    const data = {
+        email: formData.get('email'),
+        phone: formData.get('phone'),
+    };
     try {
-        const res = await fetch('api/login', {
+        const res = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                email: data.email,
-                phone: data.phone
-            })
+            body: JSON.stringify(data)
         });
-
         const result = await res.json();
+
         if (res.ok) {
-            // Store user_id so it's available later
-            localStorage.setItem('user_id', result.userId);
-            window.location.href = '/appointment.html'; // redirect
-            e.target.reset();
+            localStorage.setItem('user_id', result.user_id);
+            window.location.href = '/index.html';
         } else {
-            document.getElementById('loginMessage').textContent = result.message || 'No se pudo iniciar sesión';
+            alert(result.message || 'Error al iniciar sesión');
         }
-    } catch (error) {
-        console.error('Error al iniciar sesión:', error);
-        document.getElementById('loginMessage').textContent = 'Error al iniciar sesión. Inténtalo de nuevo más tarde.';
+    } catch (err) {
+        console.error('Error:', err);
+        alert('Error al iniciar sesión. Intenta más tarde.');
     }
-}
-);
+});
 
 const menuToggle = document.getElementById('menu_toggle');
 
