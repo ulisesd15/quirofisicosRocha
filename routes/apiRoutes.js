@@ -169,9 +169,29 @@ router.post('/login', (req, res) => {
         return res.status(401).json({ message: 'Credenciales inválidas' });
       }
       const user = results[0];
-      res.json({ message: 'Inicio de sesión exitoso', user_id: user.id });
+      res.status(200).json({ message: 'Inicio de sesión exitoso', user_id: user.id });
     }
+
   );
+  
+});
+
+// Get user email, phone and name info by ID
+router.get('/user/:id', (req, res) => {
+  const userId = req.params.id;
+
+  db.query('SELECT id, full_name, email, phone FROM users WHERE id = ?', [userId], (err, results) => {
+    if (err) {
+      console.error('Error fetching user:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(results[0]);
+  });
 });
 
 
