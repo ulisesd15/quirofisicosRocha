@@ -169,9 +169,11 @@ router.post('/login', (req, res) => {
         return res.status(401).json({ message: 'Credenciales inválidas' });
       }
       const user = results[0];
-      res.json({ message: 'Inicio de sesión exitoso', user_id: user.id });
+      res.status(200).json({ message: 'Inicio de sesión exitoso', user_id: user.id });
     }
+
   );
+  
 });
 
 // Get user email, phone and name info by ID
