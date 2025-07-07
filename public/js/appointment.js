@@ -158,6 +158,7 @@ bookingForm.addEventListener('submit', async e => {
     phone: userDataArray[2] || fd.get('phone') || '',
     date: fd.get('date'),
     time: fd.get('time'),
+    note: fd.get('note') || null,
     user_id: userId || null
   };
   if (!data.date || !data.time) return alert('Por favor, selecciona una fecha y hora válidas.');
