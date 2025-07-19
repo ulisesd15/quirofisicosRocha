@@ -1,10 +1,15 @@
 const express = require('express');
 const db = require('../config/connections'); // Adjust the path as necessary
 const router = express.Router();
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const authenticateToken = require('../middleware/auth'); // Adjust the path as necessary
+const secretKey = process.env.SECRET_KEY;
+
 
 
 //get all appointments
-router.get('/appointments', (req, res) => {
+router.get('/appointments', authenticateToken, (req, res) => {
   db.query('SELECT * FROM appointments', (err, results) => {
     if (err) return res.status(500).json(err);
     res.json(results);
@@ -12,7 +17,7 @@ router.get('/appointments', (req, res) => {
 }); 
 
 // Create new appointment
-router.post('/appointments', (req, res) => {
+router.post('/appointments', authenticateToken, (req, res) => {
   let { full_name, email, phone, date, time, note, user_id } = req.body;
 
   // Normalize empty user_id to null
@@ -35,7 +40,7 @@ router.post('/appointments', (req, res) => {
 });
 
 // Update appointment
-router.put('/appointments/:id', (req, res) => {
+router.put('/appointments/:id', authenticateToken,(req, res) => {
   const { full_name, email, phone, date, time, note } = req.body;
   db.query('UPDATE appointments SET full_name = ?, email = ?, phone = ?, date = ?, time = ?, note = ? WHERE id = ?', 
     [full_name, email, phone, date, time, note, req.params.id], 
@@ -47,7 +52,7 @@ router.put('/appointments/:id', (req, res) => {
 });
 
 // Get appointments by date
-router.get('/appointments/date/:date', (req, res) => {
+router.get('/appointments/date/:date', authenticateToken,(req, res) => {
   const date = req.params.date;
   db.query('SELECT * FROM appointments WHERE date = ?', [date], (err, results) => {
     if (err) return res.status(500).json(err);
@@ -56,7 +61,7 @@ router.get('/appointments/date/:date', (req, res) => {
 });
 
 // Get appointments by user ID
-router.get('/appointments/user/:userId', (req, res) => {
+router.get('/appointments/user/:userId', authenticateToken,(req, res) => {
   const userId = req.params.userId;
   db.query('SELECT * FROM appointments WHERE user_id = ?', [userId], (err, results) => {
     if (err) return res.status(500).json(err);
@@ -65,7 +70,7 @@ router.get('/appointments/user/:userId', (req, res) => {
 });
 
 // Get appointments by user ID and date
-router.get('/appointments/user/:userId/date/:date', (req, res) => {
+router.get('/appointments/user/:userId/date/:date', authenticateToken,(req, res) => {
   const userId = req.params.userId;
   const date = req.params.date;
   db.query('SELECT * FROM appointments WHERE user_id = ? AND date = ?', [userId, date], (err, results) => {
@@ -75,7 +80,7 @@ router.get('/appointments/user/:userId/date/:date', (req, res) => {
 });
 
 // Get appointments by date and time
-router.get('/appointments/date/:date/time/:time', (req, res) => {
+router.get('/appointments/date/:date/time/:time', authenticateToken,(req, res) => {
   const date = req.params.date;
   const time = req.params.time;
   db.query('SELECT * FROM appointments WHERE date = ? AND time = ?', [date, time], (err, results) => {
@@ -85,7 +90,7 @@ router.get('/appointments/date/:date/time/:time', (req, res) => {
 });
 
 // Delete appointment
-router.delete('/appointments/:id', (req, res) => {
+router.delete('/appointments/:id', authenticateToken,(req, res) => {
   db.query('DELETE FROM appointments WHERE id = ?', [req.params.id], (err) => {
     if (err) return res.status(500).json(err);
     res.sendStatus(204);
@@ -93,7 +98,7 @@ router.delete('/appointments/:id', (req, res) => {
 });
 
 //get single
-router.get("/appointments/:id", (req, res) => {
+router.get("/appointments/:id", authenticateToken, (req, res) => {
   const appointmentId = req.params.id;
   db.query("SELECT * FROM appointments WHERE id = ?", [appointmentId], (err, results) => {
     if (err) {
@@ -112,31 +117,37 @@ router.get("/appointments/:id", (req, res) => {
 
 // Register user
 router.post("/register", async (req, res) => {
-  const { full_name, username, email, phone } = req.body;
+  const { full_name, phone, email, password } = req.body;
 
-  if (!full_name || !username || !email || !phone) {
+  if (!full_name || !phone || !email || !password) {
     return res.status(400).json({ message: "Faltan campos requeridos" });
   }
 
-  const insertUserSql = `
-    INSERT INTO users (full_name, username, email, phone)
-    VALUES (?, ?, ?, ?)
-  `;
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-  db.query(insertUserSql, [full_name, username, email, phone], (err, results) => {
-    if (err) {
-      console.error("Error al registrar usuario:", err);
-      return res.status(500).json({ message: "Error al registrar usuario" });
-    }
+    const insertUserSql = `
+      INSERT INTO users (full_name, email, phone, password) VALUES (?, ?, ?, ?)
+    `;
 
+    db.query(insertUserSql, [full_name, email, phone, hashedPassword], (err, results) => {
+      if (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+          return res.status(400).json({ message: 'El correo ya está registrado' });
+        }
+        console.error("Error al registrar el usuario:", err);
+        return res.status(500).json({ message: "Error al registrar el usuario" });
+      }
 
-    // If you already have an appointment_id to associate, you can add it here:
-    // const appointment_id = some logic...
-    // const linkSql = `INSERT INTO registered_users (appointment_id, user_id) VALUES (?, ?)`
+      res.status(201).json({ message: "Usuario registrado exitosamente", userId: results.insertId });
+    });
 
-    return res.status(200).json({ message: "Registro exitoso", userId: result.insertId });
-  });
+  } catch (err) {
+    console.error("Error hashing password:", err);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
 });
+
 
 //get all registered users
 router.get("/registeredUsers", (req, res) => {
@@ -150,29 +161,30 @@ router.get("/registeredUsers", (req, res) => {
 });
 
 router.post('/login', (req, res) => {
-  const { email, phone } = req.body;
+  const { email, password } = req.body;
 
-  if (!email || !phone) {
-    return res.status(400).json({ message: 'Correo y teléfono requeridos' });
-  }
 
   db.query(
-    'SELECT * FROM users WHERE email = ? AND phone = ?',
-    [email, phone],
+    'SELECT * FROM users WHERE email = ? AND password = ?',
+    [email],
     (err, results) => {
       if (err) {
         console.error('Error en login:', err);
         return res.status(500).json({ message: 'Error del servidor' });
       }
-
-      if (results.length === 0) {
+    bcrypt.compare(password, results[0].password, (err, isMatch) => {
+      if (err) {
+        console.error('Error al comparar contraseñas:', err);
+        return res.status(500).json({ message: 'Error del servidor' });
+      }
+      if (!isMatch) {
         return res.status(401).json({ message: 'Credenciales inválidas' });
       }
-      const user = results[0];
+      const token = jwt.sign({ id: user.id, email: user.email }, secretKey, { expiresIn: '2h' });
       res.status(200).json({ message: 'Inicio de sesión exitoso', user_id: user.id });
-    }
+    });
 
-  );
+});
   
 });
 

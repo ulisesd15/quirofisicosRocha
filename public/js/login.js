@@ -4,7 +4,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     const formData = new FormData(e.target);
     const data = {
         email: formData.get('email'),
-        phone: formData.get('phone'),
+        password: formData.get('password')
     };
     try {
         const res = await fetch('/api/login', {

@@ -2,14 +2,18 @@ DROP DATABASE IF EXISTS appointments_db;
 CREATE DATABASE appointments_db;
 USE appointments_db;
 
+DROP TABLE users;
+
+
 -- Registered Users
 CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   full_name VARCHAR(100) NOT NULL,
   email VARCHAR(100) NOT NULL UNIQUE,
-  password VARCHAR(255) NOT NULL,
   phone VARCHAR(20) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  password VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- Appointments (only optional link to registered users)
@@ -21,7 +25,6 @@ CREATE TABLE appointments (
   date DATE NOT NULL,
   time TIME NOT NULL,
   note TEXT,
-  
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   user_id INT,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL

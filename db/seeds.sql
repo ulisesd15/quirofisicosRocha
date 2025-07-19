@@ -4,24 +4,13 @@ TRUNCATE TABLE appointments;
 TRUNCATE TABLE users;
 SET FOREIGN_KEY_CHECKS = 1;
 
--- Seed sample users
-INSERT INTO users (full_name, username, email, phone, created_at)
-VALUES
-  ('Ulises Duran', 'ulisesd', 'ulises@example.com', '6197221234', NOW()),
-  ('Ana Torres', 'anatorres', 'anaT@example.com', '6197225678', NOW()),
-  ('Maria Lopez', 'mlop', 'marial@gmail.com', '18005551234', NOW()),
-  ('Ana Garcia', 'anag', 'ana@example.com', '6197225678', NOW()),
-  ('David Lee', 'davidl', 'david@example.com', '900120022', NOW()),
-  ('Miguel Ramos', 'miguelRamon', 'miguel@example.com', '6197222947', NOW()),
-  ('Andrea Lopez', 'andreaLo', 'andrea@example.com', '6197221111', NOW()),
-  ('Luis Herrera', 'luisHe', 'luis@example.com', '6197222222', NOW()),
-  ('Sofia Martinez', 'sofiaMar', 'sofia@example.com', '6197223333', NOW()),
-  ('Valeria Torres', 'valeriaT', 'valeria@example.com', '6197225555', NOW()),
-  ('Jorge Navarro', 'jorgeN', 'jorge@example.com', '6197226666', NOW()),
-  ('Camila Alvarez', 'camilaAl', 'camila@example.com', '6197227777', NOW()),
-  ('Fernando Cruz', 'fernandoC', 'fernando@example.com', '6197228888', NOW()),
-  ('Lucia Flores', 'luciaF', 'lucia@example.com', '6197229999', NOW()),
-  ('Diego Moreno', 'diegoM', 'diego@example.com', '6197230000', NOW());
+-- Seed sample users (passwords are plain text 'Password123!' hashed with bcrypt, 10 rounds)
+
+INSERT INTO users (full_name, phone, email, password, created_at)
+VALUES 
+('Roberto Gomez', '6647710001', 'roberto@gmail.com', '$2b$10$kYkpiM/aLk1DpF/xOn8Ww.O7Q7I16EaE6UrmI1BtNQIHhsblT0Dky', NOW()),
+('Maria Lopez', '6647710002', 'maria@gmail.com', '$2b$10$kYkpiM/aLk1DpF/xOn8Ww.O7Q7I16EaE6UrmI1BtNQIHhsblT0Dky', NOW()),
+('Juan Perez', '6647710003', 'juan@gmail.com', '$2b$10$kYkpiM/aLk1DpF/xOn8Ww.O7Q7I16EaE6UrmI1BtNQIHhsblT0Dky', NOW());
 
 -- NOTE: You must look up actual IDs from the `users` table if using AUTO_INCREMENT
 -- For now, assuming users are inserted in order and IDs are 1–15
