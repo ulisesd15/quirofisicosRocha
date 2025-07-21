@@ -15,6 +15,7 @@ CREATE TABLE users (
   password VARCHAR(255),
   auth_provider VARCHAR(50) DEFAULT 'local',
   google_id VARCHAR(255),
+  role ENUM('user', 'admin') DEFAULT 'user',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -28,17 +29,32 @@ CREATE TABLE appointments (
   date DATE NOT NULL,
   time TIME NOT NULL,
   note TEXT,
+  status ENUM('pending', 'confirmed', 'completed', 'cancelled') DEFAULT 'pending',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   user_id INT,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-  
 );
 
--- this table is for user roles, e.g., admin, user, etc.
+-- Clinic Settings for admin management
+CREATE TABLE clinic_settings (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  setting_key VARCHAR(100) NOT NULL UNIQUE,
+  setting_value TEXT,
+  description TEXT,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
--- CREATE TABLE user_roles (
---   id INT AUTO_INCREMENT PRIMARY KEY,
---   user_id INT NOT NULL,
---   role VARCHAR(50) NOT NULL,
---   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
--- );
+-- Business Hours
+CREATE TABLE business_hours (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  day_of_week ENUM('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') NOT NULL,
+  is_open BOOLEAN DEFAULT TRUE,
+  open_time TIME,
+  close_time TIME,
+  break_start TIME,
+  break_end TIME,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Remove old commented role table
