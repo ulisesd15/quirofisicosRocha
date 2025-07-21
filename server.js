@@ -1,7 +1,10 @@
 const express = require('express');
+const passport = require('passport');
+require('./config/passport'); // Load passport strategy
+require('dotenv').config();
 
 const routes = require('./routes/apiRoutes');
-require('dotenv').config();
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -9,7 +12,11 @@ const PORT = process.env.PORT || 3001;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
-app.use('/api', routes);
+
+app.use(passport.initialize()); 
+
+app.use('/api/auth', authRoutes); 
+app.use('/api', routes);          
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

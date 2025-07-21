@@ -52,7 +52,7 @@ router.put('/appointments/:id', authenticateToken,(req, res) => {
 });
 
 // Get appointments by date
-router.get('/appointments/date/:date', authenticateToken,(req, res) => {
+router.get('/appointments/date/:date', authenticateToken, (req, res) => {
   const date = req.params.date;
   db.query('SELECT * FROM appointments WHERE date = ?', [date], (err, results) => {
     if (err) return res.status(500).json(err);
@@ -98,7 +98,7 @@ router.delete('/appointments/:id', authenticateToken,(req, res) => {
 });
 
 //get single
-router.get("/appointments/:id", authenticateToken, (req, res) => {
+router.get("/appointments/:id",  authenticateToken,(req, res) => {
   const appointmentId = req.params.id;
   db.query("SELECT * FROM appointments WHERE id = ?", [appointmentId], (err, results) => {
     if (err) {
@@ -139,8 +139,16 @@ router.post("/register", async (req, res) => {
         return res.status(500).json({ message: "Error al registrar el usuario" });
       }
 
-      res.status(201).json({ message: "Usuario registrado exitosamente", userId: results.insertId });
+      const token = jwt.sign({ id: results.insertId, email }, secretKey, { expiresIn: '2h' });
+    // localStorage.setItem('token', token); ❌ Remove this!
+
+    res.status(201).json({
+      message: "Usuario registrado exitosamente",
+      userId: results.insertId,
+      token  // ✅ send the token in the response
     });
+  });
+
 
   } catch (err) {
     console.error("Error hashing password:", err);
@@ -165,24 +173,30 @@ router.post('/login', (req, res) => {
 
 
   db.query(
-    'SELECT * FROM users WHERE email = ? AND password = ?',
+    'SELECT * FROM users WHERE email = ?',
     [email],
     (err, results) => {
       if (err) {
         console.error('Error en login:', err);
         return res.status(500).json({ message: 'Error del servidor' });
       }
-    bcrypt.compare(password, results[0].password, (err, isMatch) => {
-      if (err) {
-        console.error('Error al comparar contraseñas:', err);
-        return res.status(500).json({ message: 'Error del servidor' });
-      }
-      if (!isMatch) {
-        return res.status(401).json({ message: 'Credenciales inválidas' });
-      }
+    const user = results[0];
+
+    bcrypt.compare(password, user.password, (err, isMatch) => {
+      if (err) return res.status(500).json({ message: 'Error del servidor' });
+
+      if (!isMatch) return res.status(401).json({ message: 'Credenciales inválidas' });
+
       const token = jwt.sign({ id: user.id, email: user.email }, secretKey, { expiresIn: '2h' });
-      res.status(200).json({ message: 'Inicio de sesión exitoso', user_id: user.id });
+
+      res.status(200).json({
+        message: 'Inicio de sesión exitoso',
+        user_id: user.id,
+        token  // ✅ send token back to frontend
+      });
     });
+
+
 
 });
   

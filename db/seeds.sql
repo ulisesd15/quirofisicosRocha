@@ -6,11 +6,12 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 -- Seed sample users (passwords are plain text 'Password123!' hashed with bcrypt, 10 rounds)
 
-INSERT INTO users (full_name, phone, email, password, created_at)
+INSERT INTO users (full_name, phone, email, password, auth_provider, created_at)
 VALUES 
-('Roberto Gomez', '6647710001', 'roberto@gmail.com', '$2b$10$kYkpiM/aLk1DpF/xOn8Ww.O7Q7I16EaE6UrmI1BtNQIHhsblT0Dky', NOW()),
-('Maria Lopez', '6647710002', 'maria@gmail.com', '$2b$10$kYkpiM/aLk1DpF/xOn8Ww.O7Q7I16EaE6UrmI1BtNQIHhsblT0Dky', NOW()),
-('Juan Perez', '6647710003', 'juan@gmail.com', '$2b$10$kYkpiM/aLk1DpF/xOn8Ww.O7Q7I16EaE6UrmI1BtNQIHhsblT0Dky', NOW());
+('Roberto Gomez', '6647710001', 'roberto@gmail.com', '$2b$10$kYkpiM/aLk1DpF/xOn8Ww.O7Q7I16EaE6UrmI1BtNQIHhsblT0Dky', 'local', NOW()),
+('Maria Lopez', '6647710002', 'maria@gmail.com', '$2b$10$kYkpiM/aLk1DpF/xOn8Ww.O7Q7I16EaE6UrmI1BtNQIHhsblT0Dky', 'local', NOW()),
+('Juan Perez', '6647710003', 'juan@gmail.com', '$2b$10$kYkpiM/aLk1DpF/xOn8Ww.O7Q7I16EaE6UrmI1BtNQIHhsblT0Dky', 'local', NOW()),
+('Google User Example', NULL, 'googleuser@gmail.com', NULL, 'google', NOW());
 
 -- NOTE: You must look up actual IDs from the `users` table if using AUTO_INCREMENT
 -- For now, assuming users are inserted in order and IDs are 1–15

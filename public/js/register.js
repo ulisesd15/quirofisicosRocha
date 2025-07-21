@@ -1,14 +1,12 @@
 
 const menuToggle = document.getElementById('menu_toggle');
 
-
-
-
 document.getElementById('register-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
   const data = Object.fromEntries(new FormData(e.target).entries());
   const { full_name, phone, email, password, confirm_password } = data;
+
   // Helper validation functions
   const isPasswordStrong = (password) =>
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/.test(password);
@@ -35,63 +33,37 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
 
   if (!isValidEmail(email)) {
     return alert('Correo electrónico inválido');
-  } else {
+  }
 
-    try {
-      const res = await fetch('api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            full_name: data.full_name,
-            phone: data.phone,
-            email: data.email,
-            password: data.password
-          })
-
-        });console.log(data);
-
-        const result = await res.json();
-        console.log(result);
-      if (res.ok) {
-        // Store user_id so it's available later
-        localStorage.setItem('user_id', result.userId);
-
-        window.location.href = '/appointment.html'; // redirect
-        e.target.reset();
-      }
-      else {
-          alert(`Error: ${result.message || 'No se pudo registrar'}`);
-        }
-      } catch (error) {
-        console.error('Error al registrar:', error);
-        alert('Error al registrar. Inténtalo de nuevo más tarde.');
-      }
-    } 
-  });
-
-
-document.addEventListener('DOMContentLoaded', () => {
-    const navItems = document.getElementById('nav-items');
-    const userId = localStorage.getItem('user_id');
-
-    navItems.innerHTML = userId
-      ? `
-        <li><a href="/appointment.html" class="btn btn-outline-primary w-100 mb-2">Agendar Cita</a></li>
-        <li><a href="#" id="logoutBtn" class="btn btn-danger w-100 mb-2">Cerrar Sesión</a></li>
-      `
-      : `
-        <li><a href="/login.html" class="btn btn-outline-success w-100 mb-2">Iniciar Sesión</a></li>
-        <li><a href="/appointment.html?guest=true" class="btn btn-outline-primary w-100 mb-2">Agendar como Invitado</a></li>
-      `;
-
-    document.addEventListener('click', (e) => {
-      if (e.target.id === 'logoutBtn') {
-        localStorage.removeItem('user_id');
-        alert('Sesión cerrada exitosamente.');
-        window.location.href = '/index.html';
-      }
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ full_name, phone, email, password })
     });
-  });
+
+    const result = await res.json();
+    console.log('Register response:', result);
+
+    if (res.ok) {
+      // Use AuthManager to handle login
+      window.authManager.login(result.token, result.user);
+      alert(result.message || 'Registro exitoso');
+      window.location.href = '/appointment.html'; // Redirect after successful register
+    } else {
+      alert(`Error: ${result.error || 'No se pudo registrar'}`);
+    }
+
+  } catch (error) {
+    console.error('Error al registrar:', error);
+    alert('Error al registrar. Inténtalo de nuevo más tarde.');
+  }
+});
+
+document.getElementById('google-login').addEventListener('click', () => {
+  window.location.href = '/api/auth/google';
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   const menuToggle = document.querySelector('#menu_toggle');
   const offcanvas = document.getElementById('sideNav');

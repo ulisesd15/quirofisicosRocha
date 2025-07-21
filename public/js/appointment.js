@@ -10,6 +10,8 @@ const selectedTimeInput = document.getElementById('selectedTime');
 const prevWeekBtn = document.getElementById('prevWeek');
 const nextWeekBtn = document.getElementById('nextWeek');
 
+const token = localStorage.getItem('token');
+
 // ───────── TIME CONSTANTS ─────────
 const HOURS = [
   '06:00','06:30','07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30',
@@ -35,6 +37,7 @@ let userDataArray = [];
 let weekOffset = 0, currentDateISO = null;
 
 if (userId) {
+  console.log('User ID:', userId);
   fetch(`/api/user/${userId}`)
     .then(res => res.ok ? res.json() : Promise.reject('Error'))
     .then(user => {
@@ -46,14 +49,21 @@ if (userId) {
 
 // ───────── APPOINTMENTS FETCH ─────────
 async function fetchAppointments(dayISO) {
-  try {
-    const res = await fetch(`/api/appointments?date=${dayISO}`);
-    const appointments = await res.json();
-    return appointments.map(a => a.time);
-  } catch (err) {
-    console.error('Error fetching appointments:', err);
+  const token = localStorage.getItem('token');
+
+  const res = await fetch(`/api/appointments?date=${dayISO}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+});
+
+  if (!res.ok) {
+    console.error('Error fetching appointments:', await res.text());
     return [];
   }
+
+  const appointments = await res.json();
+  return appointments.map(a => a.time);
 }
 
 function renderWeek() {
@@ -173,9 +183,20 @@ bookingForm.addEventListener('submit', async e => {
   try {
     const res = await fetch('/api/appointments', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}` },
       body: JSON.stringify(data)
     });
+
+    if (!res.ok) {
+    const errorText = await res.text();
+    console.error('Server error:', errorText);
+    return alert('Error al agendar la cita');
+  }
+    if (res.status === 409) {
+      const error = await res.json();
+      return alert(error.message || 'Ya existe una cita para esta fecha y hora');
+    }
     const result = await res.json();
     alert(result.message || 'Cita agendada correctamente');
     e.target.reset();

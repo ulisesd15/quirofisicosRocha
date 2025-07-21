@@ -2,7 +2,8 @@ DROP DATABASE IF EXISTS appointments_db;
 CREATE DATABASE appointments_db;
 USE appointments_db;
 
-DROP TABLE users;
+DROP TABLE IF EXISTS appointments;
+DROP TABLE IF EXISTS users;
 
 
 -- Registered Users
@@ -10,8 +11,10 @@ CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   full_name VARCHAR(100) NOT NULL,
   email VARCHAR(100) NOT NULL UNIQUE,
-  phone VARCHAR(20) NOT NULL,
-  password VARCHAR(255) NOT NULL,
+  phone VARCHAR(20),
+  password VARCHAR(255),
+  auth_provider VARCHAR(50) DEFAULT 'local',
+  google_id VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
