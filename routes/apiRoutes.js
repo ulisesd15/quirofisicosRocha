@@ -6,7 +6,12 @@ const jwt = require('jsonwebtoken');
 const authenticateToken = require('../middleware/auth'); // Adjust the path as necessary
 const secretKey = process.env.SECRET_KEY;
 
-
+// Get Google Maps API key for frontend
+router.get('/config/maps-key', (req, res) => {
+  res.json({ 
+    apiKey: process.env.GOOGLE_MAPS_API_KEY || null 
+  });
+});
 
 //get all appointments
 router.get('/appointments', authenticateToken, (req, res) => {
