@@ -15,8 +15,16 @@ class AdminPanel {
   }
 
   async init() {
+    console.log('AdminPanel init started');
+    
     // Check admin authentication
-    await this.checkAdminAuth();
+    try {
+      await this.checkAdminAuth();
+      console.log('Admin auth check completed successfully');
+    } catch (error) {
+      console.error('Admin auth check failed:', error);
+      return;
+    }
     
     // Initialize event listeners
     this.initEventListeners();
@@ -27,16 +35,31 @@ class AdminPanel {
 
   async checkAdminAuth() {
     try {
-      const user = AuthManager.getCurrentUser();
-      if (!user) {
+      // Check if we have auth manager instance
+      if (!window.authManager) {
+        console.error('AuthManager not found, redirecting to login');
         window.location.href = '../login.html';
+        return;
+      }
+
+      const user = window.authManager.getCurrentUser();
+      if (!user) {
+        console.log('No user found, redirecting to login');
+        window.location.href = '../login.html';
+        return;
+      }
+
+      if (user.role !== 'admin') {
+        console.log('User is not admin, redirecting');
+        alert('Acceso denegado. No tienes permisos de administrador.');
+        window.location.href = '../index.html';
         return;
       }
 
       // Verify admin role with backend
       const response = await fetch('/api/admin/dashboard', {
         headers: {
-          'Authorization': `Bearer ${AuthManager.getToken()}`
+          'Authorization': `Bearer ${window.authManager.getToken()}`
         }
       });
 
@@ -69,7 +92,7 @@ class AdminPanel {
 
     // Logout
     document.getElementById('logout-btn').addEventListener('click', () => {
-      AuthManager.logout();
+      window.authManager.logout();
       window.location.href = '../login.html';
     });
 
@@ -211,7 +234,7 @@ class AdminPanel {
       
       const response = await fetch('/api/admin/dashboard', {
         headers: {
-          'Authorization': `Bearer ${AuthManager.getToken()}`
+          'Authorization': `Bearer ${window.authManager.getToken()}`
         }
       });
 
@@ -279,7 +302,7 @@ class AdminPanel {
 
       const response = await fetch(`/api/admin/appointments?${params}`, {
         headers: {
-          'Authorization': `Bearer ${AuthManager.getToken()}`
+          'Authorization': `Bearer ${window.authManager.getToken()}`
         }
       });
 
@@ -343,7 +366,7 @@ class AdminPanel {
 
       const response = await fetch(`/api/admin/users?${params}`, {
         headers: {
-          'Authorization': `Bearer ${AuthManager.getToken()}`
+          'Authorization': `Bearer ${window.authManager.getToken()}`
         }
       });
 
@@ -400,7 +423,7 @@ class AdminPanel {
       
       const response = await fetch('/api/admin/business-hours', {
         headers: {
-          'Authorization': `Bearer ${AuthManager.getToken()}`
+          'Authorization': `Bearer ${window.authManager.getToken()}`
         }
       });
 
@@ -477,7 +500,7 @@ class AdminPanel {
       
       const response = await fetch('/api/admin/settings', {
         headers: {
-          'Authorization': `Bearer ${AuthManager.getToken()}`
+          'Authorization': `Bearer ${window.authManager.getToken()}`
         }
       });
 
@@ -583,7 +606,7 @@ class AdminPanel {
     try {
       const response = await fetch(`/api/admin/appointments/${id}`, {
         headers: {
-          'Authorization': `Bearer ${AuthManager.getToken()}`
+          'Authorization': `Bearer ${window.authManager.getToken()}`
         }
       });
 
@@ -629,7 +652,7 @@ class AdminPanel {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AuthManager.getToken()}`
+          'Authorization': `Bearer ${window.authManager.getToken()}`
         },
         body: JSON.stringify(data)
       });
@@ -657,7 +680,7 @@ class AdminPanel {
       const response = await fetch(`/api/admin/appointments/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${AuthManager.getToken()}`
+          'Authorization': `Bearer ${window.authManager.getToken()}`
         }
       });
 
@@ -676,7 +699,7 @@ class AdminPanel {
     try {
       const response = await fetch(`/api/admin/users/${id}`, {
         headers: {
-          'Authorization': `Bearer ${AuthManager.getToken()}`
+          'Authorization': `Bearer ${window.authManager.getToken()}`
         }
       });
 
@@ -716,7 +739,7 @@ class AdminPanel {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AuthManager.getToken()}`
+          'Authorization': `Bearer ${window.authManager.getToken()}`
         },
         body: JSON.stringify(data)
       });
@@ -744,7 +767,7 @@ class AdminPanel {
       const response = await fetch(`/api/admin/users/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${AuthManager.getToken()}`
+          'Authorization': `Bearer ${window.authManager.getToken()}`
         }
       });
 
@@ -781,7 +804,7 @@ class AdminPanel {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AuthManager.getToken()}`
+          'Authorization': `Bearer ${window.authManager.getToken()}`
         },
         body: JSON.stringify({ businessHours })
       });
@@ -814,7 +837,7 @@ class AdminPanel {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${AuthManager.getToken()}`
+          'Authorization': `Bearer ${window.authManager.getToken()}`
         },
         body: JSON.stringify({ settings })
       });

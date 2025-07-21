@@ -10,19 +10,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const signOutBtn = document.getElementById('logoutBtn');
 
   const userId = localStorage.getItem('user_id');
+  const userRole = localStorage.getItem('user_role');
 
   // Navigation menu
   if (navItems) {
-    navItems.innerHTML = userId
-      ? `
+    if (userId) {
+      const adminButton = userRole === 'admin' ? 
+        `<li><a href="/adminOptions.html" class="btn btn-warning w-100 mb-2">
+          <i class="fas fa-user-shield"></i> Panel Admin
+        </a></li>` : '';
+      
+      navItems.innerHTML = `
         <li><a href="/appointment.html" class="btn btn-outline-primary w-100 mb-2">Agendar Cita</a></li>
+        ${adminButton}
         <li><a href="#" id="logoutBtn" class="btn btn-danger w-100 mb-2">Cerrar Sesión</a></li>
-      `
-      : `
+        <li><span class="text-muted small">Hola, ${localStorage.getItem('user_name') || 'Usuario'}</span></li>
+      `;
+    } else {
+      navItems.innerHTML = `
         <li><a href="/login.html" class="btn btn-outline-success w-100 mb-2">Iniciar Sesión</a></li>
         <li><a href="/appointment.html?guest=true" class="btn btn-outline-primary w-100 mb-2">Agendar como Invitado</a></li>
         <li><a href="/register.html" class="btn btn-outline-secondary w-100 mb-2">Crear Cuenta</a></li>
       `;
+    }
 
     // Re-attach logoutBtn listener after injecting it dynamically
     if (userId) {
@@ -81,5 +91,11 @@ document.addEventListener('DOMContentLoaded', () => {
     offcanvas.addEventListener('hidden.bs.offcanvas', () => {
       menuToggle.style.display = 'block';
     });
+  }
+
+  // Initialize Google Maps
+  if (window.MapsManager) {
+    const mapsManager = new MapsManager();
+    mapsManager.initializeMap();
   }
 });

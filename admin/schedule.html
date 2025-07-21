@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Horarios - Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/adminOptions.css">
+    <style>
+        .schedule-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid #e9ecef;
+        }
+        .schedule-card.open {
+            border-left-color: #28a745;
+            background-color: #f8fff9;
+        }
+        .schedule-card.closed {
+            border-left-color: #dc3545;
+            background-color: #fff8f8;
+        }
+        .time-input {
+            max-width: 120px;
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+        .stats-number {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        .day-toggle {
+            transform: scale(1.2);
+        }
+        .preview-slots {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .slot-badge {
+            margin: 2px;
+        }
+        .break-info {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="text-center mb-4">
+                        <a href="/" class="text-decoration-none">
+                            <i class="fas fa-user-shield fa-3x text-primary mb-2 d-block"></i>
+                            <h5 class="text-primary">Panel de Admin</h5>
+                        </a>
+                        <small class="text-muted">Quirofísicos Rocha</small>
+                    </div>
+                    
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="/adminOptions.html">
+                                <i class="fas fa-tachometer-alt"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="/admin/schedule.html">
+                                <i class="fas fa-calendar-alt"></i> Gestión de Horarios
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/adminOptions.html#appointments">
+                                <i class="fas fa-calendar-check"></i> Citas
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/adminOptions.html#users">
+                                <i class="fas fa-users"></i> Usuarios
+                            </a>
+                        </li>
+                        <li class="nav-item mt-3">
+                            <a class="nav-link text-danger" href="#" onclick="logout()">
+                                <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2"><i class="fas fa-calendar-alt me-2"></i>Gestión de Horarios</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <button class="btn btn-primary" onclick="saveAllChanges()">
+                            <i class="fas fa-save me-1"></i>Guardar Cambios
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-3 mb-3">
+                        <div class="card stats-card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-calendar-day fa-2x mb-2"></i>
+                                <div class="stats-number" id="openDaysCount">-</div>
+                                <small>Días Abiertos</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center">
+                                <i class="fas fa-clock fa-2x mb-2"></i>
+                                <div class="stats-number" id="totalHours">-</div>
+                                <small>Horas Semanales</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <i class="fas fa-calendar-check fa-2x mb-2"></i>
+                                <div class="stats-number" id="weekAppointments">-</div>
+                                <small>Citas Esta Semana</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-warning text-dark">
+                            <div class="card-body text-center">
+                                <i class="fas fa-hourglass-half fa-2x mb-2"></i>
+                                <div class="stats-number" id="pendingAppointments">-</div>
+                                <small>Citas Pendientes</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Business Hours Management -->
+                <div class="row">
+                    <div class="col-lg-8 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-business-time me-2"></i>Horarios de Atención</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="businessHoursContainer">
+                                    <!-- Business hours will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-4 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="fas fa-preview me-2"></i>Vista Previa</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Fecha para vista previa:</label>
+                                    <input type="date" class="form-control" id="previewDate" onchange="previewSlots()">
+                                </div>
+                                <div id="slotsPreview" class="preview-slots">
+                                    <p class="text-muted">Selecciona una fecha para ver los horarios disponibles</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Success/Error Messages -->
+                <div id="alertContainer"></div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        let businessHours = [];
+        let hasChanges = false;
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check admin authentication
+            if (!window.authManager.isAuthenticated() || !window.authManager.isAdmin()) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            loadBusinessHours();
+            loadStats();
+            
+            // Set default preview date to tomorrow
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            document.getElementById('previewDate').value = tomorrow.toISOString().split('T')[0];
+        });
+
+        async function loadBusinessHours() {
+            try {
+                const response = await fetch('/api/admin/schedule/business-hours', {
+                    headers: {
+                        'Authorization': `Bearer ${window.authManager.getToken()}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load business hours');
+                }
+
+                const data = await response.json();
+                businessHours = data.business_hours;
+                renderBusinessHours();
+            } catch (error) {
+                console.error('Error loading business hours:', error);
+                showAlert('Error al cargar los horarios de atención', 'danger');
+            }
+        }
+
+        function renderBusinessHours() {
+            const container = document.getElementById('businessHoursContainer');
+            container.innerHTML = '';
+
+            businessHours.forEach((day, index) => {
+                const dayCard = createDayCard(day, index);
+                container.appendChild(dayCard);
+            });
+        }
+
+        function createDayCard(day, index) {
+            const card = document.createElement('div');
+            card.className = `card schedule-card mb-3 ${day.is_open ? 'open' : 'closed'}`;
+            
+            card.innerHTML = `
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2">
+                            <h6 class="mb-0">${translateDay(day.day_of_week)}</h6>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input day-toggle" type="checkbox" 
+                                       id="toggle_${index}" ${day.is_open ? 'checked' : ''} 
+                                       onchange="toggleDay(${index})">
+                                <label class="form-check-label" for="toggle_${index}">
+                                    ${day.is_open ? 'Abierto' : 'Cerrado'}
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-8" id="timeInputs_${index}">
+                            ${day.is_open ? createTimeInputs(day, index) : '<span class="text-muted">Cerrado</span>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function createTimeInputs(day, index) {
+            return `
+                <div class="row">
+                    <div class="col-sm-6 mb-2">
+                        <label class="form-label small">Apertura - Cierre</label>
+                        <div class="d-flex align-items-center">
+                            <input type="time" class="form-control time-input me-2" 
+                                   value="${day.open_time || ''}" 
+                                   onchange="updateTime(${index}, 'open_time', this.value)">
+                            <span class="me-2">-</span>
+                            <input type="time" class="form-control time-input" 
+                                   value="${day.close_time || ''}" 
+                                   onchange="updateTime(${index}, 'close_time', this.value)">
+                        </div>
+                    </div>
+                    <div class="col-sm-6 mb-2">
+                        <label class="form-label small">Descanso (Opcional)</label>
+                        <div class="d-flex align-items-center">
+                            <input type="time" class="form-control time-input me-2" 
+                                   value="${day.break_start || ''}" 
+                                   onchange="updateTime(${index}, 'break_start', this.value)">
+                            <span class="me-2">-</span>
+                            <input type="time" class="form-control time-input" 
+                                   value="${day.break_end || ''}" 
+                                   onchange="updateTime(${index}, 'break_end', this.value)">
+                        </div>
+                    </div>
+                </div>
+                ${day.break_start && day.break_end ? 
+                    `<div class="break-info small">
+                        <i class="fas fa-coffee me-1"></i>
+                        Descanso de ${day.break_start} a ${day.break_end}
+                    </div>` : ''
+                }
+            `;
+        }
+
+        function toggleDay(index) {
+            businessHours[index].is_open = !businessHours[index].is_open;
+            hasChanges = true;
+            
+            // Re-render this specific day
+            const card = document.querySelector(`#toggle_${index}`).closest('.schedule-card');
+            const timeInputsContainer = document.getElementById(`timeInputs_${index}`);
+            const label = document.querySelector(`label[for="toggle_${index}"]`);
+            
+            if (businessHours[index].is_open) {
+                card.classList.add('open');
+                card.classList.remove('closed');
+                label.textContent = 'Abierto';
+                timeInputsContainer.innerHTML = createTimeInputs(businessHours[index], index);
+            } else {
+                card.classList.add('closed');
+                card.classList.remove('open');
+                label.textContent = 'Cerrado';
+                timeInputsContainer.innerHTML = '<span class="text-muted">Cerrado</span>';
+                
+                // Clear times when closing
+                businessHours[index].open_time = null;
+                businessHours[index].close_time = null;
+                businessHours[index].break_start = null;
+                businessHours[index].break_end = null;
+            }
+        }
+
+        function updateTime(index, field, value) {
+            businessHours[index][field] = value || null;
+            hasChanges = true;
+            
+            // Re-render time inputs to update break display
+            if (businessHours[index].is_open) {
+                const timeInputsContainer = document.getElementById(`timeInputs_${index}`);
+                timeInputsContainer.innerHTML = createTimeInputs(businessHours[index], index);
+            }
+        }
+
+        async function saveAllChanges() {
+            if (!hasChanges) {
+                showAlert('No hay cambios que guardar', 'info');
+                return;
+            }
+
+            const saveBtn = document.querySelector('button[onclick="saveAllChanges()"]');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Guardando...';
+            saveBtn.disabled = true;
+
+            try {
+                const promises = businessHours.map(async (day) => {
+                    const response = await fetch(`/api/admin/schedule/business-hours/${day.day_of_week}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${window.authManager.getToken()}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            is_open: day.is_open,
+                            open_time: day.open_time,
+                            close_time: day.close_time,
+                            break_start: day.break_start,
+                            break_end: day.break_end
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Failed to update ${day.day_of_week}`);
+                    }
+                    
+                    return response.json();
+                });
+
+                await Promise.all(promises);
+                hasChanges = false;
+                showAlert('Horarios actualizados correctamente', 'success');
+                loadStats(); // Refresh stats
+                
+            } catch (error) {
+                console.error('Error saving business hours:', error);
+                showAlert('Error al guardar los horarios', 'danger');
+            } finally {
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+            }
+        }
+
+        async function previewSlots() {
+            const date = document.getElementById('previewDate').value;
+            if (!date) return;
+
+            try {
+                const response = await fetch(`/api/admin/schedule/available-slots/${date}`, {
+                    headers: {
+                        'Authorization': `Bearer ${window.authManager.getToken()}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load slots');
+                }
+
+                const data = await response.json();
+                renderSlotsPreview(data);
+                
+            } catch (error) {
+                console.error('Error loading slots preview:', error);
+                document.getElementById('slotsPreview').innerHTML = 
+                    '<p class="text-danger">Error al cargar la vista previa</p>';
+            }
+        }
+
+        function renderSlotsPreview(data) {
+            const container = document.getElementById('slotsPreview');
+            
+            if (data.available_slots.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="fas fa-times-circle fa-2x mb-2"></i>
+                        <p>${data.message || 'No hay horarios disponibles'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const slotsHtml = data.available_slots.map(slot => 
+                `<span class="badge bg-primary slot-badge">${slot}</span>`
+            ).join('');
+
+            container.innerHTML = `
+                <div class="mb-3">
+                    <strong class="text-success">
+                        <i class="fas fa-check-circle me-1"></i>
+                        ${data.available_slots.length} horarios disponibles
+                    </strong>
+                </div>
+                <div class="mb-3">
+                    ${slotsHtml}
+                </div>
+                ${data.business_hours ? `
+                    <div class="small text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Horario: ${data.business_hours.open_time} - ${data.business_hours.close_time}
+                        ${data.business_hours.break_start ? 
+                            `<br>Descanso: ${data.business_hours.break_start} - ${data.business_hours.break_end}` 
+                            : ''
+                        }
+                    </div>
+                ` : ''}
+            `;
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/admin/schedule/stats', {
+                    headers: {
+                        'Authorization': `Bearer ${window.authManager.getToken()}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load stats');
+                }
+
+                const data = await response.json();
+                updateStatsDisplay(data.stats);
+                
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        function updateStatsDisplay(stats) {
+            document.getElementById('openDaysCount').textContent = stats.open_days || '0';
+            document.getElementById('weekAppointments').textContent = stats.appointments_this_week || '0';
+            document.getElementById('pendingAppointments').textContent = stats.pending_appointments || '0';
+            
+            // Calculate total weekly hours
+            const totalHours = businessHours.reduce((total, day) => {
+                if (!day.is_open || !day.open_time || !day.close_time) return total;
+                
+                const openHour = parseInt(day.open_time.split(':')[0]);
+                const openMinute = parseInt(day.open_time.split(':')[1]);
+                const closeHour = parseInt(day.close_time.split(':')[0]);
+                const closeMinute = parseInt(day.close_time.split(':')[1]);
+                
+                let dayHours = (closeHour + closeMinute/60) - (openHour + openMinute/60);
+                
+                // Subtract break time if exists
+                if (day.break_start && day.break_end) {
+                    const breakStartHour = parseInt(day.break_start.split(':')[0]);
+                    const breakStartMinute = parseInt(day.break_start.split(':')[1]);
+                    const breakEndHour = parseInt(day.break_end.split(':')[0]);
+                    const breakEndMinute = parseInt(day.break_end.split(':')[1]);
+                    
+                    const breakDuration = (breakEndHour + breakEndMinute/60) - (breakStartHour + breakStartMinute/60);
+                    dayHours -= breakDuration;
+                }
+                
+                return total + dayHours;
+            }, 0);
+            
+            document.getElementById('totalHours').textContent = Math.round(totalHours);
+        }
+
+        function translateDay(day) {
+            const translations = {
+                'Monday': 'Lunes',
+                'Tuesday': 'Martes', 
+                'Wednesday': 'Miércoles',
+                'Thursday': 'Jueves',
+                'Friday': 'Viernes',
+                'Saturday': 'Sábado',
+                'Sunday': 'Domingo'
+            };
+            return translations[day] || day;
+        }
+
+        function showAlert(message, type) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show`;
+            alert.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            alertContainer.appendChild(alert);
+            
+            // Auto dismiss after 5 seconds
+            setTimeout(() => {
+                if (alert && alert.parentNode) {
+                    alert.remove();
+                }
+            }, 5000);
+        }
+
+        function logout() {
+            window.authManager.logout();
+            window.location.href = '/login.html';
+        }
+
+        // Warn user about unsaved changes
+        window.addEventListener('beforeunload', function(e) {
+            if (hasChanges) {
+                e.preventDefault();
+                e.returnValue = 'Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?';
+            }
+        });
+    </script>
+</body>
+</html>

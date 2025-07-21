@@ -1,0 +1,165 @@
+/* Common Navigation Styles for all pages */
+.main-navbar {
+    background: linear-gradient(135deg, var(--primary-blue), var(--dark-blue)) !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 0.5rem 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1050;
+}
+
+.navbar-brand {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: white !important;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.navbar-brand:hover {
+    color: var(--light-blue) !important;
+    transform: scale(1.05);
+}
+
+.brand-logo {
+    width: 40px;
+    height: 40px;
+    margin-right: 12px;
+    background: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-blue);
+    font-size: 1.5rem;
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.main-nav-link {
+    color: rgba(255,255,255,0.9) !important;
+    font-weight: 500;
+    padding: 0.5rem 1rem !important;
+    border-radius: 25px;
+    transition: all 0.3s ease;
+    margin: 0 0.25rem;
+}
+
+.main-nav-link:hover {
+    color: white !important;
+    background-color: rgba(255,255,255,0.1);
+    transform: translateY(-2px);
+}
+
+.main-nav-link.active {
+    background-color: rgba(255,255,255,0.2);
+    color: white !important;
+}
+
+.navbar-toggler {
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 8px;
+}
+
+.navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.8%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* Adjust body padding for fixed navbar - only apply when navigation system is used */
+.navigation-active body {
+    padding-top: 70px !important;
+}
+
+/* Mobile adjustments */
+@media (max-width: 991.98px) {
+    .navbar-nav {
+        background: rgba(0,0,0,0.1);
+        border-radius: 10px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .main-nav-link {
+        margin: 0.25rem 0;
+        text-align: center;
+    }
+}
+
+/* Sidebar styles for mobile */
+.mobile-sidebar {
+    position: fixed;
+    top: 70px;
+    left: -300px;
+    width: 300px;
+    height: calc(100vh - 70px);
+    background: white;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    transition: left 0.3s ease;
+    z-index: 1040;
+    overflow-y: auto;
+}
+
+.mobile-sidebar.show {
+    left: 0;
+}
+
+.mobile-sidebar-overlay {
+    position: fixed;
+    top: 70px;
+    left: 0;
+    width: 100vw;
+    height: calc(100vh - 70px);
+    background: rgba(0,0,0,0.5);
+    z-index: 1030;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.mobile-sidebar-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.sidebar-header {
+    padding: 1.5rem;
+    background: var(--light-blue);
+    color: var(--primary-blue);
+    font-weight: bold;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.sidebar-nav {
+    padding: 1rem 0;
+}
+
+.sidebar-nav-item {
+    display: block;
+    padding: 0.75rem 1.5rem;
+    color: var(--text-dark);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 3px solid transparent;
+}
+
+.sidebar-nav-item:hover {
+    background-color: var(--light-blue);
+    color: var(--primary-blue);
+    border-left-color: var(--primary-blue);
+    text-decoration: none;
+}
+
+.sidebar-nav-item.active {
+    background-color: var(--primary-blue);
+    color: white;
+    border-left-color: var(--dark-blue);
+}
+
+.sidebar-nav-item i {
+    width: 20px;
+    margin-right: 10px;
+}

@@ -96,7 +96,8 @@ const login = async (req, res) => {
           id: user.id,
           full_name: user.full_name,
           email: user.email,
-          phone: user.phone
+          phone: user.phone,
+          role: user.role
         }
       });
     });

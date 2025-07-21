@@ -4,11 +4,23 @@ const jwt = require('jsonwebtoken');
 const db = require('../config/connections');
 const secretKey = process.env.SECRET_KEY;
 
+// Debug logging
+console.log('🔍 Passport Google Strategy Config:', {
+  clientID: process.env.GOOGLE_CLIENT_ID ? 'Set (' + process.env.GOOGLE_CLIENT_ID.substring(0, 10) + '...)' : 'NOT SET',
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Set' : 'NOT SET',
+  callbackURL: process.env.GOOGLE_CALLBACK_URL
+});
+
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   callbackURL: process.env.GOOGLE_CALLBACK_URL
 }, (accessToken, refreshToken, profile, done) => {
+  console.log('🎯 Google OAuth callback received:', {
+    email: profile.emails[0].value,
+    name: profile.displayName,
+    id: profile.id
+  });
 
   const email = profile.emails[0].value;
   const full_name = profile.displayName;

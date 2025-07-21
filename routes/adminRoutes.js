@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/connections');
 const auth = require('../middleware/auth');
+const scheduleController = require('../controllers/scheduleController');
 
 // Middleware to check if user is admin
 const requireAdmin = (req, res, next) => {
@@ -29,6 +30,50 @@ const requireAdmin = (req, res, next) => {
 // =================
 // DASHBOARD STATS
 // =================
+
+// Main dashboard endpoint
+router.get('/dashboard', requireAdmin, (req, res) => {
+  const queries = [
+    'SELECT COUNT(*) as totalUsers FROM users',
+    'SELECT COUNT(*) as totalAppointments FROM appointments',
+    'SELECT COUNT(*) as todayAppointments FROM appointments WHERE DATE(date) = CURDATE()',
+    'SELECT COUNT(*) as pendingAppointments FROM appointments WHERE status = "pending"'
+  ];
+
+  Promise.all(queries.map(query => {
+    return new Promise((resolve, reject) => {
+      db.query(query, (err, results) => {
+        if (err) reject(err);
+        else resolve(results[0]);
+      });
+    });
+  }))
+  .then(results => {
+    // Get recent appointments
+    db.query(`
+      SELECT id, full_name as name, email, phone, date as appointment_date, 
+             time as appointment_time, status 
+      FROM appointments 
+      ORDER BY created_at DESC 
+      LIMIT 5
+    `, (err, recentAppointments) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      
+      res.json({
+        totalUsers: results[0].totalUsers || 0,
+        totalAppointments: results[1].totalAppointments || 0,
+        todayAppointments: results[2].todayAppointments || 0,
+        pendingAppointments: results[3].pendingAppointments || 0,
+        recentAppointments: recentAppointments || []
+      });
+    });
+  })
+  .catch(err => {
+    console.error('Dashboard error:', err);
+    res.status(500).json({ error: 'Database error' });
+  });
+});
+
 router.get('/dashboard/stats', requireAdmin, (req, res) => {
   const stats = {};
   
@@ -349,5 +394,21 @@ router.put('/settings/:key', requireAdmin, (req, res) => {
     }
   );
 });
+
+// =================
+// SCHEDULE MANAGEMENT
+// =================
+
+// Get business hours
+router.get('/schedule/business-hours', requireAdmin, scheduleController.getBusinessHours);
+
+// Update business hours for a specific day
+router.put('/schedule/business-hours/:day_of_week', requireAdmin, scheduleController.updateBusinessHours);
+
+// Get available time slots for a date
+router.get('/schedule/available-slots/:date', requireAdmin, scheduleController.getAvailableSlots);
+
+// Get clinic statistics (including schedule stats)
+router.get('/schedule/stats', requireAdmin, scheduleController.getClinicStats);
 
 module.exports = router;

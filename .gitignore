@@ -11,6 +11,11 @@ node_modules/
 # Security utilities (contains sensitive output)
 generate-env.js
 
+# Test files
+test-*.js
+oauth-test.html
+create-admin.js
+
 # Logs
 *.log
 npm-debug.log*

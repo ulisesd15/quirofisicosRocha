@@ -1,9 +1,10 @@
 // Auth utility functions
 class AuthManager {
   constructor() {
-    this.token = localStorage.getItem('token');
+    this.token = localStorage.getItem('user_token') || localStorage.getItem('token');
     this.userId = localStorage.getItem('user_id');
     this.userName = localStorage.getItem('user_name');
+    this.userRole = localStorage.getItem('user_role');
   }
 
   // Check if user is logged in
@@ -24,10 +25,13 @@ class AuthManager {
     this.token = token;
     this.userId = user.id;
     this.userName = user.full_name;
+    this.userRole = user.role;
     
-    localStorage.setItem('token', token);
+    localStorage.setItem('user_token', token);
+    localStorage.setItem('token', token); // Keep both for compatibility
     localStorage.setItem('user_id', user.id);
     localStorage.setItem('user_name', user.full_name);
+    localStorage.setItem('user_role', user.role || 'user');
   }
 
   // Clear login data
@@ -35,10 +39,13 @@ class AuthManager {
     this.token = null;
     this.userId = null;
     this.userName = null;
+    this.userRole = null;
     
+    localStorage.removeItem('user_token');
     localStorage.removeItem('token');
     localStorage.removeItem('user_id');
     localStorage.removeItem('user_name');
+    localStorage.removeItem('user_role');
   }
 
   // Get user info
@@ -46,8 +53,29 @@ class AuthManager {
     return {
       id: this.userId,
       name: this.userName,
+      role: this.userRole,
       token: this.token
     };
+  }
+
+  // Check if current user is admin
+  isAdmin() {
+    return this.userRole === 'admin';
+  }
+
+  // Get current user object
+  getCurrentUser() {
+    if (!this.isLoggedIn()) return null;
+    return {
+      id: this.userId,
+      name: this.userName,
+      role: this.userRole
+    };
+  }
+
+  // Get token for API calls
+  getToken() {
+    return this.token;
   }
 
   // Validate token by making an API call
@@ -105,8 +133,14 @@ class AuthManager {
     if (!navItems) return;
 
     if (this.isLoggedIn()) {
+      const adminButton = this.isAdmin() ? 
+        `<li><a href="/adminOptions.html" class="btn btn-warning w-100 mb-2">
+          <i class="fas fa-user-shield"></i> Panel Admin
+        </a></li>` : '';
+      
       navItems.innerHTML = `
         <li><a href="/appointment.html" class="btn btn-outline-primary w-100 mb-2">Agendar Cita</a></li>
+        ${adminButton}
         <li><a href="#" id="logoutBtn" class="btn btn-danger w-100 mb-2">Cerrar Sesión</a></li>
         <li><span class="text-muted small">Hola, ${this.userName || 'Usuario'}</span></li>
       `;

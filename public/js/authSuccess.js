@@ -3,8 +3,11 @@ const params = new URLSearchParams(window.location.search);
 const token = params.get('token');
 
 if (token) {
+    console.log('Token received from Google OAuth:', token.substring(0, 20) + '...');
+    
     // Store token temporarily
-    localStorage.setItem('token', token);
+    localStorage.setItem('user_token', token);
+    localStorage.setItem('token', token); // Keep both for compatibility
     
     // Fetch user profile to get complete user info
     fetch('/api/auth/profile', {
@@ -13,33 +16,45 @@ if (token) {
             'Authorization': `Bearer ${token}`
         }
     })
-    .then(res => res.json())
+    .then(res => {
+        if (!res.ok) {
+            throw new Error('Failed to fetch user profile: ' + res.status);
+        }
+        return res.json();
+    })
     .then(user => {
+        console.log('User profile received:', user);
+        
         // Create user object
         const userObj = {
             id: user.id,
             full_name: user.full_name,
-            email: user.email
+            email: user.email,
+            role: user.role || 'user'
         };
         
         // Use AuthManager to properly store login data
         if (window.authManager) {
             window.authManager.login(token, userObj);
+            console.log('AuthManager login completed');
         } else {
             // Fallback if AuthManager isn't loaded yet
             localStorage.setItem('user_id', user.id);
             localStorage.setItem('user_name', user.full_name);
+            localStorage.setItem('user_role', user.role || 'user');
+            console.log('Fallback storage completed');
         }
         
         alert('Inicio de sesión con Google exitoso');
-        window.location.href = '/appointment.html';
+        window.location.href = '/index.html'; // Redirect to main page instead
     })
     .catch(error => {
         console.error('Error fetching user profile:', error);
-        alert('Error al obtener información del usuario');
+        alert('Error al obtener información del usuario: ' + error.message);
         window.location.href = '/login.html';
     });
 } else {
-    alert('Error al iniciar sesión con Google');
+    console.error('No token received from Google OAuth');
+    alert('Error al iniciar sesión con Google - No se recibió token');
     window.location.href = '/login.html';
 }
