@@ -31,6 +31,8 @@ class AuthManager {
     localStorage.setItem('token', token); // Keep both for compatibility
     localStorage.setItem('user_id', user.id);
     localStorage.setItem('user_name', user.full_name);
+    localStorage.setItem('user_email', user.email);
+    localStorage.setItem('user_phone', user.phone);
     localStorage.setItem('user_role', user.role || 'user');
   }
 
@@ -45,6 +47,8 @@ class AuthManager {
     localStorage.removeItem('token');
     localStorage.removeItem('user_id');
     localStorage.removeItem('user_name');
+    localStorage.removeItem('user_email');
+    localStorage.removeItem('user_phone');
     localStorage.removeItem('user_role');
   }
 
@@ -53,6 +57,18 @@ class AuthManager {
     return {
       id: this.userId,
       name: this.userName,
+      role: this.userRole,
+      token: this.token
+    };
+  }
+
+  // Get user data (alias for getUserInfo for compatibility)
+  getUserData() {
+    return {
+      id: this.userId,
+      name: this.userName,
+      email: localStorage.getItem('user_email'),
+      phone: localStorage.getItem('user_phone'),
       role: this.userRole,
       token: this.token
     };
@@ -92,6 +108,8 @@ class AuthManager {
         // Update user info in case it changed
         this.userName = user.full_name;
         localStorage.setItem('user_name', user.full_name);
+        localStorage.setItem('user_email', user.email);
+        localStorage.setItem('user_phone', user.phone);
         return true;
       } else {
         // Token is invalid, clear storage

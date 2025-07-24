@@ -54,7 +54,18 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
 
     if (res.ok) {
       // Use AuthManager to handle login
-      window.authManager.login(result.token, result.user);
+      if (window.authManager) {
+        window.authManager.login(result.token, result.user);
+      } else {
+        // Fallback: store manually if AuthManager not available
+        localStorage.setItem('user_token', result.token);
+        localStorage.setItem('token', result.token);
+        localStorage.setItem('user_id', result.user.id);
+        localStorage.setItem('user_name', result.user.full_name);
+        localStorage.setItem('user_email', result.user.email);
+        localStorage.setItem('user_phone', result.user.phone);
+        localStorage.setItem('user_role', result.user.role || 'user');
+      }
       document.getElementById('registerMessage').textContent = '';
       document.getElementById('registerMessage').className = 'text-success text-center mb-3';
       document.getElementById('registerMessage').textContent = result.message || 'Registro exitoso';

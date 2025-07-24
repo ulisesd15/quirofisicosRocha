@@ -12,14 +12,7 @@
  */
 
 // ───────── DOM REFERENCES ─────────
-const calendarEl = document.getElementById('calendar');
-const timeCardsEl = document.getElementById('timeCards');
-const bookingForm = document.getElementById('bookingForm');
-const guestFields = document.getElementById('guestFields');
-const menuToggle = document.getElementById('menu_toggle');
-const navItems = document.getElementById('nav-items');
-const selectedDateInput = document.getElementById('selectedDate');
-const selectedTimeInput = document.getElementById('selectedTime');
+let calendarEl, timeCardsEl, bookingForm, guestFields, menuToggle, navItems, selectedDateInput, selectedTimeInput;
 
 const token = localStorage.getItem('token');
 
@@ -44,27 +37,17 @@ const startOfWeek = (offset = 0) => {
   d.setDate(d.getDate() + mondayOffset + (offset * 7));
   return d;
 };
-const periodOf = time => {
-  const [h] = time.split(':').map(Number);
-  return h < 12 ? 'manana' : h < 17 ? 'tarde' : 'noche';
-};
+// Note: periodOf function is defined in enhanced-calendar.js
 
 // ───────── USER LOGIC ─────────
+// Legacy variables - keeping for compatibility
 const userId = localStorage.getItem('user_id');
 let currentUser = null;
 let userDataArray = [];
 let weekOffset = 0, currentDateISO = null;
 
-if (userId) {
-  // Get user ID for appointment booking
-  fetch(`/api/user/${userId}`)
-    .then(res => res.ok ? res.json() : Promise.reject('Error'))
-    .then(user => {
-      currentUser = user;
-      userDataArray = [user.full_name || '', user.email || '', user.phone || ''];
-    })
-    .catch(err => console.error('Error fetching user:', err));
-}
+// Note: User data is now managed by AuthManager in auth.js
+// The above variables are kept for backward compatibility only
 
 // ───────── ENHANCED AVAILABILITY FETCH ─────────
 async function fetchAvailableSlots(dayISO) {
@@ -178,23 +161,11 @@ function getDayOfWeekString(date) {
   return days[date.getDay()];
 }
 
-// Convert 24-hour time to 12-hour AM/PM format
-function formatTimeToAMPM(time24) {
-  const [hours, minutes] = time24.split(':').map(Number);
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hours12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
-}
+// Note: formatTimeToAMPM function is defined in enhanced-calendar.js
 
 // ───────── APPOINTMENTS FETCH ─────────
 async function fetchAppointments(dayISO) {
-  const token = localStorage.getItem('token');
-
-  const res = await fetch(`/api/appointments?date=${dayISO}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-});
+  const res = await fetch(`/api/appointments/date/${dayISO}`);
 
   if (!res.ok) {
     console.error('Error fetching appointments:', await res.text());
@@ -482,65 +453,38 @@ async function loadTimeSlotsForDay(dayISO) {
   }
 }
 
-bookingForm.addEventListener('submit', async e => {
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  const data = {
-    full_name: userDataArray[0] || fd.get('full_name') || '',
-    email: userDataArray[1] || fd.get('email') || '',
-    phone: userDataArray[2] || fd.get('phone') || '',
-    date: fd.get('date'),
-    time: fd.get('time'),
-    note: fd.get('note') || null,
-    user_id: userId || null
-  };
-
-  if (!data.date || !data.time) {
-    console.error('Missing date or time selection');
-    return;
+// Show booking success/error messages to the user
+function showBookingMessage(message, type) {
+  // Remove any existing messages
+  const existingMessage = document.querySelector('.booking-message');
+  if (existingMessage) {
+    existingMessage.remove();
   }
-
-  try {
-    // Prepare headers - only include Authorization if user is logged in
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const res = await fetch('/api/appointments', {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(data)
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error('Server error:', errorText);
-      
-      // Try to parse as JSON for better error messages
-      try {
-        const errorJson = JSON.parse(errorText);
-        console.error('Booking error:', errorJson.message || errorJson.error || 'Error al agendar la cita');
-        return;
-      } catch {
-        console.error('Error al agendar la cita');
-        return;
+  
+  // Create message element
+  const messageDiv = document.createElement('div');
+  messageDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} booking-message`;
+  messageDiv.innerHTML = `
+    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+    ${message}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  `;
+  
+  // Insert message at the top of the form
+  bookingForm.insertBefore(messageDiv, bookingForm.firstChild);
+  
+  // Auto-dismiss success messages after 5 seconds
+  if (type === 'success') {
+    setTimeout(() => {
+      if (messageDiv && messageDiv.parentNode) {
+        messageDiv.remove();
       }
-    }
-
-    const result = await res.json();
-    console.log('Appointment booked successfully:', result.message || 'Cita agendada correctamente');
-    e.target.reset();
-    selectedDateInput.value = '';
-    selectedTimeInput.value = '';
-    currentDateISO = null;
-    timeCardsEl.innerHTML = '';
-    bookingForm.style.display = 'none';
-    renderWeek(); // Refresh the calendar
-  } catch (err) {
-    console.error('Error al agendar la cita:', err);
+    }, 5000);
   }
-});
+  
+  // Scroll to message
+  messageDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
 
 function setupUI() {
   const offcanvas = document.getElementById('sideNav');
@@ -557,7 +501,9 @@ function setupUI() {
     return;
   }
   
-  navItems.innerHTML = userId
+  const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
+  
+  navItems.innerHTML = isLoggedIn
     ? `<li><a href="/index.html" class="btn btn-outline-secondary w-100 mb-2">Inicio</a></li>
        <li><a href="#" id="logoutBtn" class="btn btn-danger w-100 mb-2">Cerrar Sesión</a></li>`
     : `<li><a href="/index.html" class="btn btn-outline-secondary w-100 mb-2">Inicio</a></li>
@@ -566,7 +512,14 @@ function setupUI() {
 
   const logoutBtn = document.getElementById('logoutBtn');
   logoutBtn?.addEventListener('click', () => {
-    localStorage.removeItem('user_id');
+    if (window.authManager) {
+      window.authManager.logout();
+    } else {
+      // Fallback
+      localStorage.removeItem('user_id');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user_token');
+    }
     window.location.href = '/index.html';
   });
 }
@@ -576,12 +529,14 @@ async function initializeAppointmentSystem() {
   try {
     
     // Set up guest fields based on user login status
+    const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
+    
     if (guestFields) {
-      const nameInput = guestFields.querySelector('[name="full_name"]');
+      const nameInput = guestFields.querySelector('[name="name"]');
       const emailInput = guestFields.querySelector('[name="email"]');
       const phoneInput = guestFields.querySelector('[name="phone"]');
 
-      if (!userId) {
+      if (!isLoggedIn) {
         console.log('User not logged in - showing guest fields');
         guestFields.style.display = 'block';
         if (nameInput) nameInput.required = true;
@@ -598,6 +553,10 @@ async function initializeAppointmentSystem() {
     
     // Load business hours from admin panel
     BUSINESS_HOURS = await fetchBusinessHours();
+    
+    // Make business hours available globally for other calendar components
+    window.BUSINESS_HOURS = BUSINESS_HOURS;
+    
     BUSINESS_HOURS.forEach(bh => {
       console.log(`  ${bh.day_of_week}: ${bh.is_open ? 'OPEN' : 'CLOSED'} (${bh.open_time} - ${bh.close_time})`);
     });
@@ -620,13 +579,23 @@ async function initializeAppointmentSystem() {
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
   
+  // Initialize DOM references
+  calendarEl = document.getElementById('calendar');
+  timeCardsEl = document.getElementById('timeCards');
+  bookingForm = document.getElementById('bookingForm');
+  guestFields = document.getElementById('guestFields');
+  menuToggle = document.getElementById('menu_toggle');
+  navItems = document.getElementById('nav-items');
+  selectedDateInput = document.getElementById('selectedDate');
+  selectedTimeInput = document.getElementById('selectedTime');
+  
   // Check if required elements exist
   const requiredElements = {
-    calendarEl: document.getElementById('calendar'),
-    timeCardsEl: document.getElementById('timeCards'),
-    bookingForm: document.getElementById('bookingForm'),
-    selectedDateInput: document.getElementById('selectedDate'),
-    selectedTimeInput: document.getElementById('selectedTime')
+    calendarEl,
+    timeCardsEl,
+    bookingForm,
+    selectedDateInput,
+    selectedTimeInput
   };
   
   console.log('📄 All IDs on page:', 
@@ -646,6 +615,152 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   initializeAppointmentSystem();
+  
+  // Add calendar view switching functionality
+  const weekViewRadio = document.getElementById('weekView');
+  const monthViewRadio = document.getElementById('monthView');
+  const weekViewContainer = document.getElementById('weekViewContainer');
+  const monthViewContainer = document.getElementById('monthViewContainer');
+  
+  if (weekViewRadio && monthViewRadio && weekViewContainer && monthViewContainer) {
+    // Set initial state - week view visible by default
+    weekViewContainer.style.display = 'block';
+    monthViewContainer.style.display = 'none';
+    
+    // Handle week view selection
+    weekViewRadio.addEventListener('change', () => {
+      if (weekViewRadio.checked) {
+        weekViewContainer.style.display = 'block';
+        monthViewContainer.style.display = 'none';
+        
+        // Clear any previous selections
+        document.getElementById('selectedDate').value = '';
+        document.getElementById('selectedTime').value = '';
+        document.getElementById('timeCards').innerHTML = '';
+        
+        // Re-render week calendar
+        renderWeek();
+      }
+    });
+    
+    // Handle month view selection
+    monthViewRadio.addEventListener('change', () => {
+      console.log('📅 Month view radio button changed, checked:', monthViewRadio.checked);
+      if (monthViewRadio.checked) {
+        console.log('🔄 Switching to month view...');
+        weekViewContainer.style.display = 'none';
+        monthViewContainer.style.display = 'block';
+        
+        // Clear any previous selections
+        document.getElementById('selectedDate').value = '';
+        document.getElementById('selectedTime').value = '';
+        document.getElementById('timeCards').innerHTML = '';
+        
+        // Render month calendar if the function is available
+        console.log('🔍 Checking renderMonthlyCalendar function:', typeof window.renderMonthlyCalendar);
+        if (typeof window.renderMonthlyCalendar === 'function') {
+          console.log('✅ Calling window.renderMonthlyCalendar()...');
+          window.renderMonthlyCalendar();
+        } else {
+          console.error('❌ window.renderMonthlyCalendar function not available');
+        }
+      }
+    });
+  }
+  
+  // Add form submission handler
+  if (bookingForm) {
+    bookingForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      
+      // Get user data from auth manager if logged in
+      const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
+      const userData = isLoggedIn ? window.authManager.getUserData() : null;
+      
+      const data = {
+        full_name: userData?.name || fd.get('name') || '',
+        email: userData?.email || fd.get('email') || '',
+        phone: userData?.phone || fd.get('phone') || '',
+        date: fd.get('date'),
+        time: fd.get('time'),
+        note: fd.get('note') || null,
+        user_id: userData?.id || userId || null
+      };
+
+      // Validate required fields
+      if (!data.full_name || !data.email || !data.date || !data.time) {
+        showBookingMessage('Por favor completa todos los campos requeridos', 'error');
+        return;
+      }
+
+      try {
+        // Show loading state
+        const submitButton = bookingForm.querySelector('button[type="submit"]');
+        const originalText = submitButton.innerHTML;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Agendando...';
+        submitButton.disabled = true;
+
+        // Prepare headers - only include Authorization if user is logged in
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const res = await fetch('/api/appointments', {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(data)
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ error: 'Error de conexión' }));
+          showBookingMessage(errorData.message || errorData.error || 'Error al agendar la cita', 'error');
+          return;
+        }
+
+        const result = await res.json();
+        
+        // Show success message
+        showBookingMessage(result.message || 'Cita agendada correctamente', 'success');
+        
+        // Reset form and UI
+        e.target.reset();
+        selectedDateInput.value = '';
+        selectedTimeInput.value = '';
+        currentDateISO = null;
+        
+        // Clear selected time slots and hide form
+        timeCardsEl.innerHTML = '<p class="text-muted">Selecciona una fecha para ver horarios disponibles</p>';
+        
+        // Hide submit button and reset form display
+        submitButton.style.display = 'none';
+        
+        // Refresh the calendar to show updated availability
+        renderWeek();
+        
+        // If monthly calendar is active, refresh it too
+        if (document.getElementById('monthView').checked) {
+          const enhancedCalendar = document.getElementById('monthlyCalendar');
+          if (enhancedCalendar && enhancedCalendar.innerHTML.trim()) {
+            // Re-render monthly calendar to update availability
+            window.renderMonthlyCalendar && window.renderMonthlyCalendar();
+          }
+        }
+        
+      } catch (err) {
+        console.error('Error booking appointment:', err);
+        showBookingMessage('Error de conexión. Por favor intenta nuevamente.', 'error');
+      } finally {
+        // Restore button state
+        const submitButton = bookingForm.querySelector('button[type="submit"]');
+        if (submitButton) {
+          submitButton.innerHTML = originalText;
+          submitButton.disabled = false;
+        }
+      }
+    });
+  }
   
   // Add resize handler
   let resizeTimeout;

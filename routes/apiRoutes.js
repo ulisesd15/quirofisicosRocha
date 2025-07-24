@@ -70,8 +70,18 @@ router.put('/appointments/:id', authenticateToken,(req, res) => {
   );
 });
 
-// Get appointments by date
-router.get('/appointments/date/:date', authenticateToken, (req, res) => {
+// Get appointments by date (public endpoint for checking availability)
+router.get('/appointments/date/:date', (req, res) => {
+  const date = req.params.date;
+  // Only return minimal info needed for availability checking
+  db.query('SELECT time FROM appointments WHERE date = ? AND status IN ("pending", "confirmed")', [date], (err, results) => {
+    if (err) return res.status(500).json(err);
+    res.json(results);
+  });
+});
+
+// Get full appointments by date (admin/authenticated endpoint)
+router.get('/appointments/date/:date/full', authenticateToken, (req, res) => {
   const date = req.params.date;
   db.query('SELECT * FROM appointments WHERE date = ?', [date], (err, results) => {
     if (err) return res.status(500).json(err);

@@ -128,7 +128,7 @@ router.get('/users', requireAdmin, (req, res) => {
   const search = req.query.search || '';
   
   let query = `
-    SELECT id, full_name, email, phone, auth_provider, role, created_at 
+    SELECT id, full_name as name, email, phone, auth_provider as provider, role, created_at 
     FROM users 
     WHERE role = 'user'
   `;
@@ -170,14 +170,39 @@ router.get('/users', requireAdmin, (req, res) => {
   });
 });
 
+// Get single user
+router.get('/users/:id', requireAdmin, (req, res) => {
+  const userId = req.params.id;
+  
+  db.query(
+    'SELECT id, full_name as name, email, phone, auth_provider as provider, role, created_at FROM users WHERE id = ?',
+    [userId], 
+    (err, results) => {
+      if (err) {
+        console.error('Error fetching user:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      if (results.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      res.json({ user: results[0] });
+    }
+  );
+});
+
 // Update user
 router.put('/users/:id', requireAdmin, (req, res) => {
   const userId = req.params.id;
-  const { full_name, email, phone, role } = req.body;
+  const { name, full_name, email, phone, role } = req.body;
+  
+  // Accept both 'name' and 'full_name' for backward compatibility
+  const userName = name || full_name;
   
   db.query(
     'UPDATE users SET full_name = ?, email = ?, phone = ?, role = ? WHERE id = ?',
-    [full_name, email, phone, role, userId],
+    [userName, email, phone, role, userId],
     (err, result) => {
       if (err) {
         if (err.code === 'ER_DUP_ENTRY') {
@@ -226,7 +251,14 @@ router.get('/appointments', requireAdmin, (req, res) => {
   const search = req.query.search || '';
   
   let query = `
-    SELECT a.*, u.full_name as user_name, u.email as user_email
+    SELECT a.*, 
+           COALESCE(a.full_name, u.full_name) as name,
+           COALESCE(a.email, u.email) as email,
+           COALESCE(a.phone, u.phone) as phone,
+           a.date as appointment_date,
+           a.time as appointment_time,
+           u.full_name as user_name, 
+           u.email as user_email
     FROM appointments a
     LEFT JOIN users u ON a.user_id = u.id
     WHERE 1=1
@@ -311,14 +343,47 @@ router.get('/appointments', requireAdmin, (req, res) => {
   });
 });
 
+// Get single appointment
+router.get('/appointments/:id', requireAdmin, (req, res) => {
+  const appointmentId = req.params.id;
+  
+  db.query(`
+    SELECT a.*, 
+           COALESCE(a.full_name, u.full_name) as name,
+           COALESCE(a.email, u.email) as email,
+           COALESCE(a.phone, u.phone) as phone,
+           a.date as appointment_date,
+           a.time as appointment_time,
+           u.full_name as user_name, 
+           u.email as user_email
+    FROM appointments a
+    LEFT JOIN users u ON a.user_id = u.id
+    WHERE a.id = ?
+  `, [appointmentId], (err, results) => {
+    if (err) {
+      console.error('Error fetching appointment:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+    
+    res.json({ appointment: results[0] });
+  });
+});
+
 // Update appointment
 router.put('/appointments/:id', requireAdmin, (req, res) => {
   const appointmentId = req.params.id;
-  const { full_name, email, phone, date, time, note, status } = req.body;
+  const { name, full_name, email, phone, date, time, note, status } = req.body;
+  
+  // Accept both 'name' and 'full_name' for backward compatibility
+  const appointmentName = name || full_name;
   
   db.query(
     'UPDATE appointments SET full_name = ?, email = ?, phone = ?, date = ?, time = ?, note = ?, status = ? WHERE id = ?',
-    [full_name, email, phone, date, time, note, status, appointmentId],
+    [appointmentName, email, phone, date, time, note, status, appointmentId],
     (err, result) => {
       if (err) return res.status(500).json({ error: 'Database error' });
       
