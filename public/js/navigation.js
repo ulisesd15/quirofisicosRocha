@@ -92,8 +92,8 @@ class NavigationManager {
     }
 
     getAuthNavItem() {
-        if (window.authManager && window.authManager.isAuthenticated()) {
-            const user = window.authManager.getUser();
+        if (window.authManager && typeof window.authManager.isLoggedIn === 'function' && window.authManager.isLoggedIn()) {
+            const user = window.authManager.getCurrentUser();
             const isAdmin = window.authManager.isAdmin();
             
             return `
@@ -128,8 +128,8 @@ class NavigationManager {
     }
 
     getMobileAuthItems() {
-        if (window.authManager && window.authManager.isAuthenticated()) {
-            const user = window.authManager.getUser();
+        if (window.authManager && typeof window.authManager.isLoggedIn === 'function' && window.authManager.isLoggedIn()) {
+            const user = window.authManager.getCurrentUser();
             const isAdmin = window.authManager.isAdmin();
             
             return `

@@ -4,6 +4,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const authenticateToken = require('../middleware/auth'); // Adjust the path as necessary
+const scheduleController = require('../controllers/scheduleController');
 const secretKey = process.env.SECRET_KEY;
 
 // Get Google Maps API key for frontend
@@ -21,8 +22,8 @@ router.get('/appointments', authenticateToken, (req, res) => {
   });
 }); 
 
-// Create new appointment
-router.post('/appointments', authenticateToken, (req, res) => {
+// Create new appointment (allow both authenticated and guest users)
+router.post('/appointments', (req, res) => {
   let { full_name, email, phone, date, time, note, user_id } = req.body;
 
   // Normalize empty user_id to null
@@ -33,14 +34,27 @@ router.post('/appointments', authenticateToken, (req, res) => {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-  const appointmentData = { full_name, email, phone, date, time, note, user_id };
-
-  db.query('INSERT INTO appointments SET ?', appointmentData, (err, result) => {
+  // Check if the time slot is already taken
+  db.query('SELECT id FROM appointments WHERE date = ? AND time = ? AND status IN ("pending", "confirmed")', 
+    [date, time], (err, existing) => {
     if (err) {
-      console.error('Error inserting appointment:', err);
-      return res.status(500).json({ error: 'Database error', details: err });
+      console.error('Error checking existing appointments:', err);
+      return res.status(500).json({ error: 'Database error checking availability' });
     }
-    res.json({ message: 'Appointment created', id: result.insertId });
+
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'Time slot already taken', message: 'Este horario ya está ocupado' });
+    }
+
+    const appointmentData = { full_name, email, phone, date, time, note, user_id, status: 'pending' };
+
+    db.query('INSERT INTO appointments SET ?', appointmentData, (err, result) => {
+      if (err) {
+        console.error('Error inserting appointment:', err);
+        return res.status(500).json({ error: 'Database error', details: err });
+      }
+      res.json({ message: 'Cita agendada correctamente', id: result.insertId });
+    });
   });
 });
 
@@ -249,7 +263,7 @@ router.put('/registered_users/:id', (req, res) => {
 
   db.query(
     'UPDATE users SET full_name = ?, email = ?, phone = ? WHERE id = ?',
-    [full_name, email, phone, userId],
+    [full_name, email, email, phone, userId],
     (err, results) => {
       if (err) {
         console.error("Error al actualizar el usuario:", err);
@@ -259,5 +273,46 @@ router.put('/registered_users/:id', (req, res) => {
     }
   );
 });
+
+// Get business hours for appointment booking
+router.get('/business-hours', (req, res) => {
+  db.query('SELECT * FROM business_hours ORDER BY FIELD(day_of_week, "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")', (err, results) => {
+    if (err) {
+      console.error('Error fetching business hours:', err);
+      // Return default business hours if database query fails
+      return res.json({
+        businessHours: [
+          { day_of_week: 'monday', is_open: true, open_time: '09:00', close_time: '18:00' },
+          { day_of_week: 'tuesday', is_open: true, open_time: '09:00', close_time: '18:00' },
+          { day_of_week: 'wednesday', is_open: true, open_time: '09:00', close_time: '18:00' },
+          { day_of_week: 'thursday', is_open: true, open_time: '09:00', close_time: '18:00' },
+          { day_of_week: 'friday', is_open: true, open_time: '09:00', close_time: '18:00' },
+          { day_of_week: 'saturday', is_open: false, open_time: '09:00', close_time: '18:00' },
+          { day_of_week: 'sunday', is_open: false, open_time: '09:00', close_time: '18:00' }
+        ]
+      });
+    }
+    
+    // If no business hours are set, return defaults
+    if (results.length === 0) {
+      return res.json({
+        businessHours: [
+          { day_of_week: 'monday', is_open: true, open_time: '09:00', close_time: '18:00' },
+          { day_of_week: 'tuesday', is_open: true, open_time: '09:00', close_time: '18:00' },
+          { day_of_week: 'wednesday', is_open: true, open_time: '09:00', close_time: '18:00' },
+          { day_of_week: 'thursday', is_open: true, open_time: '09:00', close_time: '18:00' },
+          { day_of_week: 'friday', is_open: true, open_time: '09:00', close_time: '18:00' },
+          { day_of_week: 'saturday', is_open: false, open_time: '09:00', close_time: '18:00' },
+          { day_of_week: 'sunday', is_open: false, open_time: '09:00', close_time: '18:00' }
+        ]
+      });
+    }
+    
+    res.json({ businessHours: results });
+  });
+});
+
+// Get available slots for appointment booking (public endpoint with admin restrictions)
+router.get('/available-slots/:date', scheduleController.getAvailableSlots);
 
 module.exports = router;

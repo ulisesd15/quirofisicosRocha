@@ -221,6 +221,8 @@ router.get('/appointments', requireAdmin, (req, res) => {
   const offset = (page - 1) * limit;
   const status = req.query.status || '';
   const date = req.query.date || '';
+  const start_date = req.query.start_date || '';
+  const end_date = req.query.end_date || '';
   const search = req.query.search || '';
   
   let query = `
@@ -239,6 +241,17 @@ router.get('/appointments', requireAdmin, (req, res) => {
   if (date) {
     query += ` AND DATE(a.date) = ?`;
     params.push(date);
+  }
+  
+  if (start_date && end_date) {
+    query += ` AND DATE(a.date) BETWEEN ? AND ?`;
+    params.push(start_date, end_date);
+  } else if (start_date) {
+    query += ` AND DATE(a.date) >= ?`;
+    params.push(start_date);
+  } else if (end_date) {
+    query += ` AND DATE(a.date) <= ?`;
+    params.push(end_date);
   }
   
   if (search) {
@@ -264,6 +277,17 @@ router.get('/appointments', requireAdmin, (req, res) => {
     if (date) {
       countQuery += ` AND DATE(a.date) = ?`;
       countParams.push(date);
+    }
+    
+    if (start_date && end_date) {
+      countQuery += ` AND DATE(a.date) BETWEEN ? AND ?`;
+      countParams.push(start_date, end_date);
+    } else if (start_date) {
+      countQuery += ` AND DATE(a.date) >= ?`;
+      countParams.push(start_date);
+    } else if (end_date) {
+      countQuery += ` AND DATE(a.date) <= ?`;
+      countParams.push(end_date);
     }
     
     if (search) {
@@ -354,6 +378,60 @@ router.put('/business-hours/:id', requireAdmin, (req, res) => {
   );
 });
 
+// Bulk update business hours
+router.put('/business-hours', requireAdmin, (req, res) => {
+  const { businessHours } = req.body;
+  
+  if (!businessHours || !Array.isArray(businessHours)) {
+    return res.status(400).json({ error: 'Invalid business hours data' });
+  }
+
+  const updatePromises = businessHours.map(hours => {
+    return new Promise((resolve, reject) => {
+      // First, find the ID for this day
+      db.query(
+        'SELECT id FROM business_hours WHERE LOWER(day_of_week) = LOWER(?)',
+        [hours.day_of_week],
+        (err, results) => {
+          if (err) return reject(err);
+          
+          if (results.length === 0) {
+            // Insert new record if day doesn't exist
+            db.query(
+              'INSERT INTO business_hours (day_of_week, is_open, open_time, close_time, break_start, break_end) VALUES (?, ?, ?, ?, ?, ?)',
+              [hours.day_of_week, hours.is_open, hours.open_time, hours.close_time, hours.break_start || null, hours.break_end || null],
+              (insertErr, insertResult) => {
+                if (insertErr) return reject(insertErr);
+                resolve(insertResult);
+              }
+            );
+          } else {
+            // Update existing record
+            const id = results[0].id;
+            db.query(
+              'UPDATE business_hours SET is_open = ?, open_time = ?, close_time = ?, break_start = ?, break_end = ?, updated_at = NOW() WHERE id = ?',
+              [hours.is_open, hours.open_time, hours.close_time, hours.break_start || null, hours.break_end || null, id],
+              (updateErr, updateResult) => {
+                if (updateErr) return reject(updateErr);
+                resolve(updateResult);
+              }
+            );
+          }
+        }
+      );
+    });
+  });
+
+  Promise.all(updatePromises)
+    .then(() => {
+      res.json({ message: 'Business hours updated successfully' });
+    })
+    .catch(err => {
+      console.error('Error updating business hours:', err);
+      res.status(500).json({ error: 'Database error updating business hours' });
+    });
+});
+
 // =================
 // CLINIC SETTINGS MANAGEMENT
 // =================
@@ -410,5 +488,52 @@ router.get('/schedule/available-slots/:date', requireAdmin, scheduleController.g
 
 // Get clinic statistics (including schedule stats)
 router.get('/schedule/stats', requireAdmin, scheduleController.getClinicStats);
+
+// =================
+// ENHANCED SCHEDULE MANAGEMENT
+// =================
+
+// Scheduled Closures
+router.get('/schedule/closures', requireAdmin, scheduleController.getScheduledClosures);
+router.post('/schedule/closures', requireAdmin, scheduleController.addScheduledClosure);
+router.delete('/schedule/closures/:id', requireAdmin, scheduleController.deleteScheduledClosure);
+
+// Schedule Overrides
+router.get('/schedule/overrides', requireAdmin, scheduleController.getScheduleOverrides);
+router.post('/schedule/overrides', requireAdmin, scheduleController.addScheduleOverride);
+router.delete('/schedule/overrides/:id', requireAdmin, scheduleController.deleteScheduleOverride);
+
+// Blocked Time Slots
+router.get('/schedule/blocked-slots', requireAdmin, scheduleController.getBlockedTimeSlots);
+router.post('/schedule/blocked-slots', requireAdmin, scheduleController.addBlockedTimeSlot);
+router.delete('/schedule/blocked-slots/:id', requireAdmin, scheduleController.deleteBlockedTimeSlot);
+
+// =================
+// BUSINESS DAYS MANAGEMENT
+// =================
+router.get('/schedule/business-days', requireAdmin, scheduleController.getBusinessDaysConfig);
+router.put('/schedule/business-days', requireAdmin, scheduleController.updateBusinessDaysConfig);
+
+// Week Exceptions
+router.get('/schedule/week-exceptions', requireAdmin, scheduleController.getWeekExceptions);
+router.post('/schedule/week-exceptions', requireAdmin, scheduleController.addWeekException);
+router.delete('/schedule/week-exceptions/:id', requireAdmin, scheduleController.deleteWeekException);
+
+// =================
+// USER APPROVAL SYSTEM
+// =================
+router.get('/approval/settings', requireAdmin, scheduleController.getApprovalSettings);
+router.put('/approval/settings', requireAdmin, scheduleController.updateApprovalSettings);
+router.get('/approval/pending-users', requireAdmin, scheduleController.getPendingUsers);
+router.post('/approval/users/:id/approve', requireAdmin, scheduleController.approveUser);
+router.post('/approval/users/:id/reject', requireAdmin, scheduleController.rejectUser);
+
+// =================
+// ANNOUNCEMENTS MANAGEMENT
+// =================
+router.get('/announcements', requireAdmin, scheduleController.getAnnouncements);
+router.post('/announcements', requireAdmin, scheduleController.addAnnouncement);
+router.put('/announcements/:id', requireAdmin, scheduleController.updateAnnouncement);
+router.delete('/announcements/:id', requireAdmin, scheduleController.deleteAnnouncement);
 
 module.exports = router;

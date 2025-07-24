@@ -36,7 +36,7 @@ document.getElementById('quickAdminLogin').addEventListener('click', async () =>
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 email: 'admin@quirofisicosrocha.com', 
-                password: 'admin123' 
+                password: 'Password123!' 
             })
         });
         

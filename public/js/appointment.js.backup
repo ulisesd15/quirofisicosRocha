@@ -56,7 +56,7 @@ let userDataArray = [];
 let weekOffset = 0, currentDateISO = null;
 
 if (userId) {
-  // Get user ID for appointment booking
+  console.log('User ID:', userId);
   fetch(`/api/user/${userId}`)
     .then(res => res.ok ? res.json() : Promise.reject('Error'))
     .then(user => {
@@ -109,7 +109,7 @@ async function fetchBasicAvailability(dayISO) {
 // ───────── BUSINESS HOURS FETCH ─────────
 async function fetchBusinessHours() {
   try {
-    // Fetch business hours from API
+    console.log('Fetching business hours...');
     const response = await fetch('/api/business-hours');
     if (!response.ok) {
       console.error('Error fetching business hours, using defaults');
@@ -117,7 +117,7 @@ async function fetchBusinessHours() {
     }
     
     const data = await response.json();
-    // Process business hours data
+    console.log('Raw business hours data:', data);
     
     // Convert day_of_week to lowercase and normalize time format
     const businessHours = data.businessHours.map(bh => ({
@@ -129,7 +129,7 @@ async function fetchBusinessHours() {
       break_end: bh.break_end ? bh.break_end.substring(0, 5) : null
     }));
     
-    // Business hours loaded successfully
+    console.log('Processed business hours:', businessHours);
     return businessHours || getDefaultBusinessHours();
   } catch (error) {
     console.error('Error fetching business hours:', error);
@@ -206,6 +206,7 @@ async function fetchAppointments(dayISO) {
 }
 
 function renderWeek() {
+  console.log('🗓️ renderWeek called with offset:', weekOffset);
   
   if (!calendarEl) {
     console.error('❌ Calendar element not found!');
@@ -240,6 +241,7 @@ function renderWeek() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    console.log('📅 Rendering week starting:', startDate.toDateString());
     
     // Generate 7 days with enhanced styling
     for (let i = 0; i < 7; i++) {
@@ -320,6 +322,7 @@ function renderWeek() {
       renderWeek();
     });
     
+    console.log('✅ Calendar week rendered successfully');
   } catch (error) {
     console.error('❌ Error rendering calendar week:', error);
     calendarEl.innerHTML = '<div class="alert alert-danger">Error loading calendar</div>';
@@ -366,10 +369,14 @@ function updateDaySelection() {
 
 // Function to load time slots for a selected day
 async function loadTimeSlotsForDay(dayISO) {
+  console.log('🔍 Loading time slots for:', dayISO);
   
   // Parse the date and get day info
   const selectedDate = new Date(dayISO);
   const dayOfWeek = getDayOfWeekString(selectedDate);
+  console.log('📅 Parsed date:', selectedDate.toDateString());
+  console.log('📅 Day of week:', dayOfWeek);
+  console.log('📅 Day index:', selectedDate.getDay());
   
   // Show loading message
   timeCardsEl.innerHTML = '<div class="col-12 text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
@@ -381,6 +388,7 @@ async function loadTimeSlotsForDay(dayISO) {
 
     if (availableSlots.length === 0) {
       const businessDay = BUSINESS_HOURS.find(bh => bh.day_of_week === dayOfWeek);
+      console.log('🏢 Business day found:', businessDay);
       
       let message = 'Sin horarios disponibles para este día';
       if (!businessDay || !businessDay.is_open) {
@@ -553,6 +561,7 @@ function setupUI() {
   }
 
   if (!navItems) {
+    console.log('ℹ️ navItems not found, skipping navigation setup');
     return;
   }
   
@@ -573,6 +582,7 @@ function setupUI() {
 // ───────── INITIALIZATION ─────────
 async function initializeAppointmentSystem() {
   try {
+    console.log('🚀 Initializing appointment system...');
     
     // Set up guest fields based on user login status
     if (guestFields) {
@@ -597,6 +607,8 @@ async function initializeAppointmentSystem() {
     
     // Load business hours from admin panel
     BUSINESS_HOURS = await fetchBusinessHours();
+    console.log('✅ Business hours loaded:', BUSINESS_HOURS);
+    console.log('📋 Business hours details:');
     BUSINESS_HOURS.forEach(bh => {
       console.log(`  ${bh.day_of_week}: ${bh.is_open ? 'OPEN' : 'CLOSED'} (${bh.open_time} - ${bh.close_time})`);
     });
@@ -607,6 +619,7 @@ async function initializeAppointmentSystem() {
     // Set up UI
     setupUI();
     
+    console.log('✅ Appointment system initialized successfully');
   } catch (error) {
     console.error('❌ Error initializing appointment system:', error);
     // Fallback to default business hours
@@ -618,6 +631,7 @@ async function initializeAppointmentSystem() {
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('🚀 DOM Content Loaded - Starting initialization...');
   
   // Check if required elements exist
   const requiredElements = {
@@ -628,6 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedTimeInput: document.getElementById('selectedTime')
   };
   
+  console.log('🔍 Required elements check:', requiredElements);
   console.log('📄 All IDs on page:', 
     Array.from(document.querySelectorAll('[id]')).map(el => el.id)
   );
@@ -640,10 +655,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (missingElements.length > 0) {
     console.error('❌ Missing required elements:', missingElements);
     // Try to find elements with different selectors
+    console.log('🔍 Searching for alternative selectors...');
     console.log('Calendar alternatives:', document.querySelector('#calendar, .calendar, [class*="calendar"]'));
     return;
   }
   
+  console.log('✅ All required elements found');
   initializeAppointmentSystem();
   
   // Add resize handler
