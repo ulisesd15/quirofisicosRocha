@@ -188,13 +188,7 @@ function formatTimeToAMPM(time24) {
 
 // ───────── APPOINTMENTS FETCH ─────────
 async function fetchAppointments(dayISO) {
-  const token = localStorage.getItem('token');
-
-  const res = await fetch(`/api/appointments?date=${dayISO}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-});
+  const res = await fetch(`/api/appointments/date/${dayISO}`);
 
   if (!res.ok) {
     console.error('Error fetching appointments:', await res.text());
