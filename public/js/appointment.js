@@ -477,17 +477,6 @@ bookingForm.addEventListener('submit', async e => {
   const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
   const userData = isLoggedIn ? window.authManager.getUserData() : null;
   
-  // Debug logging
-  console.log('🔍 Appointment booking debug:');
-  console.log('  isLoggedIn:', isLoggedIn);
-  console.log('  userData:', userData);
-  console.log('  form data name:', fd.get('name'));
-  console.log('  form data email:', fd.get('email'));
-  console.log('  form data phone:', fd.get('phone'));
-  console.log('  localStorage user_email:', localStorage.getItem('user_email'));
-  console.log('  localStorage user_phone:', localStorage.getItem('user_phone'));
-  console.log('  localStorage user_name:', localStorage.getItem('user_name'));
-  
   const data = {
     full_name: userData?.name || fd.get('name') || '',
     email: userData?.email || fd.get('email') || '',
@@ -498,11 +487,8 @@ bookingForm.addEventListener('submit', async e => {
     user_id: userData?.id || userId || null
   };
 
-  console.log('  Final appointment data:', data);
-
   // Validate required fields
   if (!data.full_name || !data.email || !data.date || !data.time) {
-    console.log('  ❌ Validation failed - missing required fields');
     showBookingMessage('Por favor completa todos los campos requeridos', 'error');
     return;
   }
@@ -651,7 +637,6 @@ async function initializeAppointmentSystem() {
     
     // Set up guest fields based on user login status
     const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
-    console.log('🔍 Initializing appointment system - isLoggedIn:', isLoggedIn);
     
     if (guestFields) {
       const nameInput = guestFields.querySelector('[name="name"]');

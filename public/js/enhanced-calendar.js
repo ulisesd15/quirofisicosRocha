@@ -8,8 +8,12 @@
  * - Next available date navigation
  * - Color-coded day indicators
  * - Responsive design for all devices
- * - Integration with business hours API
- */
+ * - Integration with business hours           <p><strong>Sin disponibilidad hasta ${nextAvailable.toLocaleDateString('es-ES', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          })}</strong></p>/
 
 // Enhanced Monthly Calendar Appointment System
 /**
@@ -26,15 +30,29 @@ let availabilityCache = new Map();
 
 // Helper functions
 const monthNames = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
 
-const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const dayNames = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'];
 const fullDayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
 const formatDate = (date) => {
   return date.toISOString().split('T')[0];
+};
+
+// Convert 24-hour time to 12-hour AM/PM format
+const formatTimeToAMPM = (time24) => {
+  const [hours, minutes] = time24.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hours12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+};
+
+// Determine time period for grouping (using same logic as weekly calendar)
+const periodOf = (time) => {
+  const [h] = time.split(':').map(Number);
+  return h < 12 ? 'manana' : h < 17 ? 'tarde' : 'noche';
 };
 
 const isToday = (date) => {
@@ -433,37 +451,39 @@ async function loadTimeSlots(date) {
       timeSlotsContainer.innerHTML = `
         <div class="col-12">
           <div class="alert alert-warning text-center">
-            No available time slots for ${date.toLocaleDateString()}
+            Sin horarios disponibles para ${date.toLocaleDateString('es-ES')}
           </div>
         </div>
       `;
       return;
     }
     
-    // Group slots by period
-    const periods = { morning: [], afternoon: [], evening: [] };
+    // Group slots by period (using same logic as weekly calendar)
+    const sections = { manana: [], tarde: [], noche: [] };
     
     slots.forEach(time => {
-      const hour = parseInt(time.split(':')[0]);
-      if (hour < 12) periods.morning.push(time);
-      else if (hour < 18) periods.afternoon.push(time);
-      else periods.evening.push(time);
+      sections[periodOf(time)].push(time);
     });
-    
-    // Render time periods
-    Object.entries(periods).forEach(([period, times]) => {
+
+    // Spanish period labels (matching weekly calendar)
+    const periodLabels = {
+      'manana': 'Mañana',
+      'tarde': 'Tarde', 
+      'noche': 'Noche'
+    };
+
+    // Render time periods (using same structure as weekly calendar)
+    Object.entries(sections).forEach(([period, times]) => {
       if (times.length === 0) return;
       
-      const periodNames = {
-        morning: 'Mañana',
-        afternoon: 'Tarde', 
-        evening: 'Noche'
-      };
-      
-      const periodHeader = document.createElement('div');
-      periodHeader.className = 'col-12 mt-3 mb-2';
-      periodHeader.innerHTML = `<h6>${periodNames[period]}</h6>`;
+      const periodHeader = document.createElement('h6');
+      periodHeader.className = 'time-period-header mt-3 mb-2';
+      periodHeader.textContent = periodLabels[period];
       timeSlotsContainer.appendChild(periodHeader);
+      
+      const row = document.createElement('div');
+      row.className = 'row g-2';
+      timeSlotsContainer.appendChild(row);
       
       times.forEach(time => {
         const col = document.createElement('div');
@@ -471,12 +491,16 @@ async function loadTimeSlots(date) {
         
         const btn = document.createElement('button');
         btn.type = 'button'; // Prevent form submission
-        btn.className = 'btn btn-outline-primary time-slot-btn w-100';
-        btn.textContent = time;
+        btn.className = 'btn btn-outline-primary time-slot-btn';
+        btn.textContent = formatTimeToAMPM(time); // Display in AM/PM format
+        
+        // Store the 24-hour format as data attribute for form submission
+        btn.dataset.time24 = time;
+        
         btn.addEventListener('click', () => selectTimeSlot(time, btn));
         
         col.appendChild(btn);
-        timeSlotsContainer.appendChild(col);
+        row.appendChild(col);
       });
     });
     
@@ -491,7 +515,7 @@ async function loadTimeSlots(date) {
     timeSlotsContainer.innerHTML = `
       <div class="col-12">
         <div class="alert alert-danger text-center">
-          Error loading time slots
+          Error cargando horarios disponibles
         </div>
       </div>
     `;
