@@ -50,21 +50,14 @@ const periodOf = time => {
 };
 
 // ───────── USER LOGIC ─────────
+// Legacy variables - keeping for compatibility
 const userId = localStorage.getItem('user_id');
 let currentUser = null;
 let userDataArray = [];
 let weekOffset = 0, currentDateISO = null;
 
-if (userId) {
-  // Get user ID for appointment booking
-  fetch(`/api/user/${userId}`)
-    .then(res => res.ok ? res.json() : Promise.reject('Error'))
-    .then(user => {
-      currentUser = user;
-      userDataArray = [user.full_name || '', user.email || '', user.phone || ''];
-    })
-    .catch(err => console.error('Error fetching user:', err));
-}
+// Note: User data is now managed by AuthManager in auth.js
+// The above variables are kept for backward compatibility only
 
 // ───────── ENHANCED AVAILABILITY FETCH ─────────
 async function fetchAvailableSlots(dayISO) {
@@ -484,6 +477,17 @@ bookingForm.addEventListener('submit', async e => {
   const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
   const userData = isLoggedIn ? window.authManager.getUserData() : null;
   
+  // Debug logging
+  console.log('🔍 Appointment booking debug:');
+  console.log('  isLoggedIn:', isLoggedIn);
+  console.log('  userData:', userData);
+  console.log('  form data name:', fd.get('name'));
+  console.log('  form data email:', fd.get('email'));
+  console.log('  form data phone:', fd.get('phone'));
+  console.log('  localStorage user_email:', localStorage.getItem('user_email'));
+  console.log('  localStorage user_phone:', localStorage.getItem('user_phone'));
+  console.log('  localStorage user_name:', localStorage.getItem('user_name'));
+  
   const data = {
     full_name: userData?.name || fd.get('name') || '',
     email: userData?.email || fd.get('email') || '',
@@ -494,8 +498,11 @@ bookingForm.addEventListener('submit', async e => {
     user_id: userData?.id || userId || null
   };
 
+  console.log('  Final appointment data:', data);
+
   // Validate required fields
   if (!data.full_name || !data.email || !data.date || !data.time) {
+    console.log('  ❌ Validation failed - missing required fields');
     showBookingMessage('Por favor completa todos los campos requeridos', 'error');
     return;
   }
@@ -615,7 +622,9 @@ function setupUI() {
     return;
   }
   
-  navItems.innerHTML = userId
+  const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
+  
+  navItems.innerHTML = isLoggedIn
     ? `<li><a href="/index.html" class="btn btn-outline-secondary w-100 mb-2">Inicio</a></li>
        <li><a href="#" id="logoutBtn" class="btn btn-danger w-100 mb-2">Cerrar Sesión</a></li>`
     : `<li><a href="/index.html" class="btn btn-outline-secondary w-100 mb-2">Inicio</a></li>
@@ -624,7 +633,14 @@ function setupUI() {
 
   const logoutBtn = document.getElementById('logoutBtn');
   logoutBtn?.addEventListener('click', () => {
-    localStorage.removeItem('user_id');
+    if (window.authManager) {
+      window.authManager.logout();
+    } else {
+      // Fallback
+      localStorage.removeItem('user_id');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user_token');
+    }
     window.location.href = '/index.html';
   });
 }
@@ -634,12 +650,15 @@ async function initializeAppointmentSystem() {
   try {
     
     // Set up guest fields based on user login status
+    const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
+    console.log('🔍 Initializing appointment system - isLoggedIn:', isLoggedIn);
+    
     if (guestFields) {
-      const nameInput = guestFields.querySelector('[name="full_name"]');
+      const nameInput = guestFields.querySelector('[name="name"]');
       const emailInput = guestFields.querySelector('[name="email"]');
       const phoneInput = guestFields.querySelector('[name="phone"]');
 
-      if (!userId) {
+      if (!isLoggedIn) {
         console.log('User not logged in - showing guest fields');
         guestFields.style.display = 'block';
         if (nameInput) nameInput.required = true;
