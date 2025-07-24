@@ -12,14 +12,7 @@
  */
 
 // ───────── DOM REFERENCES ─────────
-const calendarEl = document.getElementById('calendar');
-const timeCardsEl = document.getElementById('timeCards');
-const bookingForm = document.getElementById('bookingForm');
-const guestFields = document.getElementById('guestFields');
-const menuToggle = document.getElementById('menu_toggle');
-const navItems = document.getElementById('nav-items');
-const selectedDateInput = document.getElementById('selectedDate');
-const selectedTimeInput = document.getElementById('selectedTime');
+let calendarEl, timeCardsEl, bookingForm, guestFields, menuToggle, navItems, selectedDateInput, selectedTimeInput;
 
 const token = localStorage.getItem('token');
 
@@ -44,10 +37,7 @@ const startOfWeek = (offset = 0) => {
   d.setDate(d.getDate() + mondayOffset + (offset * 7));
   return d;
 };
-const periodOf = time => {
-  const [h] = time.split(':').map(Number);
-  return h < 12 ? 'manana' : h < 17 ? 'tarde' : 'noche';
-};
+// Note: periodOf function is defined in enhanced-calendar.js
 
 // ───────── USER LOGIC ─────────
 // Legacy variables - keeping for compatibility
@@ -171,16 +161,7 @@ function getDayOfWeekString(date) {
   return days[date.getDay()];
 }
 
-// Convert 24-hour time to 12-hour AM/PM format
-function formatTimeToAMPM(time24) {
-  const [hours, minutes] = time24.split(':').map(Number);
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hours12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
-}
-
-// Export to window for use by other calendar scripts
-window.formatTimeToAMPM = formatTimeToAMPM;
+// Note: formatTimeToAMPM function is defined in enhanced-calendar.js
 
 // ───────── APPOINTMENTS FETCH ─────────
 async function fetchAppointments(dayISO) {
@@ -472,97 +453,6 @@ async function loadTimeSlotsForDay(dayISO) {
   }
 }
 
-bookingForm.addEventListener('submit', async e => {
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  
-  // Get user data from auth manager if logged in
-  const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
-  const userData = isLoggedIn ? window.authManager.getUserData() : null;
-  
-  const data = {
-    full_name: userData?.name || fd.get('name') || '',
-    email: userData?.email || fd.get('email') || '',
-    phone: userData?.phone || fd.get('phone') || '',
-    date: fd.get('date'),
-    time: fd.get('time'),
-    note: fd.get('note') || null,
-    user_id: userData?.id || userId || null
-  };
-
-  // Validate required fields
-  if (!data.full_name || !data.email || !data.date || !data.time) {
-    showBookingMessage('Por favor completa todos los campos requeridos', 'error');
-    return;
-  }
-
-  try {
-    // Show loading state
-    const submitButton = bookingForm.querySelector('button[type="submit"]');
-    const originalText = submitButton.innerHTML;
-    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Agendando...';
-    submitButton.disabled = true;
-
-    // Prepare headers - only include Authorization if user is logged in
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const res = await fetch('/api/appointments', {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(data)
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({ error: 'Error de conexión' }));
-      showBookingMessage(errorData.message || errorData.error || 'Error al agendar la cita', 'error');
-      return;
-    }
-
-    const result = await res.json();
-    
-    // Show success message
-    showBookingMessage(result.message || 'Cita agendada correctamente', 'success');
-    
-    // Reset form and UI
-    e.target.reset();
-    selectedDateInput.value = '';
-    selectedTimeInput.value = '';
-    currentDateISO = null;
-    
-    // Clear selected time slots and hide form
-    timeCardsEl.innerHTML = '<p class="text-muted">Selecciona una fecha para ver horarios disponibles</p>';
-    
-    // Hide submit button and reset form display
-    submitButton.style.display = 'none';
-    
-    // Refresh the calendar to show updated availability
-    renderWeek();
-    
-    // If monthly calendar is active, refresh it too
-    if (document.getElementById('monthView').checked) {
-      const enhancedCalendar = document.getElementById('monthlyCalendar');
-      if (enhancedCalendar && enhancedCalendar.innerHTML.trim()) {
-        // Re-render monthly calendar to update availability
-        window.renderMonthlyCalendar && window.renderMonthlyCalendar();
-      }
-    }
-    
-  } catch (err) {
-    console.error('Error booking appointment:', err);
-    showBookingMessage('Error de conexión. Por favor intenta nuevamente.', 'error');
-  } finally {
-    // Restore button state
-    const submitButton = bookingForm.querySelector('button[type="submit"]');
-    if (submitButton) {
-      submitButton.innerHTML = originalText;
-      submitButton.disabled = false;
-    }
-  }
-});
-
 // Show booking success/error messages to the user
 function showBookingMessage(message, type) {
   // Remove any existing messages
@@ -663,6 +553,10 @@ async function initializeAppointmentSystem() {
     
     // Load business hours from admin panel
     BUSINESS_HOURS = await fetchBusinessHours();
+    
+    // Make business hours available globally for other calendar components
+    window.BUSINESS_HOURS = BUSINESS_HOURS;
+    
     BUSINESS_HOURS.forEach(bh => {
       console.log(`  ${bh.day_of_week}: ${bh.is_open ? 'OPEN' : 'CLOSED'} (${bh.open_time} - ${bh.close_time})`);
     });
@@ -685,13 +579,23 @@ async function initializeAppointmentSystem() {
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
   
+  // Initialize DOM references
+  calendarEl = document.getElementById('calendar');
+  timeCardsEl = document.getElementById('timeCards');
+  bookingForm = document.getElementById('bookingForm');
+  guestFields = document.getElementById('guestFields');
+  menuToggle = document.getElementById('menu_toggle');
+  navItems = document.getElementById('nav-items');
+  selectedDateInput = document.getElementById('selectedDate');
+  selectedTimeInput = document.getElementById('selectedTime');
+  
   // Check if required elements exist
   const requiredElements = {
-    calendarEl: document.getElementById('calendar'),
-    timeCardsEl: document.getElementById('timeCards'),
-    bookingForm: document.getElementById('bookingForm'),
-    selectedDateInput: document.getElementById('selectedDate'),
-    selectedTimeInput: document.getElementById('selectedTime')
+    calendarEl,
+    timeCardsEl,
+    bookingForm,
+    selectedDateInput,
+    selectedTimeInput
   };
   
   console.log('📄 All IDs on page:', 
@@ -719,6 +623,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const monthViewContainer = document.getElementById('monthViewContainer');
   
   if (weekViewRadio && monthViewRadio && weekViewContainer && monthViewContainer) {
+    // Set initial state - week view visible by default
+    weekViewContainer.style.display = 'block';
+    monthViewContainer.style.display = 'none';
+    
     // Handle week view selection
     weekViewRadio.addEventListener('change', () => {
       if (weekViewRadio.checked) {
@@ -737,7 +645,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Handle month view selection
     monthViewRadio.addEventListener('change', () => {
+      console.log('📅 Month view radio button changed, checked:', monthViewRadio.checked);
       if (monthViewRadio.checked) {
+        console.log('🔄 Switching to month view...');
         weekViewContainer.style.display = 'none';
         monthViewContainer.style.display = 'block';
         
@@ -747,8 +657,106 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('timeCards').innerHTML = '';
         
         // Render month calendar if the function is available
+        console.log('🔍 Checking renderMonthlyCalendar function:', typeof window.renderMonthlyCalendar);
         if (typeof window.renderMonthlyCalendar === 'function') {
+          console.log('✅ Calling window.renderMonthlyCalendar()...');
           window.renderMonthlyCalendar();
+        } else {
+          console.error('❌ window.renderMonthlyCalendar function not available');
+        }
+      }
+    });
+  }
+  
+  // Add form submission handler
+  if (bookingForm) {
+    bookingForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      
+      // Get user data from auth manager if logged in
+      const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
+      const userData = isLoggedIn ? window.authManager.getUserData() : null;
+      
+      const data = {
+        full_name: userData?.name || fd.get('name') || '',
+        email: userData?.email || fd.get('email') || '',
+        phone: userData?.phone || fd.get('phone') || '',
+        date: fd.get('date'),
+        time: fd.get('time'),
+        note: fd.get('note') || null,
+        user_id: userData?.id || userId || null
+      };
+
+      // Validate required fields
+      if (!data.full_name || !data.email || !data.date || !data.time) {
+        showBookingMessage('Por favor completa todos los campos requeridos', 'error');
+        return;
+      }
+
+      try {
+        // Show loading state
+        const submitButton = bookingForm.querySelector('button[type="submit"]');
+        const originalText = submitButton.innerHTML;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Agendando...';
+        submitButton.disabled = true;
+
+        // Prepare headers - only include Authorization if user is logged in
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const res = await fetch('/api/appointments', {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(data)
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ error: 'Error de conexión' }));
+          showBookingMessage(errorData.message || errorData.error || 'Error al agendar la cita', 'error');
+          return;
+        }
+
+        const result = await res.json();
+        
+        // Show success message
+        showBookingMessage(result.message || 'Cita agendada correctamente', 'success');
+        
+        // Reset form and UI
+        e.target.reset();
+        selectedDateInput.value = '';
+        selectedTimeInput.value = '';
+        currentDateISO = null;
+        
+        // Clear selected time slots and hide form
+        timeCardsEl.innerHTML = '<p class="text-muted">Selecciona una fecha para ver horarios disponibles</p>';
+        
+        // Hide submit button and reset form display
+        submitButton.style.display = 'none';
+        
+        // Refresh the calendar to show updated availability
+        renderWeek();
+        
+        // If monthly calendar is active, refresh it too
+        if (document.getElementById('monthView').checked) {
+          const enhancedCalendar = document.getElementById('monthlyCalendar');
+          if (enhancedCalendar && enhancedCalendar.innerHTML.trim()) {
+            // Re-render monthly calendar to update availability
+            window.renderMonthlyCalendar && window.renderMonthlyCalendar();
+          }
+        }
+        
+      } catch (err) {
+        console.error('Error booking appointment:', err);
+        showBookingMessage('Error de conexión. Por favor intenta nuevamente.', 'error');
+      } finally {
+        // Restore button state
+        const submitButton = bookingForm.querySelector('button[type="submit"]');
+        if (submitButton) {
+          submitButton.innerHTML = originalText;
+          submitButton.disabled = false;
         }
       }
     });

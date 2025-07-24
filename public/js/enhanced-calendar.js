@@ -81,15 +81,16 @@ const isPastDate = (date) => {
 // Fetch business hours
 async function fetchBusinessHours() {
   try {
+    console.log('📞 Monthly calendar fetching business hours...');
     // Fetch business hours data
     const response = await fetch('/api/business-hours');
     if (!response.ok) throw new Error('Failed to fetch business hours');
     
     const data = await response.json();
-    // Process business hours data
+    console.log('📊 Monthly calendar business hours data:', data);
     
-    // Use the same format as the weekly calendar
-    businessHours = data.businessHours.map(bh => ({
+    // Convert day_of_week to lowercase and normalize time format
+    const processedBusinessHours = data.businessHours.map(bh => ({
       ...bh,
       day_of_week: bh.day_of_week.toLowerCase(),
       open_time: bh.open_time ? bh.open_time.substring(0, 5) : null,
@@ -98,11 +99,14 @@ async function fetchBusinessHours() {
       break_end: bh.break_end ? bh.break_end.substring(0, 5) : null
     }));
     
-    // Business hours loaded successfully
+    // Update the global businessHours variable
+    businessHours = processedBusinessHours || getDefaultBusinessHours();
+    console.log('✅ Monthly calendar processed business hours:', businessHours);
     return businessHours;
   } catch (error) {
     console.error('❌ Error fetching business hours:', error);
-    return getDefaultBusinessHours();
+    businessHours = getDefaultBusinessHours();
+    return businessHours;
   }
 }
 
@@ -120,27 +124,37 @@ function getDefaultBusinessHours() {
 
 // Check if a day is open for business
 function isDayOpen(date) {
+  console.log(`🔍 Checking if day is open for ${date.toDateString()}`);
+  console.log(`📊 Current businessHours:`, businessHours);
+  
   if (!businessHours || businessHours.length === 0) {
+    console.log(`❌ No business hours available`);
     // No business hours available
     return false;
   }
 
   const dayOfWeek = fullDayNames[date.getDay()];
+  console.log(`📅 Day of week: ${dayOfWeek} (index: ${date.getDay()})`);
+  
   const businessDay = businessHours.find(bh => bh.day_of_week === dayOfWeek);
+  console.log(`🏢 Business day config:`, businessDay);
   
   // Check if business is open on this day
   
   if (!businessDay) {
+    console.log(`❌ No business hours configured for ${dayOfWeek}`);
     // No business hours configured for this day
     return false;
   }
 
   // Check if the business is closed on this day
   if (!businessDay.is_open || businessDay.is_open === 0) {
+    console.log(`❌ Business is closed on ${dayOfWeek}`);
     // Business is closed on this day
     return false;
   }
 
+  console.log(`✅ Business is open on ${dayOfWeek}`);
   // Business is open on this day
   return true;
 }
@@ -155,11 +169,16 @@ async function checkDateAvailability(date) {
   }
   
   try {
+    console.log(`🔍 Checking availability for ${dateStr}...`);
     const response = await fetch(`/api/available-slots/${dateStr}`);
+    console.log(`📡 API response for ${dateStr}:`, response.status, response.ok);
+    
     if (!response.ok) throw new Error('Failed to fetch availability');
     
     const data = await response.json();
+    console.log(`📊 Data received for ${dateStr}:`, data);
     const hasSlots = data.availableSlots && data.availableSlots.length > 0;
+    console.log(`✅ Has slots for ${dateStr}:`, hasSlots, `(${data.availableSlots?.length || 0} slots)`);
     
     // Cache the result
     availabilityCache.set(dateStr, hasSlots);
@@ -190,12 +209,25 @@ async function findNextAvailableDate(fromDate = new Date()) {
 
 // Render the monthly calendar
 async function renderMonthlyCalendar() {
+  console.log('🗓️ renderMonthlyCalendar() called');
+  
   const calendarContainer = document.getElementById('monthlyCalendar');
   
   if (!calendarContainer) {
     console.error('❌ Monthly calendar container not found');
     return;
   }
+  
+  // Check if business hours are available from main appointment system
+  if (window.BUSINESS_HOURS && window.BUSINESS_HOURS.length > 0) {
+    console.log('📊 Using business hours from main appointment system:', window.BUSINESS_HOURS);
+    businessHours = window.BUSINESS_HOURS;
+  } else if (!businessHours || businessHours.length === 0) {
+    console.log('⚠️ No business hours available, loading them...');
+    await fetchBusinessHours();
+  }
+  
+  console.log('📊 Current businessHours for monthly calendar:', businessHours);
   
   // Clear previous content
   calendarContainer.innerHTML = '';
@@ -553,13 +585,15 @@ function selectTimeSlot(time, btnElement) {
 // Initialize the enhanced calendar system
 async function initializeEnhancedCalendar() {
   try {
+    console.log('🚀 Initializing Enhanced Calendar System...');
     // Load business hours
     await fetchBusinessHours();
+    console.log('📊 Business hours loaded, current businessHours:', businessHours);
     
     // Render the monthly calendar
     await renderMonthlyCalendar();
     
-    // Calendar system initialized successfully
+    console.log('✅ Enhanced Calendar System initialized successfully');
   } catch (error) {
     console.error('❌ Error initializing Enhanced Calendar System:', error);
   }
