@@ -183,13 +183,13 @@ async function renderMonthlyCalendar() {
   const header = document.createElement('div');
   header.className = 'calendar-header';
   header.innerHTML = `
-    <button class="calendar-nav-btn" id="prevMonth">
+    <button type="button" class="calendar-nav-btn" id="prevMonth">
       <i class="fas fa-chevron-left"></i>
     </button>
     <div class="calendar-month-year">
       ${monthNames[currentMonth]} ${currentYear}
     </div>
-    <button class="calendar-nav-btn" id="nextMonth">
+    <button type="button" class="calendar-nav-btn" id="nextMonth">
       <i class="fas fa-chevron-right"></i>
     </button>
   `;
@@ -219,6 +219,7 @@ async function renderMonthlyCalendar() {
   for (let week = 0; week < 6; week++) {
     for (let day = 0; day < 7; day++) {
       const dayElement = document.createElement('button');
+      dayElement.type = 'button'; // Prevent form submission
       dayElement.className = 'calendar-day';
       dayElement.textContent = currentCalendarDate.getDate();
       
@@ -469,6 +470,7 @@ async function loadTimeSlots(date) {
         col.className = 'col-6 col-md-4 col-lg-3 mb-2';
         
         const btn = document.createElement('button');
+        btn.type = 'button'; // Prevent form submission
         btn.className = 'btn btn-outline-primary time-slot-btn w-100';
         btn.textContent = time;
         btn.addEventListener('click', () => selectTimeSlot(time, btn));

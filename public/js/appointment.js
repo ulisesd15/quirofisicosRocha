@@ -258,6 +258,7 @@ function renderWeek() {
       
       // Create enhanced day button
       const btn = document.createElement('button');
+      btn.type = 'button'; // Prevent form submission
       btn.className = 'btn calendar-day-btn';
       btn.dataset.date = dayISO;
       
