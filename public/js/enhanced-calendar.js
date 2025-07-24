@@ -1,5 +1,13 @@
 /**
- * Quirofísicos Rocha - Enhanced Monthly Calendar System
+ * Quirofísicos Rocha - Enhanced Moconst formatDate = (date) => {
+  return date.toISOString().split('T')[0];
+};
+
+// Determine time period for grouping (using same logic as weekly calendar)
+const periodOf = (time) => {
+  const [h] = time.split(':').map(Number);
+  return h < 12 ? 'manana' : h < 17 ? 'tarde' : 'noche';
+};stem
  * Google Calendar-style monthly view with appointment booking
  * 
  * Features:
@@ -491,7 +499,7 @@ async function loadTimeSlots(date) {
         const btn = document.createElement('button');
         btn.type = 'button'; // Prevent form submission
         btn.className = 'btn btn-outline-primary time-slot-btn';
-        btn.textContent = formatTimeToAMPM(time); // Display in AM/PM format
+        btn.textContent = window.formatTimeToAMPM ? window.formatTimeToAMPM(time) : time; // Display in AM/PM format
         
         // Store the 24-hour format as data attribute for form submission
         btn.dataset.time24 = time;

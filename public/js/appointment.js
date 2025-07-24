@@ -179,6 +179,9 @@ function formatTimeToAMPM(time24) {
   return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
 
+// Export to window for use by other calendar scripts
+window.formatTimeToAMPM = formatTimeToAMPM;
+
 // ───────── APPOINTMENTS FETCH ─────────
 async function fetchAppointments(dayISO) {
   const res = await fetch(`/api/appointments/date/${dayISO}`);
