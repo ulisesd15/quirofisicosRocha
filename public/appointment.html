@@ -147,35 +147,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const navManager = new NavigationManager();
     navManager.init();
-    
-    // Calendar view toggle functionality
-    const weekViewRadio = document.getElementById('weekView');
-    const monthViewRadio = document.getElementById('monthView');
-    const weekViewContainer = document.getElementById('weekViewContainer');
-    const monthViewContainer = document.getElementById('monthViewContainer');
-    
-    function toggleCalendarView() {
-        if (weekViewRadio.checked) {
-            weekViewContainer.style.display = 'block';
-            monthViewContainer.style.display = 'none';
-        } else {
-            weekViewContainer.style.display = 'none';
-            monthViewContainer.style.display = 'block';
-            
-            // Initialize enhanced calendar if not already done
-            if (!monthViewContainer.hasChildNodes() || monthViewContainer.children.length === 0) {
-                initializeEnhancedCalendar();
-            }
-        }
-        
-        // Clear any previous selections
-        document.getElementById('selectedDate').value = '';
-        document.getElementById('selectedTime').value = '';
-        document.getElementById('timeCards').innerHTML = '';
-    }
-    
-    weekViewRadio.addEventListener('change', toggleCalendarView);
-    monthViewRadio.addEventListener('change', toggleCalendarView);
 });
 </script>
 </body>

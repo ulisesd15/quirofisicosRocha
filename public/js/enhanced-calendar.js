@@ -182,9 +182,8 @@ async function findNextAvailableDate(fromDate = new Date()) {
 
 // Render the monthly calendar
 async function renderMonthlyCalendar() {
-  // Render calendar header and grid
-  
   const calendarContainer = document.getElementById('monthlyCalendar');
+  
   if (!calendarContainer) {
     console.error('❌ Monthly calendar container not found');
     return;
@@ -545,8 +544,6 @@ function selectTimeSlot(time, btnElement) {
 
 // Initialize the enhanced calendar system
 async function initializeEnhancedCalendar() {
-  // Initialize enhanced calendar system
-  
   try {
     // Load business hours
     await fetchBusinessHours();

@@ -721,6 +721,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (weekViewRadio.checked) {
         weekViewContainer.style.display = 'block';
         monthViewContainer.style.display = 'none';
+        
+        // Clear any previous selections
+        document.getElementById('selectedDate').value = '';
+        document.getElementById('selectedTime').value = '';
+        document.getElementById('timeCards').innerHTML = '';
+        
         // Re-render week calendar
         renderWeek();
       }
@@ -731,6 +737,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (monthViewRadio.checked) {
         weekViewContainer.style.display = 'none';
         monthViewContainer.style.display = 'block';
+        
+        // Clear any previous selections
+        document.getElementById('selectedDate').value = '';
+        document.getElementById('selectedTime').value = '';
+        document.getElementById('timeCards').innerHTML = '';
+        
         // Render month calendar if the function is available
         if (typeof window.renderMonthlyCalendar === 'function') {
           window.renderMonthlyCalendar();
