@@ -485,22 +485,34 @@ async function loadTimeSlotsForDay(dayISO) {
 bookingForm.addEventListener('submit', async e => {
   e.preventDefault();
   const fd = new FormData(e.target);
+  
+  // Get user data from auth manager if logged in
+  const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
+  const userData = isLoggedIn ? window.authManager.getUserData() : null;
+  
   const data = {
-    full_name: userDataArray[0] || fd.get('full_name') || '',
-    email: userDataArray[1] || fd.get('email') || '',
-    phone: userDataArray[2] || fd.get('phone') || '',
+    full_name: userData?.name || fd.get('name') || '',
+    email: userData?.email || fd.get('email') || '',
+    phone: userData?.phone || fd.get('phone') || '',
     date: fd.get('date'),
     time: fd.get('time'),
     note: fd.get('note') || null,
-    user_id: userId || null
+    user_id: userData?.id || userId || null
   };
 
-  if (!data.date || !data.time) {
-    console.error('Missing date or time selection');
+  // Validate required fields
+  if (!data.full_name || !data.email || !data.date || !data.time) {
+    showBookingMessage('Por favor completa todos los campos requeridos', 'error');
     return;
   }
 
   try {
+    // Show loading state
+    const submitButton = bookingForm.querySelector('button[type="submit"]');
+    const originalText = submitButton.innerHTML;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Agendando...';
+    submitButton.disabled = true;
+
     // Prepare headers - only include Authorization if user is logged in
     const headers = { 'Content-Type': 'application/json' };
     if (token) {
@@ -514,33 +526,85 @@ bookingForm.addEventListener('submit', async e => {
     });
 
     if (!res.ok) {
-      const errorText = await res.text();
-      console.error('Server error:', errorText);
-      
-      // Try to parse as JSON for better error messages
-      try {
-        const errorJson = JSON.parse(errorText);
-        console.error('Booking error:', errorJson.message || errorJson.error || 'Error al agendar la cita');
-        return;
-      } catch {
-        console.error('Error al agendar la cita');
-        return;
-      }
+      const errorData = await res.json().catch(() => ({ error: 'Error de conexión' }));
+      showBookingMessage(errorData.message || errorData.error || 'Error al agendar la cita', 'error');
+      return;
     }
 
     const result = await res.json();
-    console.log('Appointment booked successfully:', result.message || 'Cita agendada correctamente');
+    
+    // Show success message
+    showBookingMessage(result.message || 'Cita agendada correctamente', 'success');
+    
+    // Reset form and UI
     e.target.reset();
     selectedDateInput.value = '';
     selectedTimeInput.value = '';
     currentDateISO = null;
-    timeCardsEl.innerHTML = '';
-    bookingForm.style.display = 'none';
-    renderWeek(); // Refresh the calendar
+    
+    // Clear selected time slots and hide form
+    timeCardsEl.innerHTML = '<p class="text-muted">Selecciona una fecha para ver horarios disponibles</p>';
+    
+    // Hide submit button and reset form display
+    submitButton.style.display = 'none';
+    
+    // Refresh the calendar to show updated availability
+    renderWeek();
+    
+    // If monthly calendar is active, refresh it too
+    if (document.getElementById('monthView').checked) {
+      const enhancedCalendar = document.getElementById('monthlyCalendar');
+      if (enhancedCalendar && enhancedCalendar.innerHTML.trim()) {
+        // Re-render monthly calendar to update availability
+        window.renderMonthlyCalendar && window.renderMonthlyCalendar();
+      }
+    }
+    
   } catch (err) {
-    console.error('Error al agendar la cita:', err);
+    console.error('Error booking appointment:', err);
+    showBookingMessage('Error de conexión. Por favor intenta nuevamente.', 'error');
+  } finally {
+    // Restore button state
+    const submitButton = bookingForm.querySelector('button[type="submit"]');
+    if (submitButton) {
+      submitButton.innerHTML = originalText;
+      submitButton.disabled = false;
+    }
   }
 });
+
+// Show booking success/error messages to the user
+function showBookingMessage(message, type) {
+  // Remove any existing messages
+  const existingMessage = document.querySelector('.booking-message');
+  if (existingMessage) {
+    existingMessage.remove();
+  }
+  
+  // Create message element
+  const messageDiv = document.createElement('div');
+  messageDiv.className = `alert alert-${type === 'success' ? 'success' : 'danger'} booking-message`;
+  messageDiv.innerHTML = `
+    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+    ${message}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  `;
+  
+  // Insert message at the top of the form
+  bookingForm.insertBefore(messageDiv, bookingForm.firstChild);
+  
+  // Auto-dismiss success messages after 5 seconds
+  if (type === 'success') {
+    setTimeout(() => {
+      if (messageDiv && messageDiv.parentNode) {
+        messageDiv.remove();
+      }
+    }, 5000);
+  }
+  
+  // Scroll to message
+  messageDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
 
 function setupUI() {
   const offcanvas = document.getElementById('sideNav');
