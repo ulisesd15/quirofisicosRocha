@@ -709,6 +709,36 @@ document.addEventListener('DOMContentLoaded', () => {
   
   initializeAppointmentSystem();
   
+  // Add calendar view switching functionality
+  const weekViewRadio = document.getElementById('weekView');
+  const monthViewRadio = document.getElementById('monthView');
+  const weekViewContainer = document.getElementById('weekViewContainer');
+  const monthViewContainer = document.getElementById('monthViewContainer');
+  
+  if (weekViewRadio && monthViewRadio && weekViewContainer && monthViewContainer) {
+    // Handle week view selection
+    weekViewRadio.addEventListener('change', () => {
+      if (weekViewRadio.checked) {
+        weekViewContainer.style.display = 'block';
+        monthViewContainer.style.display = 'none';
+        // Re-render week calendar
+        renderWeek();
+      }
+    });
+    
+    // Handle month view selection
+    monthViewRadio.addEventListener('change', () => {
+      if (monthViewRadio.checked) {
+        weekViewContainer.style.display = 'none';
+        monthViewContainer.style.display = 'block';
+        // Render month calendar if the function is available
+        if (typeof window.renderMonthlyCalendar === 'function') {
+          window.renderMonthlyCalendar();
+        }
+      }
+    });
+  }
+  
   // Add resize handler
   let resizeTimeout;
   window.addEventListener('resize', () => {

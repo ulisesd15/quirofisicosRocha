@@ -560,5 +560,8 @@ async function initializeEnhancedCalendar() {
   }
 }
 
+// Export functions to window for external access
+window.renderMonthlyCalendar = renderMonthlyCalendar;
+
 // Auto-initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', initializeEnhancedCalendar);
