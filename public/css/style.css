@@ -404,3 +404,127 @@ h3 {
   transform: none;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
+
+/* Announcements Banner */
+.announcements-container {
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  border-bottom: 1px solid #dee2e6;
+  padding: 0;
+}
+
+.announcement-banner {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.announcement-banner:last-child {
+  border-bottom: none;
+}
+
+.announcement-banner.info {
+  background: linear-gradient(135deg, #d1ecf1, #bee5eb);
+  color: #0c5460;
+}
+
+.announcement-banner.warning {
+  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+  color: #856404;
+}
+
+.announcement-banner.success {
+  background: linear-gradient(135deg, #d4edda, #c3e6cb);
+  color: #155724;
+}
+
+.announcement-banner.danger {
+  background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+  color: #721c24;
+}
+
+.announcement-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+.announcement-text {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.announcement-icon {
+  font-size: 1.2em;
+  opacity: 0.8;
+}
+
+.announcement-title {
+  font-weight: 600;
+  margin: 0;
+  font-size: 1em;
+}
+
+.announcement-message {
+  margin: 0;
+  font-size: 0.9em;
+  opacity: 0.9;
+}
+
+.announcement-close {
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.announcement-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.announcement-priority-high {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.8; }
+  100% { opacity: 1; }
+}
+
+.announcement-dates {
+  font-size: 0.8em;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .announcement-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .announcement-text {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .announcement-close {
+    align-self: flex-end;
+    margin-top: -30px;
+  }
+}

@@ -6,6 +6,7 @@ require('dotenv').config();
 const routes = require('./routes/apiRoutes');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const appointmentRoutes = require('./routes/appointmentRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -13,12 +14,13 @@ const PORT = process.env.PORT || 3001;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
-app.use(express.static('admin')); // Serve admin files
+app.use('/admin', express.static('admin')); // Serve admin files under /admin path
 
 app.use(passport.initialize()); 
 
 app.use('/api/auth', authRoutes); 
 app.use('/api/admin', adminRoutes);
+app.use('/api/appointments', appointmentRoutes);
 app.use('/api', routes);          
 
 app.listen(PORT, () => {

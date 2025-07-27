@@ -57,4 +57,41 @@ CREATE TABLE business_hours (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- Schedule Exceptions (for specific dates or date ranges)
+CREATE TABLE schedule_exceptions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  exception_type ENUM('single_day', 'date_range', 'recurring') NOT NULL DEFAULT 'single_day',
+  start_date DATE NOT NULL,
+  end_date DATE,
+  is_closed BOOLEAN DEFAULT FALSE,
+  custom_open_time TIME,
+  custom_close_time TIME,
+  custom_break_start TIME,
+  custom_break_end TIME,
+  reason VARCHAR(255),
+  description TEXT,
+  recurring_type ENUM('weekly', 'monthly', 'yearly'),
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Public Announcements/Banners
+CREATE TABLE announcements (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  announcement_type ENUM('info', 'warning', 'success', 'danger') DEFAULT 'info',
+  priority ENUM('low', 'normal', 'high', 'urgent') DEFAULT 'normal',
+  start_date DATE NOT NULL,
+  end_date DATE,
+  is_active BOOLEAN DEFAULT TRUE,
+  show_on_homepage BOOLEAN DEFAULT TRUE,
+  show_on_booking BOOLEAN DEFAULT FALSE,
+  created_by INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- Remove old commented role table

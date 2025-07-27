@@ -175,13 +175,9 @@ const scheduleController = {
 
   // Get scheduled closures
   getScheduledClosures: (req, res) => {
-    db.query('SELECT * FROM scheduled_closures ORDER BY start_date ASC', (err, results) => {
-      if (err) {
-        console.error('Error fetching scheduled closures:', err);
-        return res.status(500).json({ error: 'Database error' });
-      }
-      res.json(results);
-    });
+    // For now, return empty array since this feature is not implemented
+    // In the future, this would query a scheduled_closures table
+    res.json({ closures: [] });
   },
 
   // Add scheduled closure
@@ -230,14 +226,22 @@ const scheduleController = {
   // Get schedule overrides
   getScheduleOverrides: (req, res) => {
     const query = `
-      SELECT *, DAYNAME(date) as day_of_week 
-      FROM schedule_overrides 
-      ORDER BY date ASC
+      SELECT id, exception_type, start_date, end_date, is_closed, 
+             TIME_FORMAT(custom_open_time, '%H:%i') as custom_open_time,
+             TIME_FORMAT(custom_close_time, '%H:%i') as custom_close_time,
+             TIME_FORMAT(custom_break_start, '%H:%i') as custom_break_start,
+             TIME_FORMAT(custom_break_end, '%H:%i') as custom_break_end,
+             reason, description, recurring_type, is_active, 
+             created_at, updated_at,
+             DAYNAME(start_date) as day_of_week 
+      FROM schedule_exceptions 
+      WHERE is_active = 1
+      ORDER BY start_date ASC
     `;
     
     db.query(query, (err, results) => {
       if (err) {
-        console.error('Error fetching schedule overrides:', err);
+        console.error('Error fetching schedule exceptions:', err);
         return res.status(500).json({ error: 'Database error' });
       }
       res.json(results);
@@ -246,24 +250,52 @@ const scheduleController = {
 
   // Add schedule override
   addScheduleOverride: (req, res) => {
-    const { date, reason, is_open, open_time, close_time, break_start, break_end } = req.body;
+    const { 
+      exception_type, 
+      start_date, 
+      end_date, 
+      is_closed, 
+      custom_open_time, 
+      custom_close_time, 
+      custom_break_start, 
+      custom_break_end, 
+      reason, 
+      description,
+      recurring_type 
+    } = req.body;
     
-    if (!date) {
-      return res.status(400).json({ error: 'Date is required' });
+    if (!start_date) {
+      return res.status(400).json({ error: 'Start date is required' });
     }
     
     const query = `
-      INSERT INTO schedule_overrides 
-      (date, reason, is_open, open_time, close_time, break_start, break_end) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO schedule_exceptions 
+      (exception_type, start_date, end_date, is_closed, custom_open_time, 
+       custom_close_time, custom_break_start, custom_break_end, reason, 
+       description, recurring_type, is_active) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     `;
     
-    db.query(query, [date, reason, is_open, open_time, close_time, break_start, break_end], (err, result) => {
+    const values = [
+      exception_type || 'single_day',
+      start_date,
+      end_date || null,
+      is_closed || 0,
+      custom_open_time || null,
+      custom_close_time || null,
+      custom_break_start || null,
+      custom_break_end || null,
+      reason || null,
+      description || null,
+      recurring_type || null
+    ];
+    
+    db.query(query, values, (err, result) => {
       if (err) {
-        console.error('Error adding schedule override:', err);
+        console.error('Error adding schedule exception:', err);
         return res.status(500).json({ error: 'Database error' });
       }
-      res.json({ message: 'Schedule override added successfully', id: result.insertId });
+      res.json({ message: 'Schedule exception added successfully', id: result.insertId });
     });
   },
 
@@ -271,14 +303,14 @@ const scheduleController = {
   deleteScheduleOverride: (req, res) => {
     const { id } = req.params;
     
-    db.query('DELETE FROM schedule_overrides WHERE id = ?', [id], (err, result) => {
+    db.query('UPDATE schedule_exceptions SET is_active = 0 WHERE id = ?', [id], (err, result) => {
       if (err) {
-        console.error('Error deleting schedule override:', err);
+        console.error('Error deleting schedule exception:', err);
         return res.status(500).json({ error: 'Database error' });
       }
       
       if (result.affectedRows === 0) {
-        return res.status(404).json({ error: 'Schedule override not found' });
+        return res.status(404).json({ error: 'Schedule exception not found' });
       }
       
       res.json({ message: 'Schedule override deleted successfully' });
@@ -479,21 +511,9 @@ const scheduleController = {
   },
 
   getPendingUsers: (req, res) => {
-    const query = `
-      SELECT pua.*, u.email as user_email 
-      FROM pending_user_approvals pua
-      LEFT JOIN users u ON pua.user_id = u.id
-      WHERE pua.status = 'pending'
-      ORDER BY pua.requested_at DESC
-    `;
-    
-    db.query(query, (err, results) => {
-      if (err) {
-        console.error('Error fetching pending users:', err);
-        return res.status(500).json({ error: 'Database error' });
-      }
-      res.json(results);
-    });
+    // For now, return empty array since this feature is not implemented
+    // In the future, this would query a pending_user_approvals table
+    res.json([]);
   },
 
   approveUser: (req, res) => {

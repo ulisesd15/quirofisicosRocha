@@ -325,4 +325,26 @@ router.get('/business-hours', (req, res) => {
 // Get available slots for appointment booking (public endpoint with admin restrictions)
 router.get('/available-slots/:date', scheduleController.getAvailableSlots);
 
+// Get public announcements for display on homepage
+router.get('/announcements/public', (req, res) => {
+  const query = `
+    SELECT id, title, message, announcement_type, priority, start_date, end_date
+    FROM announcements 
+    WHERE is_active = TRUE 
+      AND show_on_homepage = TRUE
+      AND start_date <= CURDATE()
+      AND (end_date IS NULL OR end_date >= CURDATE())
+    ORDER BY priority DESC, created_at DESC
+    LIMIT 5
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching public announcements:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    res.json(results);
+  });
+});
+
 module.exports = router;

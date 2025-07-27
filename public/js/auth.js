@@ -152,7 +152,7 @@ class AuthManager {
 
     if (this.isLoggedIn()) {
       const adminButton = this.isAdmin() ? 
-        `<li><a href="/adminOptions.html" class="btn btn-warning w-100 mb-2">
+        `<li><a href="/admin/adminOptions.html" class="btn btn-warning w-100 mb-2">
           <i class="fas fa-user-shield"></i> Panel Admin
         </a></li>` : '';
       

@@ -72,13 +72,18 @@
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="schedule.html">
+              <a class="nav-link" href="#" data-section="schedule">
                 <i class="fas fa-calendar-alt"></i> Gestión de Horarios
               </a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#" data-section="settings">
                 <i class="fas fa-cogs"></i> Configuración
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#" data-section="sms-management">
+                <i class="fas fa-sms"></i> Gestión SMS
               </a>
             </li>
           </ul>
@@ -204,12 +209,13 @@
 
         <!-- Appointments Section -->
         <div id="appointments-section" class="admin-section d-none">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="mb-0">
+          <!-- Standardized Section Header -->
+          <div class="section-header">
+            <h2>
               <i class="fas fa-calendar-check me-2 text-primary"></i>Gestión de Citas
             </h2>
             <nav aria-label="breadcrumb">
-              <ol class="breadcrumb mb-0">
+              <ol class="breadcrumb">
                 <li class="breadcrumb-item">
                   <a href="#" onclick="showSection('dashboard')" class="text-decoration-none">Dashboard</a>
                 </li>
@@ -218,33 +224,54 @@
             </nav>
           </div>
           
-          <div class="row mb-3">
-            <div class="col-md-6">
-              <div class="input-group">
-                <input type="text" class="form-control" id="appointments-search" placeholder="Buscar por nombre, email o teléfono...">
-                <button class="btn btn-outline-secondary" type="button" id="search-appointments-btn">
-                  <i class="fas fa-search"></i>
+          <!-- Standardized Controls Bar -->
+          <div class="controls-bar">
+            <div class="row">
+              <div class="col-md-5">
+                <label class="form-label fw-bold">Búsqueda</label>
+                <div class="input-group">
+                  <input type="text" class="form-control" id="appointments-search" placeholder="Buscar por nombre, email o teléfono...">
+                  <button class="btn btn-outline-secondary" type="button" id="search-appointments-btn">
+                    <i class="fas fa-search"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label fw-bold">Estado</label>
+                <select class="form-select" id="appointments-status-filter">
+                  <option value="">Todos los estados</option>
+                  <option value="pending">Pendiente</option>
+                  <option value="confirmed">Confirmada</option>
+                  <option value="completed">Completada</option>
+                  <option value="cancelled">Cancelada</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label fw-bold">Fecha</label>
+                <input type="date" class="form-control" id="appointments-date-filter">
+              </div>
+              <div class="col-md-1">
+                <label class="form-label fw-bold text-white">.</label>
+                <button type="button" class="btn btn-primary w-100" id="refresh-appointments-btn">
+                  <i class="fas fa-sync-alt"></i>
                 </button>
               </div>
             </div>
-            <div class="col-md-3">
-              <select class="form-select" id="appointments-status-filter">
-                <option value="">Todos los estados</option>
-                <option value="pending">Pendiente</option>
-                <option value="confirmed">Confirmada</option>
-                <option value="completed">Completada</option>
-                <option value="cancelled">Cancelada</option>
-              </select>
-            </div>
-            <div class="col-md-3">
-              <input type="date" class="form-control" id="appointments-date-filter">
-            </div>
           </div>
 
-          <div class="card">
-            <div class="card-body">
+          <!-- Standardized Content Card -->
+          <div class="content-card">
+            <div class="card-header">
+              <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>Lista de Citas
+              </h5>
+              <div class="text-muted small">
+                <span id="appointments-total-count">Cargando...</span>
+              </div>
+            </div>
+            <div class="card-body p-0">
               <div class="table-responsive">
-                <table class="table table-striped">
+                <table class="table standard-table">
                   <thead>
                     <tr>
                       <th>ID</th>
@@ -253,34 +280,40 @@
                       <th>Paciente</th>
                       <th>Contacto</th>
                       <th>Estado</th>
-                      <th>Acciones</th>
+                      <th width="140">Acciones</th>
                     </tr>
                   </thead>
                   <tbody id="appointments-table">
                     <tr>
-                      <td colspan="7" class="text-center">Cargando...</td>
+                      <td colspan="7" class="loading-state">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <div>Cargando citas...</div>
+                      </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
               
-              <!-- Pagination -->
-              <nav aria-label="Paginación de citas">
-                <ul class="pagination justify-content-center" id="appointments-pagination">
-                </ul>
-              </nav>
+              <!-- Standardized Pagination -->
+              <div class="standard-pagination">
+                <nav aria-label="Paginación de citas">
+                  <ul class="pagination" id="appointments-pagination">
+                  </ul>
+                </nav>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Users Section -->
         <div id="users-section" class="admin-section d-none">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="mb-0">
+          <!-- Standardized Section Header -->
+          <div class="section-header">
+            <h2>
               <i class="fas fa-users me-2 text-success"></i>Gestión de Usuarios
             </h2>
             <nav aria-label="breadcrumb">
-              <ol class="breadcrumb mb-0">
+              <ol class="breadcrumb">
                 <li class="breadcrumb-item">
                   <a href="#" onclick="showSection('dashboard')" class="text-decoration-none">Dashboard</a>
                 </li>
@@ -289,50 +322,88 @@
             </nav>
           </div>
           
-          <div class="row mb-3">
-            <div class="col-md-6">
-              <div class="input-group">
-                <input type="text" class="form-control" id="users-search" placeholder="Buscar por nombre o email...">
-                <button class="btn btn-outline-secondary" type="button" id="search-users-btn">
-                  <i class="fas fa-search"></i>
+          <!-- Standardized Controls Bar -->
+          <div class="controls-bar">
+            <div class="row">
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Búsqueda</label>
+                <div class="input-group">
+                  <input type="text" class="form-control" id="users-search" placeholder="Buscar por nombre o email...">
+                  <button class="btn btn-outline-secondary" type="button" id="search-users-btn">
+                    <i class="fas fa-search"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label fw-bold">Rol</label>
+                <select class="form-select" id="users-role-filter">
+                  <option value="">Todos los roles</option>
+                  <option value="user">Usuario</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label fw-bold text-white">.</label>
+                <button type="button" class="btn btn-success w-100" id="add-user-btn">
+                  <i class="fas fa-plus"></i> Nuevo
+                </button>
+              </div>
+              <div class="col-md-1">
+                <label class="form-label fw-bold text-white">.</label>
+                <button type="button" class="btn btn-primary w-100" id="refresh-users-btn">
+                  <i class="fas fa-sync-alt"></i>
                 </button>
               </div>
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-body">
+          <!-- Standardized Content Card -->
+          <div class="content-card">
+            <div class="card-header">
+              <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>Lista de Usuarios
+              </h5>
+              <div class="text-muted small">
+                <span id="users-total-count">Cargando...</span>
+              </div>
+            </div>
+            <div class="card-body p-0">
               <div class="table-responsive">
-                <table class="table table-striped">
+                <table class="table standard-table">
                   <thead>
                     <tr>
                       <th>ID</th>
                       <th>Nombre</th>
                       <th>Email</th>
                       <th>Teléfono</th>
-                      <th>Proveedor</th>
+                      <th>Rol</th>
                       <th>Registro</th>
-                      <th>Acciones</th>
+                      <th width="140">Acciones</th>
                     </tr>
                   </thead>
                   <tbody id="users-table">
                     <tr>
-                      <td colspan="7" class="text-center">Cargando...</td>
+                      <td colspan="7" class="loading-state">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <div>Cargando usuarios...</div>
+                      </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
               
-              <!-- Pagination -->
-              <nav aria-label="Paginación de usuarios">
-                <ul class="pagination justify-content-center" id="users-pagination">
-                </ul>
-              </nav>
+              <!-- Standardized Pagination -->
+              <div class="standard-pagination">
+                <nav aria-label="Paginación de usuarios">
+                  <ul class="pagination" id="users-pagination">
+                  </ul>
+                </nav>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Enhanced Schedule Section -->
+        <!-- Schedule Management Section -->
         <div id="schedule-section" class="admin-section d-none">
           <div class="d-flex justify-content-between align-items-center mb-4">
             <h2 class="mb-0">
@@ -348,319 +419,66 @@
             </nav>
           </div>
 
-          <!-- Schedule Header Cards -->
-          <div class="row mb-4">
-            <div class="col-md-3 mb-4">
-              <div class="card text-white bg-success dashboard-card" onclick="if(window.adminPanel && window.adminPanel.navigateToScheduleTab) window.adminPanel.navigateToScheduleTab('business-days'); else console.error('AdminPanel not ready');" style="cursor: pointer;">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between">
-                    <div>
-                      <h6 class="card-title">Días Abiertos</h6>
-                      <small>Excepciones a días laborales</small>
-                    </div>
-                    <div class="align-self-center">
-                      <i class="fas fa-calendar-times fa-2x"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3 mb-4">
-              <div class="card text-white bg-primary dashboard-card" onclick="if(window.adminPanel && window.adminPanel.navigateToScheduleTab) window.adminPanel.navigateToScheduleTab('weekly-hours'); else console.error('AdminPanel not ready');" style="cursor: pointer;">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between">
-                    <div>
-                      <h6 class="card-title">Horas Semanales</h6>
-                      <small>Editar horarios estándar</small>
-                    </div>
-                    <div class="align-self-center">
-                      <i class="fas fa-clock fa-2x"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3 mb-4">
-              <div class="card text-white bg-warning dashboard-card" onclick="if(window.adminPanel && window.adminPanel.navigateToScheduleTab) window.adminPanel.navigateToScheduleTab('week-appointments'); else console.error('AdminPanel not ready');" style="cursor: pointer;">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between">
-                    <div>
-                      <h6 class="card-title">Citas Esta Semana</h6>
-                      <small>Excepciones horarios semana</small>
-                    </div>
-                    <div class="align-self-center">
-                      <i class="fas fa-calendar-day fa-2x"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3 mb-4">
-              <div class="card text-white bg-info dashboard-card" onclick="if(window.adminPanel && window.adminPanel.navigateToScheduleTab) window.adminPanel.navigateToScheduleTab('pending-appointments'); else console.error('AdminPanel not ready');" style="cursor: pointer;">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between">
-                    <div>
-                      <h6 class="card-title">Citas Pendientes</h6>
-                      <small>Gestionar citas pendientes</small>
-                    </div>
-                    <div class="align-self-center">
-                      <i class="fas fa-calendar-check fa-2x"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- Schedule Management Tabs -->
           <ul class="nav nav-tabs mb-4" id="schedule-tabs" role="tablist">
             <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="business-days-tab" data-bs-toggle="tab" data-bs-target="#business-days" type="button" role="tab">
-                <i class="fas fa-calendar-times me-2"></i>Días Abiertos
+              <button class="nav-link active" id="business-hours-tab" data-bs-toggle="tab" data-bs-target="#business-hours" type="button" role="tab">
+                <i class="fas fa-clock me-2"></i>Horarios Regulares
               </button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="weekly-hours-tab" data-bs-toggle="tab" data-bs-target="#weekly-hours" type="button" role="tab">
-                <i class="fas fa-clock me-2"></i>Horas Semanales
+              <button class="nav-link" id="schedule-exceptions-tab" data-bs-toggle="tab" data-bs-target="#schedule-exceptions" type="button" role="tab">
+                <i class="fas fa-calendar-times me-2"></i>Excepciones y Cierres
               </button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="week-appointments-tab" data-bs-toggle="tab" data-bs-target="#week-appointments" type="button" role="tab">
-                <i class="fas fa-calendar-day me-2"></i>Citas Esta Semana
-              </button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="pending-appointments-tab" data-bs-toggle="tab" data-bs-target="#pending-appointments" type="button" role="tab">
-                <i class="fas fa-calendar-check me-2"></i>Citas Pendientes
+              <button class="nav-link" id="announcements-tab" data-bs-toggle="tab" data-bs-target="#announcements" type="button" role="tab">
+                <i class="fas fa-bullhorn me-2"></i>Anuncios Públicos
               </button>
             </li>
           </ul>
 
           <div class="tab-content" id="schedule-tab-content">
             
-            <!-- Business Days Tab - Exceptions Management -->
-            <div class="tab-pane fade show active" id="business-days" role="tabpanel">
-              <div class="card">
-                <div class="card-header">
-                  <h5><i class="fas fa-calendar-times me-2"></i>Excepciones a Días Laborales</h5>
-                  <small class="text-muted">Gestione cierres específicos, días feriados y excepciones temporales a los días laborales estándar</small>
-                </div>
-                <div class="card-body">
-                  <div class="row">
-                    <div class="col-md-8">
-                      <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6>Excepciones Programadas</h6>
-                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addBusinessDayExceptionModal">
-                          <i class="fas fa-plus"></i> Agregar Excepción
-                        </button>
-                      </div>
-                      <div id="business-day-exceptions-list">
-                        <!-- Business day exceptions will be loaded here -->
-                      </div>
-                    </div>
-                    <div class="col-md-4">
-                      <div class="card bg-light">
-                        <div class="card-header">
-                          <h6 class="mb-0">Tipos de Excepciones</h6>
-                        </div>
-                        <div class="card-body">
-                          <ul class="list-unstyled">
-                            <li><i class="fas fa-gift text-success"></i> Feriados</li>
-                            <li><i class="fas fa-plane text-info"></i> Vacaciones</li>
-                            <li><i class="fas fa-tools text-warning"></i> Mantenimiento</li>
-                            <li><i class="fas fa-exclamation-triangle text-danger"></i> Emergencias</li>
-                            <li><i class="fas fa-calendar-times text-secondary"></i> Otros</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-                          <input class="form-check-input" type="checkbox" id="day-thursday" value="Thursday">
-                          <label class="form-check-label" for="day-thursday">Jueves</label>
-                        </div>
-                        <div class="form-check mb-2">
-                          <input class="form-check-input" type="checkbox" id="day-friday" value="Friday">
-                          <label class="form-check-label" for="day-friday">Viernes</label>
-                        </div>
-                        <div class="form-check mb-2">
-                          <input class="form-check-input" type="checkbox" id="day-saturday" value="Saturday">
-                          <label class="form-check-label" for="day-saturday">Sábado</label>
-                        </div>
-                        <div class="form-check mb-2">
-                          <input class="form-check-input" type="checkbox" id="day-sunday" value="Sunday">
-                          <label class="form-check-label" for="day-sunday">Domingo</label>
-                        </div>
-                      </div>
-                      <button type="button" class="btn btn-primary mt-3" id="save-standard-days">
-                        <i class="fas fa-save"></i> Guardar Días Estándar
-                      </button>
-                    </div>
-                    <div class="col-md-6">
-                      <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6>Excepciones por Semana</h6>
-                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addWeekExceptionModal">
-                          <i class="fas fa-plus"></i> Agregar Excepción
-                        </button>
-                      </div>
-                      <div id="week-exceptions-list">
-                        <!-- Week exceptions will be loaded here -->
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Weekly Hours Tab -->
-            <div class="tab-pane fade" id="weekly-hours" role="tabpanel">
+            <!-- Business Hours Tab -->
+            <div class="tab-pane fade show active" id="business-hours" role="tabpanel">
               <div class="card">
                 <div class="card-header">
                   <h5><i class="fas fa-clock me-2"></i>Horarios Semanales Estándar</h5>
-                  <small class="text-muted">Configure los horarios regulares de atención para cada día de la semana. Puede editarlos permanentemente o establecer cambios temporales por rango de fechas</small>
+                  <small class="text-muted">Configure los horarios regulares de atención para cada día de la semana</small>
                 </div>
                 <div class="card-body">
-                  <div class="row mb-3">
-                    <div class="col-md-8">
-                      <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" id="temporary-hours-enabled">
-                        <label class="form-check-label" for="temporary-hours-enabled">
-                          Aplicar cambios temporales (por rango de fechas)
-                        </label>
-                      </div>
-                      <div id="temporary-hours-range" style="display: none;">
-                        <div class="row">
-                          <div class="col-md-6">
-                            <label for="temp-start-date" class="form-label">Fecha de inicio</label>
-                            <input type="date" class="form-control" id="temp-start-date">
-                          </div>
-                          <div class="col-md-6">
-                            <label for="temp-end-date" class="form-label">Fecha de fin</label>
-                            <input type="date" class="form-control" id="temp-end-date">
-                          </div>
-                        </div>
-                        <hr>
-                      </div>
-                    </div>
-                  </div>
                   <div id="business-hours-container">
                     <!-- Business hours will be loaded here -->
                   </div>
-                  <button type="button" class="btn btn-primary mt-3" id="save-business-hours">
-                    <i class="fas fa-save"></i> Guardar Horarios
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Week Appointments Tab -->
-            <div class="tab-pane fade" id="week-appointments" role="tabpanel">
-              <div class="card">
-                <div class="card-header">
-                  <h5><i class="fas fa-calendar-day me-2"></i>Excepciones de Horarios para Esta Semana</h5>
-                  <small class="text-muted">Configure excepciones temporales a los horarios estándar para esta semana o cualquier semana específica (cerrar temprano, quedarse abierto más tarde, etc.)</small>
-                </div>
-                <div class="card-body">
-                  <div class="row mb-3">
-                    <div class="col-md-4">
-                      <label for="exception-week-selector" class="form-label">Seleccionar Semana</label>
-                      <input type="week" class="form-control" id="exception-week-selector">
-                    </div>
-                    <div class="col-md-8">
-                      <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">Excepciones para la semana seleccionada</h6>
-                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="adminPanel.addWeekException()">
-                          <i class="fas fa-plus"></i> Agregar Excepción
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div id="week-exceptions-container">
-                    <!-- Week exceptions will be loaded here -->
+                  <div class="d-flex justify-content-end gap-2 mt-3">
+                    <button type="button" class="btn btn-outline-secondary" id="reset-business-hours">
+                      <i class="fas fa-undo"></i> Restablecer
+                    </button>
+                    <button type="button" class="btn btn-primary" id="save-business-hours">
+                      <i class="fas fa-save"></i> Guardar Horarios
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Pending Appointments Tab -->
-            <div class="tab-pane fade" id="pending-appointments" role="tabpanel">
+            <!-- Schedule Exceptions Tab -->
+            <div class="tab-pane fade" id="schedule-exceptions" role="tabpanel">
               <div class="card">
                 <div class="card-header">
-                  <h5><i class="fas fa-calendar-check me-2"></i>Gestión de Citas Pendientes</h5>
-                  <small class="text-muted">Revise, apruebe, cancele, reagende o contacte clientes con citas pendientes</small>
+                  <h5><i class="fas fa-calendar-times me-2"></i>Excepciones de Horario</h5>
+                  <small class="text-muted">Gestione cierres completos, horarios especiales y excepciones temporales</small>
                 </div>
                 <div class="card-body">
-                  <div class="row mb-3">
-                    <div class="col-md-6">
-                      <div class="input-group">
-                        <input type="text" class="form-control" id="pending-search" placeholder="Buscar por nombre o teléfono...">
-                        <button class="btn btn-outline-secondary" type="button" onclick="adminPanel.searchPendingAppointments()">
-                          <i class="fas fa-search"></i>
-                        </button>
-                      </div>
-                    </div>
-                    <div class="col-md-3">
-                      <select class="form-select" id="pending-date-filter" onchange="adminPanel.filterPendingAppointments()">
-                        <option value="">Todas las fechas</option>
-                        <option value="today">Hoy</option>
-                        <option value="week">Esta semana</option>
-                        <option value="month">Este mes</option>
-                      </select>
-                    </div>
-                    <div class="col-md-3">
-                      <button type="button" class="btn btn-primary" onclick="adminPanel.refreshPendingAppointments()">
-                        <i class="fas fa-sync-alt"></i> Actualizar
-                      </button>
-                    </div>
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6>Excepciones Programadas</h6>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleExceptionModal">
+                      <i class="fas fa-plus"></i> Nueva Excepción
+                    </button>
                   </div>
-                  <div id="pending-appointments-container">
-                    <!-- Pending appointments will be loaded here -->
-                  </div>
-                </div>
-              </div>
-            </div>
-                      <label class="form-check-label" for="approval-system-enabled">
-                        Sistema Activado
-                      </label>
-                    </div>
-                  </div>
-                </div>
-                <div class="card-body">
-                  <div class="row">
-                    <div class="col-md-6">
-                      <h6>Usuarios Pendientes de Aprobación</h6>
-                      <div id="pending-users-list">
-                        <!-- Pending users will be loaded here -->
-                      </div>
-                    </div>
-                    <div class="col-md-6">
-                      <h6>Configuración del Sistema</h6>
-                      <div class="mb-3">
-                        <label for="approval-message" class="form-label">Mensaje de Aprobación (SMS)</label>
-                        <textarea class="form-control" id="approval-message" rows="3" placeholder="Su cuenta ha sido aprobada. Ya puede hacer citas en nuestro sistema.">Su cuenta ha sido aprobada. Ya puede hacer citas en nuestro sistema.</textarea>
-                      </div>
-                      <div class="mb-3">
-                        <div class="form-check">
-                          <input class="form-check-input" type="checkbox" id="require-approval-guests">
-                          <label class="form-check-label" for="require-approval-guests">
-                            Requerir aprobación para usuarios invitados
-                          </label>
-                        </div>
-                      </div>
-                      <div class="mb-3">
-                        <div class="form-check">
-                          <input class="form-check-input" type="checkbox" id="require-approval-first-time">
-                          <label class="form-check-label" for="require-approval-first-time">
-                            Requerir aprobación para usuarios por primera vez
-                          </label>
-                        </div>
-                      </div>
-                      <button type="button" class="btn btn-primary" id="save-approval-settings">
-                        <i class="fas fa-save"></i> Guardar Configuración
-                      </button>
-                    </div>
+                  <div id="schedule-exceptions-list">
+                    <!-- Schedule exceptions will be loaded here -->
                   </div>
                 </div>
               </div>
@@ -669,78 +487,19 @@
             <!-- Announcements Tab -->
             <div class="tab-pane fade" id="announcements" role="tabpanel">
               <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                  <div>
-                    <h5><i class="fas fa-bullhorn me-2"></i>Anuncios y Banners</h5>
-                    <small class="text-muted">Gestione los anuncios que aparecen en la página principal del sitio web</small>
-                  </div>
-                  <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addAnnouncementModal">
-                    <i class="fas fa-plus"></i> Nuevo Anuncio
-                  </button>
+                <div class="card-header">
+                  <h5><i class="fas fa-bullhorn me-2"></i>Anuncios y Banners</h5>
+                  <small class="text-muted">Gestione los anuncios que aparecen en la página principal del sitio web</small>
                 </div>
                 <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6>Anuncios Activos</h6>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAnnouncementModal">
+                      <i class="fas fa-plus"></i> Nuevo Anuncio
+                    </button>
+                  </div>
                   <div id="announcements-list">
                     <!-- Announcements will be loaded here -->
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Scheduled Closures Tab -->
-            <div class="tab-pane fade" id="closures" role="tabpanel">
-              <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                  <div>
-                    <h5><i class="fas fa-calendar-times me-2"></i>Cierres Programados</h5>
-                    <small class="text-muted">Feriados, vacaciones y otros cierres</small>
-                  </div>
-                  <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addClosureModal">
-                    <i class="fas fa-plus"></i> Agregar Cierre
-                  </button>
-                </div>
-                <div class="card-body">
-                  <div id="closures-list">
-                    <!-- Closures will be loaded here -->
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Schedule Overrides Tab -->
-            <div class="tab-pane fade" id="overrides" role="tabpanel">
-              <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                  <div>
-                    <h5><i class="fas fa-calendar-day me-2"></i>Horarios Especiales</h5>
-                    <small class="text-muted">Modificar horarios para días específicos</small>
-                  </div>
-                  <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addOverrideModal">
-                    <i class="fas fa-plus"></i> Agregar Horario Especial
-                  </button>
-                </div>
-                <div class="card-body">
-                  <div id="overrides-list">
-                    <!-- Overrides will be loaded here -->
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Blocked Time Slots Tab -->
-            <div class="tab-pane fade" id="blocked-slots" role="tabpanel">
-              <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                  <div>
-                    <h5><i class="fas fa-ban me-2"></i>Horas Bloqueadas</h5>
-                    <small class="text-muted">Bloquear horas específicas para mantenimiento, descansos, etc.</small>
-                  </div>
-                  <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addBlockedSlotModal">
-                    <i class="fas fa-plus"></i> Bloquear Hora
-                  </button>
-                </div>
-                <div class="card-body">
-                  <div id="blocked-slots-list">
-                    <!-- Blocked slots will be loaded here -->
                   </div>
                 </div>
               </div>
@@ -751,12 +510,13 @@
 
         <!-- Settings Section -->
         <div id="settings-section" class="admin-section d-none">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="mb-0">
+          <!-- Standardized Section Header -->
+          <div class="section-header">
+            <h2>
               <i class="fas fa-cogs me-2 text-warning"></i>Configuración del Sistema
             </h2>
             <nav aria-label="breadcrumb">
-              <ol class="breadcrumb mb-0">
+              <ol class="breadcrumb">
                 <li class="breadcrumb-item">
                   <a href="#" onclick="showSection('dashboard')" class="text-decoration-none">Dashboard</a>
                 </li>
@@ -765,16 +525,11 @@
             </nav>
           </div>
           
-          <!-- Settings Tabs -->
-          <ul class="nav nav-tabs mb-4" id="settings-tabs" role="tablist">
+          <!-- Clean Configuration Tabs -->
+          <ul class="nav nav-tabs" id="settings-tabs" role="tablist">
             <li class="nav-item" role="presentation">
               <button class="nav-link active" id="general-settings-tab" data-bs-toggle="tab" data-bs-target="#general-settings" type="button" role="tab">
-                <i class="fas fa-cog me-2"></i>General
-              </button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="closing-management-tab" data-bs-toggle="tab" data-bs-target="#closing-management" type="button" role="tab">
-                <i class="fas fa-door-closed me-2"></i>Control de Cierre
+                <i class="fas fa-cog me-2"></i>Configuración General
               </button>
             </li>
             <li class="nav-item" role="presentation">
@@ -782,108 +537,28 @@
                 <i class="fas fa-clock me-2"></i>Excepciones de Horario
               </button>
             </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="user-approvals-tab" data-bs-toggle="tab" data-bs-target="#user-approvals" type="button" role="tab">
-                <i class="fas fa-user-check me-2"></i>Aprobaciones de Usuario
-              </button>
-            </li>
           </ul>
 
           <div class="tab-content" id="settings-tab-content">
             <!-- General Settings Tab -->
             <div class="tab-pane fade show active" id="general-settings" role="tabpanel">
-              <div class="card">
+              <div class="content-card">
                 <div class="card-header">
-                  <h5>Configuración General de la Clínica</h5>
+                  <h5 class="mb-0">
+                    <i class="fas fa-cog me-2"></i>Configuración General de la Clínica
+                  </h5>
                 </div>
                 <div class="card-body">
                   <form id="clinic-settings-form">
                     <!-- Settings will be loaded here -->
                   </form>
-                  <button type="button" class="btn btn-primary mt-3" id="save-settings">
-                    <i class="fas fa-save"></i> Guardar Configuración
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Closing Management Tab -->
-            <div class="tab-pane fade" id="closing-management" role="tabpanel">
-              <div class="card">
-                <div class="card-header">
-                  <h5><i class="fas fa-door-closed me-2"></i>Control de Cierre de Día</h5>
-                  <small class="text-muted">Configure cuando cerrar por día específico o cambiar horarios de cierre</small>
-                </div>
-                <div class="card-body">
-                  <div class="row mb-4">
-                    <div class="col-md-6">
-                      <div class="card border-primary">
-                        <div class="card-header bg-primary text-white">
-                          <h6 class="mb-0"><i class="fas fa-calendar-times me-2"></i>Cierre por Día</h6>
-                        </div>
-                        <div class="card-body">
-                          <form id="day-closing-form">
-                            <div class="mb-3">
-                              <label for="closing-date" class="form-label">Fecha a Cerrar</label>
-                              <input type="date" class="form-control" id="closing-date" required>
-                            </div>
-                            <div class="mb-3">
-                              <label for="closing-reason" class="form-label">Motivo del Cierre</label>
-                              <input type="text" class="form-control" id="closing-reason" placeholder="Ej: Feriado, Vacaciones, Personal">
-                            </div>
-                            <div class="mb-3">
-                              <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="notify-clients">
-                                <label class="form-check-label" for="notify-clients">
-                                  Notificar a clientes con citas ese día
-                                </label>
-                              </div>
-                            </div>
-                            <button type="button" class="btn btn-primary" onclick="adminPanel.addDayClosing()">
-                              <i class="fas fa-plus"></i> Programar Cierre
-                            </button>
-                          </form>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="col-md-6">
-                      <div class="card border-warning">
-                        <div class="card-header bg-warning text-dark">
-                          <h6 class="mb-0"><i class="fas fa-clock me-2"></i>Cambio de Hora de Cierre</h6>
-                        </div>
-                        <div class="card-body">
-                          <form id="closing-time-form">
-                            <div class="mb-3">
-                              <label for="closing-change-date" class="form-label">Fecha</label>
-                              <input type="date" class="form-control" id="closing-change-date" required>
-                            </div>
-                            <div class="mb-3">
-                              <label for="new-closing-time" class="form-label">Nueva Hora de Cierre</label>
-                              <input type="time" class="form-control" id="new-closing-time" required>
-                            </div>
-                            <div class="mb-3">
-                              <label for="closing-change-reason" class="form-label">Motivo</label>
-                              <input type="text" class="form-control" id="closing-change-reason" placeholder="Ej: Emergencia, Evento especial">
-                            </div>
-                            <button type="button" class="btn btn-warning" onclick="adminPanel.changeClosingTime()">
-                              <i class="fas fa-clock"></i> Cambiar Hora de Cierre
-                            </button>
-                          </form>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- Scheduled Closings List -->
-                  <div class="card">
-                    <div class="card-header">
-                      <h6><i class="fas fa-list me-2"></i>Cierres Programados</h6>
-                    </div>
-                    <div class="card-body">
-                      <div id="scheduled-closings-list">
-                        <!-- Will be populated by JavaScript -->
-                      </div>
-                    </div>
+                  <div class="d-flex justify-content-end gap-2 mt-4">
+                    <button type="button" class="btn btn-outline-secondary" id="reset-settings">
+                      <i class="fas fa-undo"></i> Restablecer
+                    </button>
+                    <button type="button" class="btn btn-primary" id="save-settings">
+                      <i class="fas fa-save"></i> Guardar Configuración
+                    </button>
                   </div>
                 </div>
               </div>
@@ -894,65 +569,57 @@
               <div class="card">
                 <div class="card-header">
                   <h5><i class="fas fa-clock me-2"></i>Excepciones de Horario</h5>
-                  <small class="text-muted">Configure cierres temporales (30 min, medio día, etc.) para días específicos</small>
+                  <small class="text-muted">Bloquee horarios específicos para un día o rango de fechas</small>
                 </div>
                 <div class="card-body">
                   <div class="row mb-4">
                     <div class="col-md-8">
                       <div class="card border-info">
                         <div class="card-header bg-info text-white">
-                          <h6 class="mb-0"><i class="fas fa-pause me-2"></i>Nueva Excepción de Horario</h6>
+                          <h6 class="mb-0"><i class="fas fa-ban me-2"></i>Nueva Excepción de Horario</h6>
                         </div>
                         <div class="card-body">
                           <form id="hours-exception-form">
+                            <!-- Date Range -->
                             <div class="row">
                               <div class="col-md-6">
                                 <div class="mb-3">
-                                  <label for="exception-date" class="form-label">Fecha</label>
-                                  <input type="date" class="form-control" id="exception-date" required>
+                                  <label for="exception-start-date" class="form-label">Fecha Inicial</label>
+                                  <input type="date" class="form-control" id="exception-start-date" required>
                                 </div>
                               </div>
                               <div class="col-md-6">
                                 <div class="mb-3">
-                                  <label for="exception-type" class="form-label">Tipo de Excepción</label>
-                                  <select class="form-select" id="exception-type" required>
-                                    <option value="">Seleccionar tipo...</option>
-                                    <option value="30min">Cerrar 30 minutos</option>
-                                    <option value="1hour">Cerrar 1 hora</option>
-                                    <option value="half-day">Cerrar medio día</option>
-                                    <option value="custom">Personalizado</option>
-                                  </select>
+                                  <label for="exception-end-date" class="form-label">Fecha Final (opcional)</label>
+                                  <input type="date" class="form-control" id="exception-end-date">
+                                  <small class="text-muted">Dejar vacío para aplicar solo a la fecha inicial</small>
                                 </div>
                               </div>
                             </div>
-                            <div class="row" id="custom-time-inputs" style="display: none;">
+                            
+                            <!-- Time Range to Block -->
+                            <div class="row">
                               <div class="col-md-6">
                                 <div class="mb-3">
-                                  <label for="exception-start-time" class="form-label">Hora de Inicio del Cierre</label>
-                                  <input type="time" class="form-control" id="exception-start-time">
+                                  <label for="exception-block-start" class="form-label">Hora de Inicio del Bloqueo</label>
+                                  <input type="time" class="form-control" id="exception-block-start" required>
                                 </div>
                               </div>
                               <div class="col-md-6">
                                 <div class="mb-3">
-                                  <label for="exception-end-time" class="form-label">Hora de Fin del Cierre</label>
-                                  <input type="time" class="form-control" id="exception-end-time">
+                                  <label for="exception-block-end" class="form-label">Hora de Fin del Bloqueo</label>
+                                  <input type="time" class="form-control" id="exception-block-end" required>
                                 </div>
                               </div>
                             </div>
+                            
                             <div class="mb-3">
-                              <label for="exception-reason" class="form-label">Motivo</label>
+                              <label for="exception-reason" class="form-label">Motivo (opcional)</label>
                               <input type="text" class="form-control" id="exception-reason" placeholder="Ej: Almuerzo extendido, Reunión, Capacitación">
                             </div>
-                            <div class="mb-3">
-                              <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="reschedule-appointments">
-                                <label class="form-check-label" for="reschedule-appointments">
-                                  Reprogramar citas afectadas automáticamente
-                                </label>
-                              </div>
-                            </div>
+                            
                             <button type="button" class="btn btn-info" onclick="adminPanel.addHoursException()">
-                              <i class="fas fa-plus"></i> Agregar Excepción
+                              <i class="fas fa-plus"></i> Crear Excepción
                             </button>
                           </form>
                         </div>
@@ -961,15 +628,26 @@
                     <div class="col-md-4">
                       <div class="card border-secondary">
                         <div class="card-header bg-secondary text-white">
-                          <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Tipos de Excepción</h6>
+                          <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Cómo Funciona</h6>
                         </div>
                         <div class="card-body">
-                          <ul class="list-unstyled">
-                            <li class="mb-2"><strong>30 minutos:</strong> Cierre de 30 min a partir de las 13:00</li>
-                            <li class="mb-2"><strong>1 hora:</strong> Cierre de 1 hora a partir de las 13:00</li>
-                            <li class="mb-2"><strong>Medio día:</strong> Cierre desde las 12:00 hasta las 15:00</li>
-                            <li class="mb-2"><strong>Personalizado:</strong> Defina el horario específico</li>
-                          </ul>
+                          <ol class="list-unstyled">
+                            <li class="mb-2">
+                              <span class="badge bg-primary me-2">1</span>
+                              <strong>Fechas</strong><br>
+                              <small class="text-muted">Defina fecha inicial y opcionalmente fecha final</small>
+                            </li>
+                            <li class="mb-2">
+                              <span class="badge bg-success me-2">2</span>
+                              <strong>Horario</strong><br>
+                              <small class="text-muted">Especifique el rango de horas a bloquear</small>
+                            </li>
+                            <li class="mb-2">
+                              <span class="badge bg-warning me-2">3</span>
+                              <strong>Efecto</strong><br>
+                              <small class="text-muted">La disponibilidad se cancela para esas horas</small>
+                            </li>
+                          </ol>
                         </div>
                       </div>
                     </div>
@@ -989,73 +667,131 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
 
-            <!-- User Approvals Tab -->
-            <div class="tab-pane fade" id="user-approvals" role="tabpanel">
-              <div class="card">
+        <!-- SMS Management Section -->
+        <div id="sms-management-section" class="admin-section d-none">
+          <!-- Standardized Section Header -->
+          <div class="section-header">
+            <h2>
+              <i class="fas fa-sms me-2 text-info"></i>Gestión de SMS
+            </h2>
+            <nav aria-label="breadcrumb">
+              <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                  <a href="#" onclick="showSection('dashboard')" class="text-decoration-none">Dashboard</a>
+                </li>
+                <li class="breadcrumb-item active">Gestión SMS</li>
+              </ol>
+            </nav>
+          </div>
+          
+          <!-- SMS Management Tabs -->
+          <ul class="nav nav-tabs" id="sms-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="pending-approvals-tab" data-bs-toggle="tab" data-bs-target="#pending-approvals" type="button" role="tab">
+                <i class="fas fa-clock me-2"></i>Citas Pendientes
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="user-verification-tab" data-bs-toggle="tab" data-bs-target="#user-verification" type="button" role="tab">
+                <i class="fas fa-user-check me-2"></i>Verificación de Usuarios
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="send-reminders-tab" data-bs-toggle="tab" data-bs-target="#send-reminders" type="button" role="tab">
+                <i class="fas fa-bell me-2"></i>Enviar Recordatorios
+              </button>
+            </li>
+          </ul>
+
+          <div class="tab-content" id="sms-tab-content">
+            <!-- Pending Appointments Tab -->
+            <div class="tab-pane fade show active" id="pending-approvals" role="tabpanel">
+              <div class="content-card">
                 <div class="card-header">
-                  <h5><i class="fas fa-user-check me-2"></i>Aprobaciones de Usuario</h5>
-                  <small class="text-muted">Gestione usuarios nuevos que requieren aprobación para su primera cita</small>
+                  <h5 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>Citas Pendientes de Aprobación
+                  </h5>
+                  <small class="text-muted">Citas de usuarios no verificados que requieren aprobación manual</small>
                 </div>
                 <div class="card-body">
-                  <div class="row mb-4">
-                    <div class="col-md-6">
-                      <div class="card border-warning">
-                        <div class="card-header bg-warning text-dark">
-                          <h6 class="mb-0"><i class="fas fa-clock me-2"></i>Usuarios Pendientes de Aprobación</h6>
-                        </div>
-                        <div class="card-body">
-                          <div id="pending-users-list">
-                            <!-- Will be populated by JavaScript -->
-                          </div>
-                        </div>
-                      </div>
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                      <button type="button" class="btn btn-outline-primary btn-sm" onclick="displayPendingAppointments()">
+                        <i class="fas fa-sync-alt"></i> Actualizar Lista
+                      </button>
                     </div>
-                    <div class="col-md-6">
-                      <div class="card border-success">
-                        <div class="card-header bg-success text-white">
-                          <h6 class="mb-0"><i class="fas fa-cog me-2"></i>Configuración de Aprobaciones</h6>
-                        </div>
-                        <div class="card-body">
-                          <form id="approval-settings-form">
-                            <div class="mb-3">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="require-approval">
-                                <label class="form-check-label" for="require-approval">
-                                  Requerir aprobación para usuarios nuevos
-                                </label>
-                              </div>
-                            </div>
-                            <div class="mb-3">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="auto-approve-regulars">
-                                <label class="form-check-label" for="auto-approve-regulars">
-                                  Auto-aprobar usuarios con 3+ citas previas
-                                </label>
-                              </div>
-                            </div>
-                            <div class="mb-3">
-                              <label for="approval-notification-email" class="form-label">Email para notificaciones</label>
-                              <input type="email" class="form-control" id="approval-notification-email" placeholder="admin@quirofisicos.com">
-                            </div>
-                            <button type="button" class="btn btn-success" onclick="adminPanel.saveApprovalSettings()">
-                              <i class="fas fa-save"></i> Guardar Configuración
-                            </button>
-                          </form>
-                        </div>
-                      </div>
+                    <div class="text-muted">
+                      <small>Se actualiza automáticamente cada 30 segundos</small>
                     </div>
                   </div>
                   
-                  <!-- Recent Approvals -->
-                  <div class="card">
-                    <div class="card-header">
-                      <h6><i class="fas fa-history me-2"></i>Historial de Aprobaciones Recientes</h6>
+                  <div id="pending-appointments" class="appointments-container">
+                    <!-- Pending appointments will be loaded here by JavaScript -->
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- User Verification Tab -->
+            <div class="tab-pane fade" id="user-verification" role="tabpanel">
+              <div class="content-card">
+                <div class="card-header">
+                  <h5 class="mb-0">
+                    <i class="fas fa-user-check me-2"></i>Usuarios Pendientes de Verificación
+                  </h5>
+                  <small class="text-muted">Usuarios que han registrado citas pero aún no han sido verificados</small>
+                </div>
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                      <button type="button" class="btn btn-outline-success btn-sm" onclick="loadUnverifiedUsers()">
+                        <i class="fas fa-sync-alt"></i> Actualizar Lista
+                      </button>
                     </div>
-                    <div class="card-body">
-                      <div id="recent-approvals-list">
-                        <!-- Will be populated by JavaScript -->
-                      </div>
+                    <div class="text-muted">
+                      <small>Se actualiza automáticamente cada 30 segundos</small>
+                    </div>
+                  </div>
+                  
+                  <div id="unverified-users" class="users-container">
+                    <!-- Unverified users will be loaded here by JavaScript -->
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Send Reminders Tab -->
+            <div class="tab-pane fade" id="send-reminders" role="tabpanel">
+              <div class="content-card">
+                <div class="card-header">
+                  <h5 class="mb-0">
+                    <i class="fas fa-bell me-2"></i>Envío de Recordatorios SMS
+                  </h5>
+                  <small class="text-muted">Enviar recordatorios de citas a pacientes</small>
+                </div>
+                <div class="card-body">
+                  <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Información:</strong> Los recordatorios se envían automáticamente 24 horas antes de cada cita. 
+                    Use este botón solo para enviar recordatorios manuales.
+                  </div>
+                  
+                  <div class="text-center">
+                    <button type="button" class="btn btn-primary btn-lg" onclick="sendAppointmentReminders()">
+                      <i class="fas fa-paper-plane me-2"></i>
+                      Enviar Recordatorios para Mañana
+                    </button>
+                  </div>
+                  
+                  <div class="mt-4">
+                    <h6>Estado del Servicio SMS:</h6>
+                    <div class="alert alert-warning">
+                      <i class="fas fa-exclamation-triangle me-2"></i>
+                      <strong>Modo de Desarrollo:</strong> Los SMS se registran en la consola del servidor en lugar de enviarse realmente.
+                      Configure las credenciales de Twilio en el archivo .env para habilitar el envío real.
                     </div>
                   </div>
                 </div>
@@ -1072,18 +808,18 @@
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Agregar Excepción de Día Laboral</h5>
+          <h5 class="modal-title">Agregar Ajuste de Horario</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
           <form id="add-business-day-exception-form">
             <div class="mb-3">
-              <label for="exception-title" class="form-label">Título de la Excepción</label>
-              <input type="text" class="form-control" id="exception-title" required placeholder="Ej: Día Feriado, Vacaciones">
+              <label for="exception-title" class="form-label">Título del Ajuste</label>
+              <input type="text" class="form-control" id="exception-title" required placeholder="Ej: Cerrado por feriado, Horario especial, etc.">
             </div>
             <div class="mb-3">
               <label for="exception-description" class="form-label">Descripción</label>
-              <textarea class="form-control" id="exception-description" rows="2" placeholder="Detalles adicionales (opcional)"></textarea>
+              <textarea class="form-control" id="exception-description" rows="2" placeholder="Detalles del ajuste de horario"></textarea>
             </div>
             <div class="row">
               <div class="col-md-6">
@@ -1096,27 +832,43 @@
               </div>
             </div>
             <div class="mb-3">
-              <label for="exception-type" class="form-label">Tipo de Excepción</label>
-              <select class="form-select" id="exception-type" required>
-                <option value="">Seleccionar tipo</option>
-                <option value="holiday">Feriado</option>
-                <option value="vacation">Vacaciones</option>
-                <option value="maintenance">Mantenimiento</option>
-                <option value="emergency">Emergencia</option>
-                <option value="other">Otro</option>
-              </select>
+              <label class="form-label">Ajuste de Horario</label>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="schedule-adjustment" id="closed-all-day" value="closed" checked>
+                <label class="form-check-label" for="closed-all-day">
+                  Cerrado todo el día
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="schedule-adjustment" id="custom-hours" value="custom">
+                <label class="form-check-label" for="custom-hours">
+                  Horario personalizado
+                </label>
+              </div>
+            </div>
+            <div id="custom-hours-section" class="mb-3" style="display: none;">
+              <div class="row">
+                <div class="col-md-6">
+                  <label for="custom-open-time" class="form-label">Hora de Apertura</label>
+                  <input type="time" class="form-control" id="custom-open-time">
+                </div>
+                <div class="col-md-6">
+                  <label for="custom-close-time" class="form-label">Hora de Cierre</label>
+                  <input type="time" class="form-control" id="custom-close-time">
+                </div>
+              </div>
             </div>
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="exception-recurring">
               <label class="form-check-label" for="exception-recurring">
-                Repetir anualmente (para feriados recurrentes)
+                Repetir anualmente
               </label>
             </div>
           </form>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="button" class="btn btn-primary" id="save-business-day-exception">Guardar Excepción</button>
+          <button type="button" class="btn btn-primary" id="save-business-day-exception">Guardar Ajuste</button>
         </div>
       </div>
     </div>
@@ -1405,64 +1157,476 @@
     </div>
   </div>
 
-  <!-- Week Exception Modal -->
+  <!-- Enhanced Week Exception Modal -->
   <div class="modal fade" id="addWeekExceptionModal" tabindex="-1" aria-labelledby="addWeekExceptionModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-xl">
       <div class="modal-content">
-        <div class="modal-header">
+        <div class="modal-header bg-primary text-white">
           <h5 class="modal-title" id="addWeekExceptionModalLabel">
             <i class="fas fa-calendar-week me-2"></i>Agregar Excepción Semanal
           </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <form id="add-week-exception-form">
-            <div class="mb-3">
-              <label for="exception-week-start" class="form-label">Fecha de inicio de la semana</label>
-              <input type="date" class="form-control" id="exception-week-start" required>
+            <!-- Week Selection -->
+            <div class="row mb-4">
+              <div class="col-md-6">
+                <label for="exception-week-start" class="form-label fw-bold">
+                  <i class="fas fa-calendar me-1"></i>Fecha de inicio de la semana
+                </label>
+                <input type="date" class="form-control" id="exception-week-start" required>
+                <small class="text-muted">Selecciona el lunes de la semana a configurar</small>
+              </div>
+              <div class="col-md-6">
+                <label for="exception-description" class="form-label fw-bold">
+                  <i class="fas fa-sticky-note me-1"></i>Descripción
+                </label>
+                <input type="text" class="form-control" id="exception-description" 
+                       placeholder="Ej: Semana de vacaciones, Horario especial navideño">
+              </div>
             </div>
-            <div class="mb-3">
-              <label for="exception-description" class="form-label">Descripción</label>
-              <input type="text" class="form-control" id="exception-description" placeholder="Ej: Semana de vacaciones">
+
+            <!-- Exception Type Selection -->
+            <div class="mb-4">
+              <label class="form-label fw-bold">
+                <i class="fas fa-cogs me-1"></i>Tipo de Excepción
+              </label>
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="card border-warning">
+                    <div class="card-body text-center">
+                      <input type="radio" class="btn-check" name="exception-type" id="type-closure" value="closure" checked>
+                      <label class="btn btn-outline-warning w-100" for="type-closure">
+                        <i class="fas fa-times-circle fa-2x d-block mb-2"></i>
+                        <strong>Días de Cierre</strong>
+                        <br><small>Marcar días específicos como cerrados</small>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="card border-info">
+                    <div class="card-body text-center">
+                      <input type="radio" class="btn-check" name="exception-type" id="type-schedule" value="schedule">
+                      <label class="btn btn-outline-info w-100" for="type-schedule">
+                        <i class="fas fa-clock fa-2x d-block mb-2"></i>
+                        <strong>Horarios Especiales</strong>
+                        <br><small>Configurar horarios diferentes por día</small>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="mb-3">
-              <label class="form-label">Días abiertos para esta semana</label>
-              <div id="exception-week-days">
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="exception-monday" value="Monday">
-                  <label class="form-check-label" for="exception-monday">Lunes</label>
+
+            <!-- Days Configuration -->
+            <div class="card">
+              <div class="card-header bg-light">
+                <h6 class="mb-0">
+                  <i class="fas fa-calendar-alt me-2"></i>Configuración por Día
+                </h6>
+              </div>
+              <div class="card-body">
+                <!-- Closure Mode -->
+                <div id="closure-mode" class="exception-mode">
+                  <p class="text-muted mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Selecciona los días que estarán <strong>cerrados</strong> durante esta semana. Los días no marcados mantendrán su horario normal.
+                  </p>
+                  <div class="row">
+                    <div class="col-md-4" data-day="monday">
+                      <div class="day-closure-card">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="closure-monday" value="Monday">
+                          <label class="form-check-label fw-bold" for="closure-monday">
+                            <i class="fas fa-calendar-day me-2"></i>Lunes
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4" data-day="tuesday">
+                      <div class="day-closure-card">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="closure-tuesday" value="Tuesday">
+                          <label class="form-check-label fw-bold" for="closure-tuesday">
+                            <i class="fas fa-calendar-day me-2"></i>Martes
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4" data-day="wednesday">
+                      <div class="day-closure-card">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="closure-wednesday" value="Wednesday">
+                          <label class="form-check-label fw-bold" for="closure-wednesday">
+                            <i class="fas fa-calendar-day me-2"></i>Miércoles
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4" data-day="thursday">
+                      <div class="day-closure-card">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="closure-thursday" value="Thursday">
+                          <label class="form-check-label fw-bold" for="closure-thursday">
+                            <i class="fas fa-calendar-day me-2"></i>Jueves
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4" data-day="friday">
+                      <div class="day-closure-card">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="closure-friday" value="Friday">
+                          <label class="form-check-label fw-bold" for="closure-friday">
+                            <i class="fas fa-calendar-day me-2"></i>Viernes
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4" data-day="saturday">
+                      <div class="day-closure-card">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="closure-saturday" value="Saturday">
+                          <label class="form-check-label fw-bold" for="closure-saturday">
+                            <i class="fas fa-calendar-day me-2"></i>Sábado
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4" data-day="sunday">
+                      <div class="day-closure-card">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="closure-sunday" value="Sunday">
+                          <label class="form-check-label fw-bold" for="closure-sunday">
+                            <i class="fas fa-calendar-day me-2"></i>Domingo
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="exception-tuesday" value="Tuesday">
-                  <label class="form-check-label" for="exception-tuesday">Martes</label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="exception-wednesday" value="Wednesday">
-                  <label class="form-check-label" for="exception-wednesday">Miércoles</label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="exception-thursday" value="Thursday">
-                  <label class="form-check-label" for="exception-thursday">Jueves</label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="exception-friday" value="Friday">
-                  <label class="form-check-label" for="exception-friday">Viernes</label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="exception-saturday" value="Saturday">
-                  <label class="form-check-label" for="exception-saturday">Sábado</label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="exception-sunday" value="Sunday">
-                  <label class="form-check-label" for="exception-sunday">Domingo</label>
+
+                <!-- Schedule Mode -->
+                <div id="schedule-mode" class="exception-mode d-none">
+                  <p class="text-muted mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Configura horarios especiales para cada día. Deja sin configurar los días que mantendrán su horario normal.
+                  </p>
+                  
+                  <!-- Monday Schedule -->
+                  <div class="day-schedule-card mb-3">
+                    <div class="card border-primary">
+                      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-calendar-day me-2"></i>Lunes</span>
+                        <div class="form-check form-switch">
+                          <input class="form-check-input" type="checkbox" id="schedule-monday-enable">
+                          <label class="form-check-label text-white" for="schedule-monday-enable">Configurar</label>
+                        </div>
+                      </div>
+                      <div class="card-body schedule-config d-none" id="monday-schedule">
+                        <div class="row">
+                          <div class="col-md-3">
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" id="monday-closed">
+                              <label class="form-check-label text-danger fw-bold" for="monday-closed">Cerrado</label>
+                            </div>
+                          </div>
+                          <div class="col-md-9" id="monday-hours">
+                            <div class="row">
+                              <div class="col-md-3">
+                                <label class="form-label small">Apertura</label>
+                                <input type="time" class="form-control form-control-sm" id="monday-open">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Cierre</label>
+                                <input type="time" class="form-control form-control-sm" id="monday-close">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Inicio Almuerzo</label>
+                                <input type="time" class="form-control form-control-sm" id="monday-break-start">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Fin Almuerzo</label>
+                                <input type="time" class="form-control form-control-sm" id="monday-break-end">
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Tuesday Schedule -->
+                  <div class="day-schedule-card mb-3">
+                    <div class="card border-primary">
+                      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-calendar-day me-2"></i>Martes</span>
+                        <div class="form-check form-switch">
+                          <input class="form-check-input" type="checkbox" id="schedule-tuesday-enable">
+                          <label class="form-check-label text-white" for="schedule-tuesday-enable">Configurar</label>
+                        </div>
+                      </div>
+                      <div class="card-body schedule-config d-none" id="tuesday-schedule">
+                        <div class="row">
+                          <div class="col-md-3">
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" id="tuesday-closed">
+                              <label class="form-check-label text-danger fw-bold" for="tuesday-closed">Cerrado</label>
+                            </div>
+                          </div>
+                          <div class="col-md-9" id="tuesday-hours">
+                            <div class="row">
+                              <div class="col-md-3">
+                                <label class="form-label small">Apertura</label>
+                                <input type="time" class="form-control form-control-sm" id="tuesday-open">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Cierre</label>
+                                <input type="time" class="form-control form-control-sm" id="tuesday-close">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Inicio Almuerzo</label>
+                                <input type="time" class="form-control form-control-sm" id="tuesday-break-start">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Fin Almuerzo</label>
+                                <input type="time" class="form-control form-control-sm" id="tuesday-break-end">
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Wednesday Schedule -->
+                  <div class="day-schedule-card mb-3">
+                    <div class="card border-primary">
+                      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-calendar-day me-2"></i>Miércoles</span>
+                        <div class="form-check form-switch">
+                          <input class="form-check-input" type="checkbox" id="schedule-wednesday-enable">
+                          <label class="form-check-label text-white" for="schedule-wednesday-enable">Configurar</label>
+                        </div>
+                      </div>
+                      <div class="card-body schedule-config d-none" id="wednesday-schedule">
+                        <div class="row">
+                          <div class="col-md-3">
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" id="wednesday-closed">
+                              <label class="form-check-label text-danger fw-bold" for="wednesday-closed">Cerrado</label>
+                            </div>
+                          </div>
+                          <div class="col-md-9" id="wednesday-hours">
+                            <div class="row">
+                              <div class="col-md-3">
+                                <label class="form-label small">Apertura</label>
+                                <input type="time" class="form-control form-control-sm" id="wednesday-open">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Cierre</label>
+                                <input type="time" class="form-control form-control-sm" id="wednesday-close">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Inicio Almuerzo</label>
+                                <input type="time" class="form-control form-control-sm" id="wednesday-break-start">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Fin Almuerzo</label>
+                                <input type="time" class="form-control form-control-sm" id="wednesday-break-end">
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Thursday Schedule -->
+                  <div class="day-schedule-card mb-3">
+                    <div class="card border-primary">
+                      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-calendar-day me-2"></i>Jueves</span>
+                        <div class="form-check form-switch">
+                          <input class="form-check-input" type="checkbox" id="schedule-thursday-enable">
+                          <label class="form-check-label text-white" for="schedule-thursday-enable">Configurar</label>
+                        </div>
+                      </div>
+                      <div class="card-body schedule-config d-none" id="thursday-schedule">
+                        <div class="row">
+                          <div class="col-md-3">
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" id="thursday-closed">
+                              <label class="form-check-label text-danger fw-bold" for="thursday-closed">Cerrado</label>
+                            </div>
+                          </div>
+                          <div class="col-md-9" id="thursday-hours">
+                            <div class="row">
+                              <div class="col-md-3">
+                                <label class="form-label small">Apertura</label>
+                                <input type="time" class="form-control form-control-sm" id="thursday-open">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Cierre</label>
+                                <input type="time" class="form-control form-control-sm" id="thursday-close">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Inicio Almuerzo</label>
+                                <input type="time" class="form-control form-control-sm" id="thursday-break-start">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Fin Almuerzo</label>
+                                <input type="time" class="form-control form-control-sm" id="thursday-break-end">
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Friday Schedule -->
+                  <div class="day-schedule-card mb-3">
+                    <div class="card border-primary">
+                      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-calendar-day me-2"></i>Viernes</span>
+                        <div class="form-check form-switch">
+                          <input class="form-check-input" type="checkbox" id="schedule-friday-enable">
+                          <label class="form-check-label text-white" for="schedule-friday-enable">Configurar</label>
+                        </div>
+                      </div>
+                      <div class="card-body schedule-config d-none" id="friday-schedule">
+                        <div class="row">
+                          <div class="col-md-3">
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" id="friday-closed">
+                              <label class="form-check-label text-danger fw-bold" for="friday-closed">Cerrado</label>
+                            </div>
+                          </div>
+                          <div class="col-md-9" id="friday-hours">
+                            <div class="row">
+                              <div class="col-md-3">
+                                <label class="form-label small">Apertura</label>
+                                <input type="time" class="form-control form-control-sm" id="friday-open">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Cierre</label>
+                                <input type="time" class="form-control form-control-sm" id="friday-close">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Inicio Almuerzo</label>
+                                <input type="time" class="form-control form-control-sm" id="friday-break-start">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Fin Almuerzo</label>
+                                <input type="time" class="form-control form-control-sm" id="friday-break-end">
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Saturday Schedule -->
+                  <div class="day-schedule-card mb-3">
+                    <div class="card border-primary">
+                      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-calendar-day me-2"></i>Sábado</span>
+                        <div class="form-check form-switch">
+                          <input class="form-check-input" type="checkbox" id="schedule-saturday-enable">
+                          <label class="form-check-label text-white" for="schedule-saturday-enable">Configurar</label>
+                        </div>
+                      </div>
+                      <div class="card-body schedule-config d-none" id="saturday-schedule">
+                        <div class="row">
+                          <div class="col-md-3">
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" id="saturday-closed">
+                              <label class="form-check-label text-danger fw-bold" for="saturday-closed">Cerrado</label>
+                            </div>
+                          </div>
+                          <div class="col-md-9" id="saturday-hours">
+                            <div class="row">
+                              <div class="col-md-3">
+                                <label class="form-label small">Apertura</label>
+                                <input type="time" class="form-control form-control-sm" id="saturday-open">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Cierre</label>
+                                <input type="time" class="form-control form-control-sm" id="saturday-close">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Inicio Almuerzo</label>
+                                <input type="time" class="form-control form-control-sm" id="saturday-break-start">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Fin Almuerzo</label>
+                                <input type="time" class="form-control form-control-sm" id="saturday-break-end">
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Sunday Schedule -->
+                  <div class="day-schedule-card mb-3">
+                    <div class="card border-primary">
+                      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-calendar-day me-2"></i>Domingo</span>
+                        <div class="form-check form-switch">
+                          <input class="form-check-input" type="checkbox" id="schedule-sunday-enable">
+                          <label class="form-check-label text-white" for="schedule-sunday-enable">Configurar</label>
+                        </div>
+                      </div>
+                      <div class="card-body schedule-config d-none" id="sunday-schedule">
+                        <div class="row">
+                          <div class="col-md-3">
+                            <div class="form-check">
+                              <input class="form-check-input" type="checkbox" id="sunday-closed">
+                              <label class="form-check-label text-danger fw-bold" for="sunday-closed">Cerrado</label>
+                            </div>
+                          </div>
+                          <div class="col-md-9" id="sunday-hours">
+                            <div class="row">
+                              <div class="col-md-3">
+                                <label class="form-label small">Apertura</label>
+                                <input type="time" class="form-control form-control-sm" id="sunday-open">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Cierre</label>
+                                <input type="time" class="form-control form-control-sm" id="sunday-close">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Inicio Almuerzo</label>
+                                <input type="time" class="form-control form-control-sm" id="sunday-break-start">
+                              </div>
+                              <div class="col-md-3">
+                                <label class="form-label small">Fin Almuerzo</label>
+                                <input type="time" class="form-control form-control-sm" id="sunday-break-end">
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </form>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="button" class="btn btn-primary" id="save-week-exception">Guardar Excepción</button>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-1"></i>Cancelar
+          </button>
+          <button type="button" class="btn btn-primary" id="save-week-exception">
+            <i class="fas fa-save me-1"></i>Guardar Excepción Semanal
+          </button>
         </div>
       </div>
     </div>
@@ -1543,8 +1707,102 @@
     </div>
   </div>
 
+  <!-- Add Schedule Exception Modal -->
+  <div class="modal fade" id="addScheduleExceptionModal" tabindex="-1" aria-labelledby="addScheduleExceptionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="addScheduleExceptionModalLabel">
+            <i class="fas fa-calendar-times me-2"></i>Nueva Excepción de Horario
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="add-schedule-exception-form">
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="exception-type-select" class="form-label fw-bold">Tipo de Excepción</label>
+                <select class="form-select" id="exception-type-select" required>
+                  <option value="">Seleccionar tipo...</option>
+                  <option value="single_day">Día específico</option>
+                  <option value="date_range">Rango de fechas</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label for="exception-reason" class="form-label fw-bold">Motivo</label>
+                <input type="text" class="form-control" id="exception-reason" placeholder="Ej: Vacaciones, Feriado, Mantenimiento" required>
+              </div>
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="exception-start-date" class="form-label fw-bold">Fecha de inicio</label>
+                <input type="date" class="form-control" id="exception-start-date" required>
+              </div>
+              <div class="col-md-6" id="end-date-container" style="display: none;">
+                <label for="exception-end-date" class="form-label fw-bold">Fecha de fin</label>
+                <input type="date" class="form-control" id="exception-end-date">
+              </div>
+            </div>
+
+            <div class="card border-primary mb-3">
+              <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="fas fa-cogs me-2"></i>Configuración del Horario</h6>
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-12 mb-3">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="exception-is-closed">
+                      <label class="form-check-label fw-bold text-danger" for="exception-is-closed">
+                        Cerrado completamente
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                
+                <div id="custom-hours-section">
+                  <h6 class="text-muted mb-3">Horario personalizado:</h6>
+                  <div class="row">
+                    <div class="col-md-3">
+                      <label for="exception-open-time" class="form-label">Hora apertura</label>
+                      <input type="time" class="form-control" id="exception-open-time" value="09:00">
+                    </div>
+                    <div class="col-md-3">
+                      <label for="exception-close-time" class="form-label">Hora cierre</label>
+                      <input type="time" class="form-control" id="exception-close-time" value="18:00">
+                    </div>
+                    <div class="col-md-3">
+                      <label for="exception-break-start" class="form-label">Inicio almuerzo</label>
+                      <input type="time" class="form-control" id="exception-break-start" value="13:00">
+                    </div>
+                    <div class="col-md-3">
+                      <label for="exception-break-end" class="form-label">Fin almuerzo</label>
+                      <input type="time" class="form-control" id="exception-break-end" value="14:00">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="exception-description" class="form-label">Descripción adicional (opcional)</label>
+              <textarea class="form-control" id="exception-description" rows="2" placeholder="Información adicional sobre la excepción..."></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="save-schedule-exception">
+            <i class="fas fa-save"></i> Guardar Excepción
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="../js/auth.js"></script>
+  <script src="../public/js/auth.js"></script>
   <script src="./js/adminOptions.js"></script>
 </body>
 </html>

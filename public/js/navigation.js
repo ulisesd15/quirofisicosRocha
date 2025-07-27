@@ -107,7 +107,7 @@ class NavigationManager {
                         </a></li>
                         ${isAdmin ? `
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/adminOptions.html">
+                            <li><a class="dropdown-item" href="/admin/adminOptions.html">
                                 <i class="fas fa-cog me-2"></i>Panel Admin
                             </a></li>
                         ` : ''}
@@ -137,7 +137,7 @@ class NavigationManager {
                     <i class="fas fa-calendar"></i>Mis Citas
                 </a>
                 ${isAdmin ? `
-                    <a href="/adminOptions.html" class="sidebar-nav-item">
+                    <a href="/admin/adminOptions.html" class="sidebar-nav-item">
                         <i class="fas fa-cog"></i>Panel Admin
                     </a>
                 ` : ''}
