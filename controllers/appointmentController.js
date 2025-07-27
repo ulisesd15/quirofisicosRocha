@@ -56,13 +56,13 @@ const appointmentController = {
       // Create appointment
       const appointmentQuery = `
         INSERT INTO appointments 
-        (full_name, email, phone, date, time, note, reason, user_id, requires_approval, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (full_name, email, phone, date, time, note, user_id, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       const status = requiresApproval ? 'pending' : 'confirmed';
       const appointmentValues = [
-        full_name, email, phone, date, time, note, reason, user_id, requiresApproval, status
+        full_name, email, phone, date, time, note, user_id, status
       ];
 
       const [result] = await db.promise().query(appointmentQuery, appointmentValues);

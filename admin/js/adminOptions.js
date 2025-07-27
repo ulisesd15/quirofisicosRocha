@@ -1298,14 +1298,14 @@ class AdminPanel {
 
   async loadBusinessHours() {
     try {
-      const response = await fetch('/api/admin/business-hours', {
+      const response = await fetch('/api/admin/schedule/business-hours', {
         headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
       });
 
       if (!response.ok) throw new Error('Failed to load business hours');
 
-      const businessHours = await response.json();
-      this.renderBusinessHours(businessHours);
+      const data = await response.json();
+      this.renderBusinessHours(data.business_hours || data);
     } catch (error) {
       console.error('Error loading business hours:', error);
       this.showError('Error al cargar horarios de negocio');
@@ -1513,9 +1513,9 @@ class AdminPanel {
 
   async saveBusinessHours() {
     const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const businessHours = [];
+    const updates = [];
 
-    daysOfWeek.forEach(day => {
+    for (const day of daysOfWeek) {
       const isOpen = document.getElementById(`is-open-${day}`).checked;
       const dayData = {
         day_of_week: day,
@@ -1525,27 +1525,28 @@ class AdminPanel {
         break_start: isOpen ? document.getElementById(`break-start-${day}`).value : null,
         break_end: isOpen ? document.getElementById(`break-end-${day}`).value : null
       };
-      businessHours.push(dayData);
-    });
 
-    try {
-      const response = await fetch('/api/admin/business-hours', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${this.getAuthToken()}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ businessHours })
-      });
+      try {
+        const response = await fetch(`/api/admin/schedule/business-hours/${day}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${this.getAuthToken()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(dayData)
+        });
 
-      if (!response.ok) throw new Error('Failed to save business hours');
-
-      this.showSuccess('Horarios de negocio guardados exitosamente');
-      await this.loadBusinessHours();
-    } catch (error) {
-      console.error('Error saving business hours:', error);
-      this.showError('Error al guardar horarios de negocio');
+        if (!response.ok) throw new Error(`Failed to update ${day}`);
+        updates.push(day);
+      } catch (error) {
+        console.error(`Error updating ${day}:`, error);
+        this.showError(`Error al actualizar ${day}`);
+        return;
+      }
     }
+
+    this.showSuccess('Horarios de negocio guardados exitosamente');
+    await this.loadBusinessHours();
   }
 
   // =================
@@ -1588,6 +1589,7 @@ class AdminPanel {
                 <span class="badge bg-${exception.is_closed ? 'danger' : 'info'} ms-2">
                   ${exception.is_closed ? 'Cerrado' : 'Horario especial'}
                 </span>
+                ${exception.recurring_type === 'yearly' ? '<span class="badge bg-warning ms-2">Anual</span>' : ''}
               </h6>
               <p class="card-text text-muted mb-2">${exception.description || 'Sin descripción adicional'}</p>
               <div class="d-flex gap-3 text-sm">
@@ -1625,7 +1627,8 @@ class AdminPanel {
       custom_break_start: document.getElementById('exception-break-start').value,
       custom_break_end: document.getElementById('exception-break-end').value,
       reason: document.getElementById('exception-reason').value,
-      description: document.getElementById('exception-description').value
+      description: document.getElementById('exception-description').value,
+      recurring_type: document.getElementById('exception-recurring').checked ? 'yearly' : null
     };
 
     console.log('Form data collected:', formData);

@@ -325,6 +325,26 @@ router.get('/business-hours', (req, res) => {
 // Get available slots for appointment booking (public endpoint with admin restrictions)
 router.get('/available-slots/:date', scheduleController.getAvailableSlots);
 
+// Get schedule exceptions for calendar display (public endpoint)
+router.get('/schedule-exceptions', (req, res) => {
+  const query = `
+    SELECT id, exception_type, start_date, end_date, is_closed, 
+           custom_open_time, custom_close_time, custom_break_start, custom_break_end,
+           reason, description, recurring_type
+    FROM schedule_exceptions 
+    WHERE is_active = TRUE
+    ORDER BY start_date ASC
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching schedule exceptions:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    res.json(results);
+  });
+});
+
 // Get public announcements for display on homepage
 router.get('/announcements/public', (req, res) => {
   const query = `

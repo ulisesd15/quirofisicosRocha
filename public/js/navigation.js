@@ -105,6 +105,9 @@ class NavigationManager {
                         <li><a class="dropdown-item" href="/appointment.html">
                             <i class="fas fa-calendar me-2"></i>Mis Citas
                         </a></li>
+                        <li><a class="dropdown-item" href="/user-settings.html">
+                            <i class="fas fa-user-cog me-2"></i>Configuración
+                        </a></li>
                         ${isAdmin ? `
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="/admin/adminOptions.html">

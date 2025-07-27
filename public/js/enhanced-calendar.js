@@ -34,6 +34,7 @@ let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
 let selectedDate = null;
 let businessHours = [];
+let scheduleExceptions = [];
 let availabilityCache = new Map();
 
 // Helper functions
@@ -110,6 +111,27 @@ async function fetchBusinessHours() {
   }
 }
 
+// Fetch schedule exceptions
+async function fetchScheduleExceptions() {
+  try {
+    console.log('📞 Monthly calendar fetching schedule exceptions...');
+    const response = await fetch('/api/schedule-exceptions');
+    if (!response.ok) throw new Error('Failed to fetch schedule exceptions');
+    
+    const data = await response.json();
+    console.log('📊 Monthly calendar schedule exceptions data:', data);
+    
+    // Update the global scheduleExceptions variable
+    scheduleExceptions = data || [];
+    console.log('✅ Monthly calendar processed schedule exceptions:', scheduleExceptions);
+    return scheduleExceptions;
+  } catch (error) {
+    console.error('❌ Error fetching schedule exceptions:', error);
+    scheduleExceptions = [];
+    return scheduleExceptions;
+  }
+}
+
 function getDefaultBusinessHours() {
   return [
     { day_of_week: 'monday', is_open: true },
@@ -126,10 +148,28 @@ function getDefaultBusinessHours() {
 function isDayOpen(date) {
   console.log(`🔍 Checking if day is open for ${date.toDateString()}`);
   console.log(`📊 Current businessHours:`, businessHours);
+  console.log(`📊 Current scheduleExceptions:`, scheduleExceptions);
+  
+  // First check schedule exceptions (they override business hours)
+  const dateStr = formatDate(date);
+  const exception = getScheduleException(dateStr);
+  
+  if (exception) {
+    console.log(`📅 Found schedule exception for ${dateStr}:`, exception);
+    // If there's an exception that closes the day completely
+    if (exception.is_closed) {
+      console.log(`❌ Day is closed due to schedule exception: ${exception.reason}`);
+      return false;
+    }
+    // If there's an exception with custom hours, consider it open
+    if (exception.custom_open_time && exception.custom_close_time) {
+      console.log(`✅ Day has custom hours due to exception: ${exception.custom_open_time} - ${exception.custom_close_time}`);
+      return true;
+    }
+  }
   
   if (!businessHours || businessHours.length === 0) {
     console.log(`❌ No business hours available`);
-    // No business hours available
     return false;
   }
 
@@ -139,23 +179,64 @@ function isDayOpen(date) {
   const businessDay = businessHours.find(bh => bh.day_of_week === dayOfWeek);
   console.log(`🏢 Business day config:`, businessDay);
   
-  // Check if business is open on this day
-  
   if (!businessDay) {
     console.log(`❌ No business hours configured for ${dayOfWeek}`);
-    // No business hours configured for this day
     return false;
   }
 
   // Check if the business is closed on this day
   if (!businessDay.is_open || businessDay.is_open === 0) {
     console.log(`❌ Business is closed on ${dayOfWeek}`);
-    // Business is closed on this day
     return false;
   }
 
   console.log(`✅ Business is open on ${dayOfWeek}`);
-  // Business is open on this day
+  return true;
+}
+
+// Get schedule exception for a specific date
+function getScheduleException(dateStr) {
+  if (!scheduleExceptions || scheduleExceptions.length === 0) {
+    return null;
+  }
+  
+  const date = new Date(dateStr);
+  
+  for (const exception of scheduleExceptions) {
+    // Check if this exception applies to the given date
+    if (exception.exception_type === 'single_day') {
+      if (exception.start_date === dateStr) {
+        return exception;
+      }
+      // Check yearly recurrence
+      if (exception.recurring_type === 'yearly') {
+        const exceptionDate = new Date(exception.start_date);
+        if (exceptionDate.getMonth() === date.getMonth() && 
+            exceptionDate.getDate() === date.getDate()) {
+          return exception;
+        }
+      }
+    } else if (exception.exception_type === 'date_range') {
+      if (dateStr >= exception.start_date && dateStr <= exception.end_date) {
+        return exception;
+      }
+      // Check yearly recurrence for date ranges
+      if (exception.recurring_type === 'yearly') {
+        const startDate = new Date(exception.start_date);
+        const endDate = new Date(exception.end_date);
+        const currentYear = date.getFullYear();
+        
+        const yearlyStart = new Date(currentYear, startDate.getMonth(), startDate.getDate());
+        const yearlyEnd = new Date(currentYear, endDate.getMonth(), endDate.getDate());
+        
+        if (date >= yearlyStart && date <= yearlyEnd) {
+          return exception;
+        }
+      }
+    }
+  }
+  
+  return null;
   return true;
 }
 
@@ -586,9 +667,15 @@ function selectTimeSlot(time, btnElement) {
 async function initializeEnhancedCalendar() {
   try {
     console.log('🚀 Initializing Enhanced Calendar System...');
-    // Load business hours
-    await fetchBusinessHours();
-    console.log('📊 Business hours loaded, current businessHours:', businessHours);
+    
+    // Load business hours and schedule exceptions in parallel
+    await Promise.all([
+      fetchBusinessHours(),
+      fetchScheduleExceptions()
+    ]);
+    
+    console.log('📊 Business hours loaded:', businessHours);
+    console.log('📊 Schedule exceptions loaded:', scheduleExceptions);
     
     // Render the monthly calendar
     await renderMonthlyCalendar();

@@ -10,9 +10,11 @@ const secretKey = process.env.SECRET_KEY;
 // Traditional authentication routes
 router.post('/register', authController.register);
 router.post('/login', authController.login);
-router.get('/profile', auth, authController.getProfile);
+router.get('/profile', auth, authController.getUserProfile);
 router.put('/profile', auth, authController.updateProfile);
+router.put('/update-profile', auth, authController.updateUserProfile);
 router.put('/change-password', auth, authController.changePassword);
+router.put('/notification-preferences', auth, authController.updateNotificationPreferences);
 
 // Google OAuth routes
 router.get('/google', (req, res, next) => {

@@ -5,31 +5,35 @@
  * - Appointment reminders
  * - Appointment approval notifications
  * - User verification notifications
- * - SMS sending via Twilio
+ * - SMS sending via Vonage (Nexmo)
  */
 
-const twilio = require('twilio');
+const { Vonage } = require('@vonage/server-sdk');
 require('dotenv').config();
 
 class SMSService {
   constructor() {
-    // Check if Twilio credentials are properly configured
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    this.fromNumber = process.env.TWILIO_PHONE_NUMBER;
+    // Check if Vonage credentials are properly configured
+    const apiKey = process.env.VONAGE_API_KEY;
+    const apiSecret = process.env.VONAGE_API_SECRET;
+    this.fromNumber = process.env.VONAGE_FROM_NUMBER;
     
-    // Only initialize Twilio if credentials are properly configured
-    if (accountSid && accountSid.startsWith('AC') && authToken && this.fromNumber) {
+    // Only initialize Vonage if credentials are properly configured and not placeholders
+    if (apiKey && apiSecret && this.fromNumber && 
+        !apiKey.includes('your_') && !apiSecret.includes('your_') && !this.fromNumber.includes('your_')) {
       try {
-        this.client = twilio(accountSid, authToken);
+        this.vonage = new Vonage({
+          apiKey: apiKey,
+          apiSecret: apiSecret
+        });
         this.isConfigured = true;
-        console.log('📱 SMS Service initialized with Twilio');
+        console.log('📱 SMS Service initialized with Vonage');
       } catch (error) {
-        console.warn('⚠️ Twilio initialization failed, running in development mode:', error.message);
+        console.warn('⚠️ Vonage initialization failed, running in development mode:', error.message);
         this.isConfigured = false;
       }
     } else {
-      console.log('📱 SMS Service running in development mode (Twilio not configured)');
+      console.log('📱 SMS Service running in development mode (Vonage not configured)');
       this.isConfigured = false;
     }
   }
@@ -38,7 +42,7 @@ class SMSService {
    * Send SMS message
    * @param {string} to - Phone number to send to (international format)
    * @param {string} message - Message content
-   * @returns {Promise} Twilio response
+   * @returns {Promise} Vonage response
    */
   async sendSMS(to, message) {
     try {
@@ -47,23 +51,32 @@ class SMSService {
       
       console.log(`📱 Sending SMS to ${formattedPhone}: ${message.substring(0, 50)}...`);
       
-      // For development or when Twilio is not configured, just log
+      // For development or when Vonage is not configured, just log
       if (!this.isConfigured || process.env.NODE_ENV === 'development') {
         console.log('📱 SMS (DEV MODE):', {
           to: formattedPhone,
           from: this.fromNumber || '+1234567890',
-          body: message
+          text: message
         });
-        return { sid: 'dev_message_' + Date.now(), status: 'sent' };
+        return { messageId: 'dev_message_' + Date.now(), status: 'delivered' };
       }
 
-      const result = await this.client.messages.create({
-        body: message,
+      const result = await this.vonage.sms.send({
+        to: formattedPhone,
         from: this.fromNumber,
-        to: formattedPhone
+        text: message
       });
 
-      console.log(`✅ SMS sent successfully. SID: ${result.sid}`);
+      if (result.messages && result.messages[0]) {
+        const msg = result.messages[0];
+        if (msg.status === '0') {
+          console.log(`✅ SMS sent successfully. Message ID: ${msg.messageId}`);
+          return { messageId: msg.messageId, status: 'sent' };
+        } else {
+          throw new Error(`Vonage SMS failed: ${msg.errorText || 'Unknown error'}`);
+        }
+      }
+      
       return result;
     } catch (error) {
       console.error('❌ Error sending SMS:', error);
@@ -73,6 +86,7 @@ class SMSService {
 
   /**
    * Format phone number to international format
+   * Handles both Mexican (+52) and US (+1) numbers
    * @param {string} phone - Phone number
    * @returns {string} Formatted phone number
    */
@@ -80,18 +94,44 @@ class SMSService {
     // Remove all non-numeric characters
     const cleanPhone = phone.replace(/\D/g, '');
     
-    // If it starts with 52 (Mexico), add +
+    // If it already starts with +, return as is
+    if (phone.startsWith('+')) {
+      return phone;
+    }
+    
+    // If it starts with 52 and is 12 digits, it's Mexican
     if (cleanPhone.startsWith('52') && cleanPhone.length === 12) {
       return '+' + cleanPhone;
     }
     
-    // If it's 10 digits, assume it's Mexican and add +52
-    if (cleanPhone.length === 10) {
-      return '+52' + cleanPhone;
+    // If it starts with 1 and is 11 digits, it's US/Canada
+    if (cleanPhone.startsWith('1') && cleanPhone.length === 11) {
+      return '+' + cleanPhone;
     }
     
-    // If it already has country code but no +, add it
-    if (cleanPhone.length > 10 && !phone.startsWith('+')) {
+    // If it's 10 digits, determine if Mexican or US based on area code
+    if (cleanPhone.length === 10) {
+      const firstDigit = cleanPhone.charAt(0);
+      const firstTwo = cleanPhone.substring(0, 2);
+      
+      // Mexican mobile area codes: 55 (Mexico City), 33 (Guadalajara), 81 (Monterrey), 
+      // 664 (Tijuana), 662 (Hermosillo), etc.
+      // US area codes typically: 212, 619, 213, 310, 415, etc.
+      if (firstTwo === '55' || firstTwo === '33' || firstTwo === '81' || 
+          firstDigit === '6' || firstDigit === '7' || firstDigit === '8' || firstDigit === '9') {
+        return '+52' + cleanPhone; // Mexican number
+      } else {
+        return '+1' + cleanPhone; // US number
+      }
+    }
+    
+    // If it's 8 digits, likely Mexican without area code
+    if (cleanPhone.length === 8) {
+      return '+52664' + cleanPhone; // Default to Tijuana area code
+    }
+    
+    // If none of the above, add + if not present
+    if (!phone.startsWith('+')) {
       return '+' + cleanPhone;
     }
     

@@ -1037,11 +1037,27 @@
                 <option value="other">Otro</option>
               </select>
             </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" id="closure-recurring">
-              <label class="form-check-label" for="closure-recurring">
-                Repetir anualmente
-              </label>
+            
+            <!-- Enhanced Yearly Recurrence Section -->
+            <div class="mb-3">
+              <div class="card border-warning">
+                <div class="card-header bg-warning text-dark py-2">
+                  <h6 class="mb-0"><i class="fas fa-sync-alt me-2"></i>Repetición Anual</h6>
+                </div>
+                <div class="card-body py-3">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="closure-recurring">
+                    <label class="form-check-label fw-bold" for="closure-recurring">
+                      <i class="fas fa-calendar-alt me-1"></i>Repetir automáticamente cada año
+                    </label>
+                  </div>
+                  <small class="text-muted mt-2 d-block">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Útil para feriados nacionales y fechas especiales que se repiten anualmente.
+                    El cierre se creará automáticamente para los próximos años.
+                  </small>
+                </div>
+              </div>
             </div>
           </form>
         </div>
@@ -1802,7 +1818,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="../public/js/auth.js"></script>
+  <script src="/js/auth.js"></script>
   <script src="./js/adminOptions.js"></script>
 </body>
 </html>

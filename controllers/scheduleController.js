@@ -173,30 +173,43 @@ const scheduleController = {
 
   // Enhanced Schedule Management Functions
 
-  // Get scheduled closures
+  // Get scheduled closures (using schedule_exceptions table)
   getScheduledClosures: (req, res) => {
-    // For now, return empty array since this feature is not implemented
-    // In the future, this would query a scheduled_closures table
-    res.json({ closures: [] });
+    const query = `
+      SELECT id, exception_type, start_date, end_date, is_closed, 
+             reason as title, description, recurring_type, is_active,
+             created_at, updated_at
+      FROM schedule_exceptions 
+      WHERE is_closed = 1 AND is_active = 1
+      ORDER BY start_date ASC
+    `;
+    
+    db.query(query, (err, results) => {
+      if (err) {
+        console.error('Error fetching scheduled closures:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      res.json({ closures: results });
+    });
   },
 
-  // Add scheduled closure
+  // Add scheduled closure (using schedule_exceptions table)
   addScheduledClosure: (req, res) => {
-    const { title, description, start_date, end_date, start_time, end_time, closure_type, is_recurring } = req.body;
+    const { title, description, start_date, end_date, is_recurring } = req.body;
     
     if (!title || !start_date || !end_date) {
       return res.status(400).json({ error: 'Title, start_date, and end_date are required' });
     }
 
-    const recurrence_pattern = is_recurring ? 'yearly' : null;
+    const recurring_type = is_recurring ? 'yearly' : 'none';
     
     const query = `
-      INSERT INTO scheduled_closures 
-      (title, description, start_date, end_date, start_time, end_time, closure_type, is_recurring, recurrence_pattern) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO schedule_exceptions 
+      (exception_type, start_date, end_date, is_closed, reason, description, recurring_type, is_active) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
-    db.query(query, [title, description, start_date, end_date, start_time, end_time, closure_type, is_recurring, recurrence_pattern], (err, result) => {
+    db.query(query, ['closure', start_date, end_date, 1, title, description, recurring_type, 1], (err, result) => {
       if (err) {
         console.error('Error adding scheduled closure:', err);
         return res.status(500).json({ error: 'Database error' });
@@ -205,11 +218,12 @@ const scheduleController = {
     });
   },
 
-  // Delete scheduled closure
+  // Delete scheduled closure (using schedule_exceptions table)
   deleteScheduledClosure: (req, res) => {
     const { id } = req.params;
     
-    db.query('DELETE FROM scheduled_closures WHERE id = ?', [id], (err, result) => {
+    // Soft delete by setting is_active to 0
+    db.query('UPDATE schedule_exceptions SET is_active = 0 WHERE id = ? AND is_closed = 1', [id], (err, result) => {
       if (err) {
         console.error('Error deleting scheduled closure:', err);
         return res.status(500).json({ error: 'Database error' });

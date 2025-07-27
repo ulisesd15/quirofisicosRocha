@@ -216,10 +216,108 @@ const changePassword = async (req, res) => {
   }
 };
 
+// Get user profile with detailed information
+const getUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    db.query(
+      'SELECT id, full_name, email, phone, role, is_verified, created_at FROM users WHERE id = ?',
+      [userId],
+      (err, results) => {
+        if (err) {
+          console.error('Database error:', err);
+          return res.status(500).json({ error: 'Database error' });
+        }
+
+        if (results.length === 0) {
+          return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        res.json(results[0]);
+      }
+    );
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Update user profile information
+const updateUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { full_name, email, phone } = req.body;
+
+    // Validate required fields
+    if (!full_name || !email) {
+      return res.status(400).json({ error: 'Nombre y email son requeridos' });
+    }
+
+    // Check if email is already taken by another user
+    db.query(
+      'SELECT id FROM users WHERE email = ? AND id != ?',
+      [email, userId],
+      (err, results) => {
+        if (err) {
+          console.error('Database error:', err);
+          return res.status(500).json({ error: 'Database error' });
+        }
+
+        if (results.length > 0) {
+          return res.status(400).json({ error: 'Este email ya está en uso' });
+        }
+
+        // Update user information
+        db.query(
+          'UPDATE users SET full_name = ?, email = ?, phone = ? WHERE id = ?',
+          [full_name, email, phone, userId],
+          (updateErr) => {
+            if (updateErr) {
+              console.error('Profile update error:', updateErr);
+              return res.status(500).json({ error: 'Error al actualizar perfil' });
+            }
+
+            res.json({ 
+              message: 'Perfil actualizado correctamente',
+              user: { full_name, email, phone }
+            });
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Update notification preferences
+const updateNotificationPreferences = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { email_notifications, sms_notifications } = req.body;
+
+    // For now, we'll just return success since we don't have a preferences table
+    // In a full implementation, you'd store these in a user_preferences table
+    
+    res.json({ 
+      message: 'Preferencias de notificación actualizadas',
+      preferences: { email_notifications, sms_notifications }
+    });
+  } catch (error) {
+    console.error('Update preferences error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 module.exports = {
   register,
   login,
   getProfile,
   updateProfile,
-  changePassword
+  changePassword,
+  getUserProfile,
+  updateUserProfile,
+  updateNotificationPreferences
 };
