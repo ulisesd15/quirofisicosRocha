@@ -14,6 +14,11 @@ class AdminPanel {
     this.init();
   }
 
+  // Helper method to get authentication token consistently
+  getAuthToken() {
+    return window.authManager?.getToken() || localStorage.getItem('user_token') || localStorage.getItem('token');
+  }
+
   async init() {
     console.log('AdminPanel init started');
     
@@ -29,51 +34,68 @@ class AdminPanel {
     // Initialize event listeners
     this.initEventListeners();
     
-    // Load initial dashboard data
-    await this.loadDashboard();
+    // Check for URL hash navigation
+    const hash = window.location.hash.replace('#', '');
+    if (hash && ['dashboard', 'appointments', 'users', 'schedule', 'settings'].includes(hash)) {
+      console.log('Navigating to section from URL hash:', hash);
+      await this.switchSection(hash);
+    } else {
+      // Load initial dashboard data
+      await this.loadDashboard();
+    }
   }
 
   async checkAdminAuth() {
     try {
-      // Check if we have auth manager instance
-      if (!window.authManager) {
-        console.error('AuthManager not found, redirecting to login');
+      const token = this.getAuthToken();
+      
+      if (!token) {
+        console.error('No authentication token found, redirecting to login');
         window.location.href = '../login.html';
         return;
       }
 
-      const user = window.authManager.getCurrentUser();
-      if (!user) {
-        console.log('No user found, redirecting to login');
-        window.location.href = '../login.html';
-        return;
-      }
-
-      if (user.role !== 'admin') {
-        console.log('User is not admin, redirecting');
-        alert('Acceso denegado. No tienes permisos de administrador.');
-        window.location.href = '../index.html';
-        return;
-      }
-
-      // Verify admin role with backend
+      // Verify admin role with backend first
       const response = await fetch('/api/admin/dashboard', {
         headers: {
-          'Authorization': `Bearer ${window.authManager.getToken()}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
 
       if (!response.ok) {
+        console.error('Admin auth failed:', response.status, response.statusText);
+        if (response.status === 401) {
+          console.log('Token invalid, redirecting to login');
+          // Clear invalid token
+          localStorage.removeItem('user_token');
+          localStorage.removeItem('token');
+          window.location.href = '../login.html';
+          return;
+        }
         if (response.status === 403) {
           alert('Acceso denegado. No tienes permisos de administrador.');
           window.location.href = '../index.html';
           return;
         }
-        throw new Error('Error verificando autenticación');
+        throw new Error(`Error verificando autenticación: ${response.status}`);
+      }
+
+      // Check localStorage for user data
+      const userRole = localStorage.getItem('user_role');
+      const userName = localStorage.getItem('user_name');
+      
+      if (userRole !== 'admin') {
+        console.log('User role is not admin, redirecting');
+        alert('Acceso denegado. No tienes permisos de administrador.');
+        window.location.href = '../index.html';
+        return;
       }
 
       // Set admin name in navbar
-      document.getElementById('admin-name').textContent = user.name;
+      if (userName) {
+        document.getElementById('admin-name').textContent = userName;
+      }
       
     } catch (error) {
       console.error('Error checking admin auth:', error);
@@ -171,37 +193,133 @@ class AdminPanel {
   }
 
   async switchSection(section) {
-    if (this.isLoading) return;
+    console.log('switchSection called with:', section);
+    if (this.isLoading) {
+      console.log('Already loading, skipping section switch');
+      return;
+    }
 
-    // Update navigation
-    document.querySelectorAll('.nav-link').forEach(link => {
-      link.classList.remove('active');
-    });
-    document.querySelector(`[data-section="${section}"]`).classList.add('active');
+    try {
+      // Update navigation
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+      });
+      const navLink = document.querySelector(`[data-section="${section}"]`);
+      console.log('Nav link found:', navLink);
+      if (navLink) {
+        navLink.classList.add('active');
+      }
 
-    // Hide all sections
-    document.querySelectorAll('.admin-section').forEach(sec => {
-      sec.classList.add('d-none');
-    });
+      // Hide all sections
+      document.querySelectorAll('.admin-section').forEach(sec => {
+        sec.classList.add('d-none');
+      });
 
-    // Show target section
-    document.getElementById(`${section}-section`).classList.remove('d-none');
+      // Show target section
+      const targetSection = document.getElementById(`${section}-section`);
+      console.log('Target section:', targetSection);
+      if (targetSection) {
+        targetSection.classList.remove('d-none');
+      } else {
+        console.error('Target section not found:', `${section}-section`);
+      }
 
-    // Update page title
-    const titles = {
-      dashboard: 'Dashboard',
-      appointments: 'Gestión de Citas',
-      users: 'Gestión de Usuarios',
-      schedule: 'Horarios de Atención',
-      settings: 'Configuración'
-    };
-    document.getElementById('page-title').textContent = titles[section];
+      // Update page title
+      const titles = {
+        dashboard: 'Dashboard',
+        appointments: 'Gestión de Citas',
+        users: 'Gestión de Usuarios',
+        schedule: 'Horarios de Atención',
+        settings: 'Configuración',
+        'sms-management': 'Gestión de SMS'
+      };
+      const titleElement = document.getElementById('page-title');
+      if (titleElement) {
+        titleElement.textContent = titles[section];
+      }
 
-    this.currentSection = section;
-    this.currentPage = 1;
+      this.currentSection = section;
+      this.currentPage = 1;
 
-    // Load section data
-    await this.loadSectionData(section);
+      console.log('Loading section data...');
+      // Load section data
+      await this.loadSectionData(section);
+      console.log('Section switch completed');
+    } catch (error) {
+      console.error('Error in switchSection:', error);
+    }
+  }
+
+  async navigateToSection(section, filter = null) {
+    // Set the filter before switching sections
+    this.currentFilter = filter;
+    
+    // Switch to the target section
+    await this.switchSection(section);
+    
+    // Apply specific filtering if needed
+    if (filter && section === 'appointments') {
+      await this.applyAppointmentFilter(filter);
+    }
+  }
+
+  async applyAppointmentFilter(filter) {
+    try {
+      let url = '/api/admin/appointments';
+      let params = new URLSearchParams();
+      
+      const today = new Date();
+      const formatDate = (date) => date.toISOString().split('T')[0];
+      
+      switch (filter) {
+        case 'today':
+          params.append('date', formatDate(today));
+          break;
+        case 'pending':
+          // Get appointments for the rest of the week (tomorrow onwards)
+          const tomorrow = new Date(today);
+          tomorrow.setDate(today.getDate() + 1);
+          const endOfWeek = new Date(today);
+          endOfWeek.setDate(today.getDate() + (7 - today.getDay())); // End of current week
+          
+          params.append('start_date', formatDate(tomorrow));
+          params.append('end_date', formatDate(endOfWeek));
+          params.append('status', 'pending');
+          break;
+      }
+      
+      if (params.toString()) {
+        url += '?' + params.toString();
+      }
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Error loading filtered appointments');
+      
+      const appointments = await response.json();
+      this.displayAppointments(appointments.appointments || appointments);
+      
+      // Update the appointments header to show the filter
+      const filterTitles = {
+        today: 'Citas de Hoy',
+        pending: 'Citas Pendientes (Resto de la Semana)'
+      };
+      
+      if (filter && filterTitles[filter]) {
+        const cardTitle = document.querySelector('#appointments-section .card-header h5');
+        if (cardTitle) {
+          cardTitle.innerHTML = `<i class="fas fa-calendar-check me-2"></i>${filterTitles[filter]}`;
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error applying appointment filter:', error);
+      this.showError('Error al filtrar las citas');
+    }
   }
 
   async loadSectionData(section) {
@@ -216,10 +334,20 @@ class AdminPanel {
         await this.loadUsers();
         break;
       case 'schedule':
-        await this.loadBusinessHours();
+        await this.loadScheduleSection(); // Enhanced schedule loading
         break;
       case 'settings':
         await this.loadClinicSettings();
+        await this.loadScheduledClosings();
+        await this.loadHoursExceptions();
+        await this.loadPendingUsers();
+        await this.loadRecentApprovals();
+        this.initializeSettingsEventListeners();
+        break;
+      case 'sms-management':
+        // SMS management data is loaded by the individual functions
+        // when the tabs are activated
+        console.log('SMS management section loaded');
         break;
     }
   }
@@ -234,7 +362,7 @@ class AdminPanel {
       
       const response = await fetch('/api/admin/dashboard', {
         headers: {
-          'Authorization': `Bearer ${window.authManager.getToken()}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
 
@@ -286,6 +414,14 @@ class AdminPanel {
     try {
       this.showLoading();
       
+      // Reset header to default if no filter is active
+      if (!this.currentFilter) {
+        const cardTitle = document.querySelector('#appointments-section .card-header h5');
+        if (cardTitle) {
+          cardTitle.innerHTML = `<i class="fas fa-calendar-check me-2"></i>Gestión de Citas`;
+        }
+      }
+      
       const params = new URLSearchParams({
         page: this.currentPage,
         limit: this.itemsPerPage
@@ -302,7 +438,7 @@ class AdminPanel {
 
       const response = await fetch(`/api/admin/appointments?${params}`, {
         headers: {
-          'Authorization': `Bearer ${window.authManager.getToken()}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
 
@@ -313,6 +449,9 @@ class AdminPanel {
       this.displayAppointments(data.appointments);
       this.updatePagination('appointments', data.pagination);
       
+      // Clear the current filter after normal load
+      this.currentFilter = null;
+      
     } catch (error) {
       console.error('Error loading appointments:', error);
       this.showError('Error cargando las citas');
@@ -321,11 +460,77 @@ class AdminPanel {
     }
   }
 
+  async navigateToScheduleTab(tabName) {
+    console.log('navigateToScheduleTab called with:', tabName);
+    try {
+      // First switch to schedule section
+      console.log('Switching to schedule section...');
+      await this.switchSection('schedule');
+      
+      // Then activate the specific tab
+      const tabButton = document.getElementById(`${tabName}-tab`);
+      const tabContent = document.getElementById(`${tabName}`);
+      
+      console.log('Tab button:', tabButton);
+      console.log('Tab content:', tabContent);
+      
+      if (tabButton && tabContent) {
+        // Remove active from all tabs
+        document.querySelectorAll('#schedule-tabs .nav-link').forEach(tab => {
+          tab.classList.remove('active');
+        });
+        document.querySelectorAll('#schedule-tab-content .tab-pane').forEach(pane => {
+          pane.classList.remove('show', 'active');
+        });
+        
+        // Activate target tab
+        tabButton.classList.add('active');
+        tabContent.classList.add('show', 'active');
+        
+        console.log('Tab activated, loading data...');
+        // Load specific data for the tab
+        await this.loadScheduleTabData(tabName);
+      } else {
+        console.error('Tab elements not found:', { tabButton, tabContent });
+      }
+    } catch (error) {
+      console.error('Error in navigateToScheduleTab:', error);
+    }
+  }
+
+  async loadScheduleTabData(tabName) {
+    switch (tabName) {
+      case 'business-days':
+        await this.loadBusinessDayExceptions();
+        break;
+      case 'weekly-hours':
+        await this.loadBusinessHours();
+        // Initialize temporary hours functionality
+        this.initTemporaryHoursToggle();
+        break;
+      case 'week-appointments':
+        await this.loadWeekExceptions();
+        await this.initWeekSelector();
+        break;
+      case 'pending-appointments':
+        await this.loadPendingAppointmentsManagement();
+        break;
+    }
+  }
+
   displayAppointments(appointments) {
     const tbody = document.getElementById('appointments-table');
     
     if (appointments.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center">No se encontraron citas</td></tr>';
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="empty-state">
+            <i class="fas fa-calendar-times"></i>
+            <h5>No hay citas</h5>
+            <p>No se encontraron citas que coincidan con los criterios de búsqueda.</p>
+          </td>
+        </tr>
+      `;
       return;
     }
 
@@ -341,12 +546,14 @@ class AdminPanel {
         </td>
         <td><span class="badge bg-${apt.status}">${this.getStatusText(apt.status)}</span></td>
         <td>
-          <button class="btn btn-sm btn-outline-primary me-1" onclick="adminPanel.editAppointment(${apt.id})">
-            <i class="fas fa-edit"></i>
-          </button>
-          <button class="btn btn-sm btn-outline-danger" onclick="adminPanel.deleteAppointment(${apt.id})">
-            <i class="fas fa-trash"></i>
-          </button>
+          <div class="action-buttons">
+            <button class="btn btn-outline-primary btn-sm" onclick="adminPanel.editAppointment(${apt.id})" title="Editar">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteAppointment(${apt.id})" title="Eliminar">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
         </td>
       </tr>
     `).join('');
@@ -366,7 +573,7 @@ class AdminPanel {
 
       const response = await fetch(`/api/admin/users?${params}`, {
         headers: {
-          'Authorization': `Bearer ${window.authManager.getToken()}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
 
@@ -389,7 +596,15 @@ class AdminPanel {
     const tbody = document.getElementById('users-table');
     
     if (users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center">No se encontraron usuarios</td></tr>';
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="empty-state">
+            <i class="fas fa-users"></i>
+            <h5>No hay usuarios</h5>
+            <p>No se encontraron usuarios que coincidan con los criterios de búsqueda.</p>
+          </td>
+        </tr>
+      `;
       return;
     }
 
@@ -406,12 +621,14 @@ class AdminPanel {
         </td>
         <td>${this.formatDate(user.created_at)}</td>
         <td>
-          <button class="btn btn-sm btn-outline-primary me-1" onclick="adminPanel.editUser(${user.id})">
-            <i class="fas fa-edit"></i>
-          </button>
-          <button class="btn btn-sm btn-outline-danger" onclick="adminPanel.deleteUser(${user.id})">
-            <i class="fas fa-trash"></i>
-          </button>
+          <div class="action-buttons">
+            <button class="btn btn-outline-primary btn-sm" onclick="adminPanel.editUser(${user.id})" title="Editar">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteUser(${user.id})" title="Eliminar">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
         </td>
       </tr>
     `).join('');
@@ -423,7 +640,7 @@ class AdminPanel {
       
       const response = await fetch('/api/admin/business-hours', {
         headers: {
-          'Authorization': `Bearer ${window.authManager.getToken()}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
 
@@ -445,32 +662,60 @@ class AdminPanel {
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
+    // Get the current week's dates
+    const today = new Date();
+    const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const mondayOffset = currentDay === 0 ? 6 : currentDay - 1; // Calculate offset to get to Monday
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - mondayOffset);
+
     container.innerHTML = days.map((day, index) => {
       const hours = businessHours.find(bh => bh.day_of_week === day) || {};
       
+      // Calculate the date for this day
+      const dayDate = new Date(monday);
+      dayDate.setDate(monday.getDate() + index);
+      const formattedDate = `${String(dayDate.getMonth() + 1).padStart(2, '0')}/${String(dayDate.getDate()).padStart(2, '0')}`;
+      
+      // Get default times based on whether it's a weekend
+      const isWeekend = index >= 5; // Saturday and Sunday
+      const defaultOpenTime = isWeekend ? '12:00' : '14:00'; // 12:00 PM for weekends, 2:00 PM for weekdays
+      const defaultCloseTime = isWeekend ? '16:30' : '18:00'; // 4:30 PM for weekends, 6:00 PM for weekdays
+      
       return `
         <div class="business-hours-day ${!hours.is_open ? 'closed' : ''}" data-day="${day}">
-          <div class="row align-items-center">
+          <div class="row">
             <div class="col-md-3">
-              <h6>${dayNames[index]}</h6>
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" 
-                       id="open-${day}" ${hours.is_open ? 'checked' : ''}>
-                <label class="form-check-label" for="open-${day}">
-                  Abierto
-                </label>
+              <div class="day-header text-center">
+                <h6 class="mb-1">${dayNames[index]}</h6>
+                <small class="text-muted d-block mb-2">${formattedDate}</small>
+                <div class="form-check form-switch d-flex justify-content-center">
+                  <input class="form-check-input" type="checkbox" 
+                         id="open-${day}" ${hours.is_open ? 'checked' : ''}
+                         data-default-open="${defaultOpenTime}" 
+                         data-default-close="${defaultCloseTime}">
+                  <label class="form-check-label ms-2" for="open-${day}">
+                    Abierto
+                  </label>
+                </div>
               </div>
             </div>
             <div class="col-md-9">
-              <div class="time-inputs">
-                <label class="form-label">Desde:</label>
-                <input type="time" class="form-control" 
-                       id="start-${day}" value="${hours.open_time || '09:00'}"
-                       ${!hours.is_open ? 'disabled' : ''}>
-                <label class="form-label">Hasta:</label>
-                <input type="time" class="form-control" 
-                       id="end-${day}" value="${hours.close_time || '18:00'}"
-                       ${!hours.is_open ? 'disabled' : ''}>
+              <div class="time-inputs-row">
+                <div class="row">
+                  <div class="col-md-6">
+                    <label class="form-label">Hora de Apertura:</label>
+                    <input type="time" class="form-control" 
+                           id="start-${day}" value="${hours.open_time || defaultOpenTime}"
+                           ${!hours.is_open ? 'disabled' : ''}>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Hora de Cierre:</label>
+                    <input type="time" class="form-control" 
+                           id="end-${day}" value="${hours.close_time || defaultCloseTime}"
+                           ${!hours.is_open ? 'disabled' : ''}>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -478,8 +723,8 @@ class AdminPanel {
       `;
     }).join('');
 
-    // Add event listeners for checkboxes
-    days.forEach(day => {
+    // Add event listeners for checkboxes with default time functionality
+    days.forEach((day, index) => {
       const checkbox = document.getElementById(`open-${day}`);
       const startTime = document.getElementById(`start-${day}`);
       const endTime = document.getElementById(`end-${day}`);
@@ -490,6 +735,14 @@ class AdminPanel {
         startTime.disabled = !isOpen;
         endTime.disabled = !isOpen;
         dayDiv.classList.toggle('closed', !isOpen);
+        
+        // Set default times when turning on the switch
+        if (isOpen) {
+          const defaultOpenTime = checkbox.getAttribute('data-default-open');
+          const defaultCloseTime = checkbox.getAttribute('data-default-close');
+          startTime.value = defaultOpenTime;
+          endTime.value = defaultCloseTime;
+        }
       });
     });
   }
@@ -500,14 +753,15 @@ class AdminPanel {
       
       const response = await fetch('/api/admin/settings', {
         headers: {
-          'Authorization': `Bearer ${window.authManager.getToken()}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
 
       if (!response.ok) throw new Error('Error loading settings');
       
       const data = await response.json();
-      this.displayClinicSettings(data.settings);
+      // The API returns settings directly, not wrapped in a 'settings' property
+      this.displayClinicSettings(data);
       
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -519,9 +773,17 @@ class AdminPanel {
 
   displayClinicSettings(settings) {
     const form = document.getElementById('clinic-settings-form');
+    
+    // Handle case where settings might be undefined or not an object
+    if (!settings || typeof settings !== 'object') {
+      console.warn('Invalid settings data received:', settings);
+      settings = {};
+    }
+
+    // Create a settingsMap to extract values from the API response
     const settingsMap = {};
-    settings.forEach(setting => {
-      settingsMap[setting.setting_key] = setting.setting_value;
+    Object.keys(settings).forEach(key => {
+      settingsMap[key] = settings[key]?.value || '';
     });
 
     form.innerHTML = `
@@ -606,7 +868,7 @@ class AdminPanel {
     try {
       const response = await fetch(`/api/admin/appointments/${id}`, {
         headers: {
-          'Authorization': `Bearer ${window.authManager.getToken()}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
 
@@ -652,7 +914,7 @@ class AdminPanel {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${window.authManager.getToken()}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         },
         body: JSON.stringify(data)
       });
@@ -680,7 +942,7 @@ class AdminPanel {
       const response = await fetch(`/api/admin/appointments/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${window.authManager.getToken()}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
 
@@ -699,7 +961,7 @@ class AdminPanel {
     try {
       const response = await fetch(`/api/admin/users/${id}`, {
         headers: {
-          'Authorization': `Bearer ${window.authManager.getToken()}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
 
@@ -739,7 +1001,7 @@ class AdminPanel {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${window.authManager.getToken()}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         },
         body: JSON.stringify(data)
       });
@@ -767,7 +1029,7 @@ class AdminPanel {
       const response = await fetch(`/api/admin/users/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${window.authManager.getToken()}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
 
@@ -804,7 +1066,7 @@ class AdminPanel {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${window.authManager.getToken()}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         },
         body: JSON.stringify({ businessHours })
       });
@@ -837,7 +1099,7 @@ class AdminPanel {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${window.authManager.getToken()}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         },
         body: JSON.stringify({ settings })
       });
@@ -979,9 +1241,2723 @@ class AdminPanel {
       }
     }, 5000);
   }
+
+  // =================
+  // ENHANCED SCHEDULE MANAGEMENT
+  // =================
+
+  async loadScheduleSection() {
+    console.log('Loading comprehensive schedule section');
+    
+    // Load data for all components
+    await Promise.all([
+      this.loadBusinessHours(),
+      this.loadScheduleExceptions(),
+      this.loadAnnouncements()
+    ]);
+
+    // Initialize event listeners for schedule features
+    this.initScheduleEventListeners();
+  }
+
+  initScheduleEventListeners() {
+    // Business Hours
+    document.getElementById('save-business-hours')?.addEventListener('click', () => this.saveBusinessHours());
+    document.getElementById('reset-business-hours')?.addEventListener('click', () => this.loadBusinessHours());
+    
+    // Schedule Exceptions
+    document.getElementById('save-schedule-exception')?.addEventListener('click', () => this.saveScheduleException());
+    
+    // Exception type change handler
+    document.getElementById('exception-type-select')?.addEventListener('change', (e) => {
+      const endDateContainer = document.getElementById('end-date-container');
+      if (e.target.value === 'date_range') {
+        endDateContainer.style.display = 'block';
+      } else {
+        endDateContainer.style.display = 'none';
+      }
+    });
+    
+    // Closed toggle handler
+    document.getElementById('exception-is-closed')?.addEventListener('change', (e) => {
+      const customHoursSection = document.getElementById('custom-hours-section');
+      if (e.target.checked) {
+        customHoursSection.style.display = 'none';
+      } else {
+        customHoursSection.style.display = 'block';
+      }
+    });
+    
+    // Announcements
+    document.getElementById('save-announcement')?.addEventListener('click', () => this.saveAnnouncement());
+  }
+
+  // =================
+  // BUSINESS HOURS MANAGEMENT
+  // =================
+
+  async loadBusinessHours() {
+    try {
+      const response = await fetch('/api/admin/business-hours', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load business hours');
+
+      const businessHours = await response.json();
+      this.renderBusinessHours(businessHours);
+    } catch (error) {
+      console.error('Error loading business hours:', error);
+      this.showError('Error al cargar horarios de negocio');
+    }
+  }
+
+  renderBusinessHours(businessHours) {
+    const container = document.getElementById('business-hours-container');
+    if (!container) return;
+
+    const daysOfWeek = [
+      { key: 'Monday', label: 'Lunes' },
+      { key: 'Tuesday', label: 'Martes' },
+      { key: 'Wednesday', label: 'Miércoles' },
+      { key: 'Thursday', label: 'Jueves' },
+      { key: 'Friday', label: 'Viernes' },
+      { key: 'Saturday', label: 'Sábado' },
+      { key: 'Sunday', label: 'Domingo' }
+    ];
+
+    const businessHoursMap = {};
+    businessHours.forEach(day => {
+      businessHoursMap[day.day_of_week] = day;
+    });
+
+    container.innerHTML = daysOfWeek.map(day => {
+      const dayData = businessHoursMap[day.key] || {
+        day_of_week: day.key,
+        is_open: false,
+        open_time: '09:00',
+        close_time: '18:00',
+        break_start: '13:00',
+        break_end: '14:00'
+      };
+
+      return `
+        <div class="card mb-3" data-day="${day.key}">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">${day.label}</h6>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="is-open-${day.key}" 
+                     ${dayData.is_open ? 'checked' : ''} onchange="adminPanel.toggleDayHours('${day.key}')">
+              <label class="form-check-label" for="is-open-${day.key}">Abierto</label>
+            </div>
+          </div>
+          <div class="card-body ${!dayData.is_open ? 'd-none' : ''}" id="hours-${day.key}">
+            <div class="row">
+              <div class="col-md-3">
+                <label class="form-label small">Apertura</label>
+                <input type="time" class="form-control" id="open-${day.key}" value="${dayData.open_time || '09:00'}">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small">Cierre</label>
+                <input type="time" class="form-control" id="close-${day.key}" value="${dayData.close_time || '18:00'}">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small">Inicio almuerzo</label>
+                <input type="time" class="form-control" id="break-start-${day.key}" value="${dayData.break_start || '13:00'}">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small">Fin almuerzo</label>
+                <input type="time" class="form-control" id="break-end-${day.key}" value="${dayData.break_end || '14:00'}">
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async saveAnnouncement() {
+    console.log('saveAnnouncement called');
+    
+    const formData = {
+      title: document.getElementById('announcement-title').value,
+      message: document.getElementById('announcement-content').value,
+      announcement_type: document.getElementById('announcement-type').value,
+      priority: document.getElementById('announcement-priority').value,
+      start_date: document.getElementById('announcement-start-date').value,
+      end_date: document.getElementById('announcement-end-date').value,
+      show_on_homepage: document.getElementById('announcement-active').checked,
+      show_on_booking: false
+    };
+
+    console.log('Form data:', formData);
+    console.log('Auth token:', this.getAuthToken());
+
+    if (!formData.title || !formData.message || !formData.start_date) {
+      this.showError('Faltan campos obligatorios');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/announcements', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      console.log('Response status:', response.status);
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+
+      if (!response.ok) throw new Error(`Failed to save announcement: ${responseText}`);
+
+      this.showSuccess('Anuncio guardado exitosamente');
+      
+      // Close modal and refresh list
+      const modal = bootstrap.Modal.getInstance(document.getElementById('addAnnouncementModal'));
+      modal.hide();
+      document.getElementById('add-announcement-form').reset();
+      
+      await this.loadAnnouncements();
+    } catch (error) {
+      console.error('Error saving announcement:', error);
+      this.showError('Error al guardar anuncio: ' + error.message);
+    }
+  }
+
+  async deleteAnnouncement(id) {
+    if (!confirm('¿Está seguro de eliminar este anuncio?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/announcements/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to delete announcement');
+
+      this.showSuccess('Anuncio eliminado exitosamente');
+      await this.loadAnnouncements();
+    } catch (error) {
+      console.error('Error deleting announcement:', error);
+      this.showError('Error al eliminar anuncio');
+    }
+  }
+
+  // =================
+  // UTILITY FUNCTIONS
+  // =================
+
+  formatDateRange(startDate, endDate) {
+    const formatDate = (date) => {
+      return new Date(date).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    };
+
+    if (!endDate || startDate === endDate) {
+      return formatDate(startDate);
+    }
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+  }
+
+  getAnnouncementColor(type) {
+    const colors = {
+      'info': 'primary',
+      'warning': 'warning',
+      'success': 'success',
+      'danger': 'danger'
+    };
+    return colors[type] || 'primary';
+  }
+
+  getAnnouncementTypeLabel(type) {
+    const labels = {
+      'info': 'Información',
+      'warning': 'Advertencia',
+      'success': 'Buenas noticias',
+      'danger': 'Urgente'
+    };
+    return labels[type] || 'Información';
+  }
+
+  getPriorityLabel(priority) {
+    const labels = {
+      'low': 'Baja',
+      'normal': 'Normal',
+      'high': 'Alta',
+      'urgent': 'Urgente'
+    };
+    return labels[priority] || 'Normal';
+  }
+
+  // =================
+  // EXISTING FUNCTIONS CONTINUATION
+  // =================
+
+  toggleDayHours(day) {
+    const hoursContainer = document.getElementById(`hours-${day}`);
+    const checkbox = document.getElementById(`is-open-${day}`);
+    
+    if (checkbox.checked) {
+      hoursContainer.classList.remove('d-none');
+    } else {
+      hoursContainer.classList.add('d-none');
+    }
+  }
+
+  async saveBusinessHours() {
+    const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const businessHours = [];
+
+    daysOfWeek.forEach(day => {
+      const isOpen = document.getElementById(`is-open-${day}`).checked;
+      const dayData = {
+        day_of_week: day,
+        is_open: isOpen,
+        open_time: isOpen ? document.getElementById(`open-${day}`).value : null,
+        close_time: isOpen ? document.getElementById(`close-${day}`).value : null,
+        break_start: isOpen ? document.getElementById(`break-start-${day}`).value : null,
+        break_end: isOpen ? document.getElementById(`break-end-${day}`).value : null
+      };
+      businessHours.push(dayData);
+    });
+
+    try {
+      const response = await fetch('/api/admin/business-hours', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ businessHours })
+      });
+
+      if (!response.ok) throw new Error('Failed to save business hours');
+
+      this.showSuccess('Horarios de negocio guardados exitosamente');
+      await this.loadBusinessHours();
+    } catch (error) {
+      console.error('Error saving business hours:', error);
+      this.showError('Error al guardar horarios de negocio');
+    }
+  }
+
+  // =================
+  // SCHEDULE EXCEPTIONS MANAGEMENT
+  // =================
+
+  async loadScheduleExceptions() {
+    try {
+      const response = await fetch('/api/admin/schedule-exceptions', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load schedule exceptions');
+
+      const exceptions = await response.json();
+      this.renderScheduleExceptions(exceptions);
+    } catch (error) {
+      console.error('Error loading schedule exceptions:', error);
+      this.showError('Error al cargar excepciones de horario');
+    }
+  }
+
+  renderScheduleExceptions(exceptions) {
+    const container = document.getElementById('schedule-exceptions-list');
+    if (!container) return;
+
+    if (exceptions.length === 0) {
+      container.innerHTML = '<div class="text-center text-muted py-4">No hay excepciones de horario programadas</div>';
+      return;
+    }
+
+    container.innerHTML = exceptions.map(exception => `
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <h6 class="card-title d-flex align-items-center">
+                <i class="fas fa-calendar-times me-2 text-warning"></i>
+                ${exception.reason}
+                <span class="badge bg-${exception.is_closed ? 'danger' : 'info'} ms-2">
+                  ${exception.is_closed ? 'Cerrado' : 'Horario especial'}
+                </span>
+              </h6>
+              <p class="card-text text-muted mb-2">${exception.description || 'Sin descripción adicional'}</p>
+              <div class="d-flex gap-3 text-sm">
+                <span><i class="fas fa-calendar"></i> ${this.formatDateRange(exception.start_date, exception.end_date)}</span>
+                ${!exception.is_closed && exception.custom_open_time ? `
+                  <span><i class="fas fa-clock"></i> ${exception.custom_open_time} - ${exception.custom_close_time}</span>
+                ` : ''}
+                <span class="badge bg-secondary">${exception.exception_type === 'single_day' ? 'Día específico' : 'Rango de fechas'}</span>
+              </div>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-outline-primary btn-sm" onclick="adminPanel.editScheduleException(${exception.id})">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteScheduleException(${exception.id})">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async saveScheduleException() {
+    console.log('saveScheduleException called');
+    
+    const formData = {
+      exception_type: document.getElementById('exception-type-select').value,
+      start_date: document.getElementById('exception-start-date').value,
+      end_date: document.getElementById('exception-end-date').value,
+      is_closed: document.getElementById('exception-is-closed').checked,
+      custom_open_time: document.getElementById('exception-open-time').value,
+      custom_close_time: document.getElementById('exception-close-time').value,
+      custom_break_start: document.getElementById('exception-break-start').value,
+      custom_break_end: document.getElementById('exception-break-end').value,
+      reason: document.getElementById('exception-reason').value,
+      description: document.getElementById('exception-description').value
+    };
+
+    console.log('Form data collected:', formData);
+    console.log('Auth token:', this.getAuthToken());
+
+    if (!formData.exception_type || !formData.start_date || !formData.reason) {
+      console.log('Validation failed - missing required fields');
+      this.showError('Faltan campos obligatorios');
+      return;
+    }
+
+    if (formData.exception_type === 'date_range' && !formData.end_date) {
+      console.log('Validation failed - date range missing end date');
+      this.showError('Para un rango de fechas debe especificar la fecha de fin');
+      return;
+    }
+
+    try {
+      console.log('Sending request to /api/admin/schedule-exceptions');
+      const response = await fetch('/api/admin/schedule-exceptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      console.log('Response status:', response.status);
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+
+      if (!response.ok) throw new Error(`Failed to save schedule exception: ${responseText}`);
+
+      this.showSuccess('Excepción de horario guardada exitosamente');
+      
+      // Close modal and refresh list
+      const modal = bootstrap.Modal.getInstance(document.getElementById('addScheduleExceptionModal'));
+      modal.hide();
+      document.getElementById('add-schedule-exception-form').reset();
+      
+      await this.loadScheduleExceptions();
+    } catch (error) {
+      console.error('Error saving schedule exception:', error);
+      this.showError('Error al guardar excepción de horario: ' + error.message);
+    }
+  }
+
+  async deleteScheduleException(id) {
+    console.log('Delete schedule exception called with ID:', id);
+    
+    if (!confirm('¿Está seguro de eliminar esta excepción de horario?')) return;
+
+    try {
+      console.log('Sending DELETE request to:', `/api/admin/schedule-exceptions/${id}`);
+      console.log('Auth token:', this.getAuthToken());
+      
+      const response = await fetch(`/api/admin/schedule-exceptions/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      console.log('Delete response status:', response.status);
+      const responseText = await response.text();
+      console.log('Delete response text:', responseText);
+
+      if (!response.ok) throw new Error(`Failed to delete schedule exception: ${responseText}`);
+
+      this.showSuccess('Excepción eliminada exitosamente');
+      await this.loadScheduleExceptions();
+    } catch (error) {
+      console.error('Error deleting schedule exception:', error);
+      this.showError('Error al eliminar excepción: ' + error.message);
+    }
+  }
+
+  // =================
+  // ANNOUNCEMENTS MANAGEMENT
+  // =================
+
+  async loadAnnouncements() {
+    try {
+      const response = await fetch('/api/admin/announcements', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load announcements');
+
+      const announcements = await response.json();
+      this.renderAnnouncements(announcements);
+    } catch (error) {
+      console.error('Error loading announcements:', error);
+      this.showError('Error al cargar anuncios');
+    }
+  }
+
+  renderAnnouncements(announcements) {
+    const container = document.getElementById('announcements-list');
+    if (!container) return;
+
+    if (announcements.length === 0) {
+      container.innerHTML = '<div class="text-center text-muted py-4">No hay anuncios activos</div>';
+      return;
+    }
+
+    container.innerHTML = announcements.map(announcement => `
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div class="flex-grow-1">
+              <h6 class="card-title d-flex align-items-center">
+                <i class="fas fa-bullhorn me-2 text-${this.getAnnouncementColor(announcement.announcement_type)}"></i>
+                ${announcement.title}
+                <span class="badge bg-${this.getAnnouncementColor(announcement.announcement_type)} ms-2">
+                  ${this.getAnnouncementTypeLabel(announcement.announcement_type)}
+                </span>
+                <span class="badge bg-secondary ms-1">
+                  ${this.getPriorityLabel(announcement.priority)}
+                </span>
+              </h6>
+              <p class="card-text">${announcement.message}</p>
+              <div class="d-flex gap-3 text-sm text-muted">
+                <span><i class="fas fa-calendar"></i> ${this.formatDateRange(announcement.start_date, announcement.end_date)}</span>
+                ${announcement.show_on_homepage ? '<span class="badge bg-success">En página principal</span>' : ''}
+                ${announcement.show_on_booking ? '<span class="badge bg-info">En reservas</span>' : ''}
+                <span class="text-muted">Por: ${announcement.created_by_name || 'Admin'}</span>
+              </div>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-outline-primary btn-sm" onclick="adminPanel.editAnnouncement(${announcement.id})">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteAnnouncement(${announcement.id})">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async loadScheduledClosures() {
+    try {
+      const response = await fetch('/api/admin/schedule/closures', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load scheduled closures');
+
+      const closures = await response.json();
+      this.renderScheduledClosures(closures);
+    } catch (error) {
+      console.error('Error loading scheduled closures:', error);
+      this.showError('Error al cargar cierres programados');
+    }
+  }
+
+  renderScheduledClosures(closures) {
+    const container = document.getElementById('closures-list');
+    if (!container) return;
+
+    if (closures.length === 0) {
+      container.innerHTML = '<div class="text-center text-muted py-4">No hay cierres programados</div>';
+      return;
+    }
+
+    container.innerHTML = closures.map(closure => `
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <h6 class="card-title">${closure.title}</h6>
+              <p class="card-text text-muted">${closure.description || 'Sin descripción'}</p>
+              <div class="d-flex gap-3 text-sm">
+                <span><i class="fas fa-calendar"></i> ${this.formatDateRange(closure.start_date, closure.end_date)}</span>
+                ${closure.start_time ? `<span><i class="fas fa-clock"></i> ${closure.start_time} - ${closure.end_time}</span>` : '<span><i class="fas fa-calendar-day"></i> Todo el día</span>'}
+                <span class="badge bg-${this.getClosureTypeColor(closure.closure_type)}">${this.getClosureTypeLabel(closure.closure_type)}</span>
+                ${closure.is_recurring ? '<span class="badge bg-info">Anual</span>' : ''}
+              </div>
+            </div>
+            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteScheduledClosure(${closure.id})">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async saveScheduledClosure() {
+    const formData = {
+      title: document.getElementById('closure-title').value,
+      description: document.getElementById('closure-description').value,
+      start_date: document.getElementById('closure-start-date').value,
+      end_date: document.getElementById('closure-end-date').value,
+      start_time: document.getElementById('closure-start-time').value,
+      end_time: document.getElementById('closure-end-time').value,
+      closure_type: document.getElementById('closure-type').value,
+      is_recurring: document.getElementById('closure-recurring').checked
+    };
+
+    if (!formData.title || !formData.start_date || !formData.end_date) {
+      this.showError('Faltan campos obligatorios');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/schedule/closures', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) throw new Error('Failed to save closure');
+
+      this.showSuccess('Cierre programado guardado exitosamente');
+      
+      // Close modal and reload data
+      const modal = bootstrap.Modal.getInstance(document.getElementById('addClosureModal'));
+      modal.hide();
+      document.getElementById('add-closure-form').reset();
+      
+      await this.loadScheduledClosures();
+    } catch (error) {
+      console.error('Error saving scheduled closure:', error);
+      this.showError('Error al guardar cierre programado');
+    }
+  }
+
+  async deleteScheduledClosure(id) {
+    if (!confirm('¿Estás seguro de que quieres eliminar este cierre programado?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/schedule/closures/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to delete closure');
+
+      this.showSuccess('Cierre eliminado exitosamente');
+      await this.loadScheduledClosures();
+    } catch (error) {
+      console.error('Error deleting scheduled closure:', error);
+      this.showError('Error al eliminar cierre');
+    }
+  }
+
+  async loadScheduleOverrides() {
+    try {
+      const response = await fetch('/api/admin/schedule/overrides', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load schedule overrides');
+
+      const overrides = await response.json();
+      this.renderScheduleOverrides(overrides);
+    } catch (error) {
+      console.error('Error loading schedule overrides:', error);
+      this.showError('Error al cargar horarios especiales');
+    }
+  }
+
+  renderScheduleOverrides(overrides) {
+    const container = document.getElementById('overrides-list');
+    if (!container) return;
+
+    if (overrides.length === 0) {
+      container.innerHTML = '<div class="text-center text-muted py-4">No hay horarios especiales configurados</div>';
+      return;
+    }
+
+    container.innerHTML = overrides.map(override => `
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <h6 class="card-title">${this.formatDate(override.date)} - ${override.day_of_week}</h6>
+              <p class="card-text text-muted">${override.reason || 'Sin motivo especificado'}</p>
+              <div class="d-flex gap-3 text-sm">
+                ${override.is_open ? 
+                  `<span><i class="fas fa-clock"></i> ${override.open_time} - ${override.close_time}</span>
+                   ${override.break_start ? `<span><i class="fas fa-coffee"></i> Descanso: ${override.break_start} - ${override.break_end}</span>` : ''}` 
+                  : '<span class="badge bg-danger">Cerrado</span>'}
+              </div>
+            </div>
+            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteScheduleOverride(${override.id})">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async saveScheduleOverride() {
+    const isOpen = document.getElementById('override-is-open').checked;
+    const formData = {
+      date: document.getElementById('override-date').value,
+      reason: document.getElementById('override-reason').value,
+      is_open: isOpen,
+      open_time: isOpen ? document.getElementById('override-open-time').value : null,
+      close_time: isOpen ? document.getElementById('override-close-time').value : null,
+      break_start: isOpen ? document.getElementById('override-break-start').value : null,
+      break_end: isOpen ? document.getElementById('override-break-end').value : null
+    };
+
+    if (!formData.date) {
+      this.showError('La fecha es obligatoria');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/schedule/overrides', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) throw new Error('Failed to save override');
+
+      this.showSuccess('Horario especial guardado exitosamente');
+      
+      // Close modal and reload data
+      const modal = bootstrap.Modal.getInstance(document.getElementById('addOverrideModal'));
+      modal.hide();
+      document.getElementById('add-override-form').reset();
+      
+      await this.loadScheduleOverrides();
+    } catch (error) {
+      console.error('Error saving schedule override:', error);
+      this.showError('Error al guardar horario especial');
+    }
+  }
+
+  async deleteScheduleOverride(id) {
+    if (!confirm('¿Estás seguro de que quieres eliminar este horario especial?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/schedule/overrides/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to delete override');
+
+      this.showSuccess('Horario especial eliminado exitosamente');
+      await this.loadScheduleOverrides();
+    } catch (error) {
+      console.error('Error deleting schedule override:', error);
+      this.showError('Error al eliminar horario especial');
+    }
+  }
+
+  async loadBlockedTimeSlots() {
+    try {
+      const response = await fetch('/api/admin/schedule/blocked-slots', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load blocked time slots');
+
+      const blockedSlots = await response.json();
+      this.renderBlockedTimeSlots(blockedSlots);
+    } catch (error) {
+      console.error('Error loading blocked time slots:', error);
+      this.showError('Error al cargar horas bloqueadas');
+    }
+  }
+
+  renderBlockedTimeSlots(blockedSlots) {
+    const container = document.getElementById('blocked-slots-list');
+    if (!container) return;
+
+    if (blockedSlots.length === 0) {
+      container.innerHTML = '<div class="text-center text-muted py-4">No hay horas bloqueadas</div>';
+      return;
+    }
+
+    // Group by date
+    const groupedSlots = blockedSlots.reduce((acc, slot) => {
+      const date = slot.date;
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(slot);
+      return acc;
+    }, {});
+
+    container.innerHTML = Object.entries(groupedSlots).map(([date, slots]) => `
+      <div class="card mb-3">
+        <div class="card-header">
+          <h6 class="mb-0">${this.formatDate(date)}</h6>
+        </div>
+        <div class="card-body">
+          ${slots.map(slot => `
+            <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+              <div>
+                <span class="fw-bold">${slot.start_time} - ${slot.end_time}</span>
+                <span class="badge bg-${this.getBlockTypeColor(slot.block_type)} ms-2">${this.getBlockTypeLabel(slot.block_type)}</span>
+                ${slot.reason ? `<br><small class="text-muted">${slot.reason}</small>` : ''}
+              </div>
+              <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteBlockedTimeSlot(${slot.id})">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async saveBlockedTimeSlot() {
+    const formData = {
+      date: document.getElementById('blocked-date').value,
+      start_time: document.getElementById('blocked-start-time').value,
+      end_time: document.getElementById('blocked-end-time').value,
+      reason: document.getElementById('blocked-reason').value,
+      block_type: document.getElementById('blocked-type').value
+    };
+
+    if (!formData.date || !formData.start_time || !formData.end_time) {
+      this.showNotification('Fecha, hora inicio y hora fin son obligatorios', 'error');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/schedule/blocked-slots', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) throw new Error('Failed to save blocked slot');
+
+      this.showSuccess('Hora bloqueada guardada exitosamente');
+      
+      // Close modal and reload data
+      const modal = bootstrap.Modal.getInstance(document.getElementById('addBlockedSlotModal'));
+      modal.hide();
+      document.getElementById('add-blocked-slot-form').reset();
+      
+      await this.loadBlockedTimeSlots();
+    } catch (error) {
+      console.error('Error saving blocked time slot:', error);
+      this.showError('Error al guardar hora bloqueada');
+    }
+  }
+
+  async deleteBlockedTimeSlot(id) {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta hora bloqueada?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/schedule/blocked-slots/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to delete blocked slot');
+
+      this.showSuccess('Hora bloqueada eliminada exitosamente');
+      await this.loadBlockedTimeSlots();
+    } catch (error) {
+      console.error('Error deleting blocked time slot:', error);
+      this.showError('Error al eliminar hora bloqueada');
+    }
+  }
+
+  // Helper functions
+  formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  }
+
+  formatDateRange(startDate, endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (startDate === endDate) {
+      return this.formatDate(startDate);
+    }
+    
+    return `${start.toLocaleDateString('es-ES')} - ${end.toLocaleDateString('es-ES')}`;
+  }
+
+  getClosureTypeColor(type) {
+    const colors = {
+      holiday: 'success',
+      vacation: 'info',
+      maintenance: 'warning',
+      emergency: 'danger',
+      other: 'secondary'
+    };
+    return colors[type] || 'secondary';
+  }
+
+  getClosureTypeLabel(type) {
+    const labels = {
+      holiday: 'Feriado',
+      vacation: 'Vacaciones',
+      maintenance: 'Mantenimiento',
+      emergency: 'Emergencia',
+      other: 'Otro'
+    };
+    return labels[type] || 'Otro';
+  }
+
+  getBlockTypeColor(type) {
+    const colors = {
+      appointment: 'primary',
+      break: 'info',
+      maintenance: 'warning',
+      personal: 'success',
+      other: 'secondary'
+    };
+    return colors[type] || 'secondary';
+  }
+
+  getBlockTypeLabel(type) {
+    const labels = {
+      appointment: 'Cita',
+      break: 'Descanso',
+      maintenance: 'Mantenimiento',
+      personal: 'Personal',
+      other: 'Otro'
+    };
+    return labels[type] || 'Otro';
+  }
+
+  // =================
+  // BUSINESS DAYS MANAGEMENT
+  // =================
+
+  async loadBusinessDaysConfig() {
+    try {
+      const response = await fetch('/api/admin/schedule/business-days', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load business days config');
+
+      const businessDays = await response.json();
+      this.renderBusinessDaysConfig(businessDays);
+    } catch (error) {
+      console.error('Error loading business days config:', error);
+      this.showError('Error al cargar configuración de días');
+    }
+  }
+
+  renderBusinessDaysConfig(businessDays) {
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    
+    dayNames.forEach(day => {
+      const checkbox = document.getElementById(`day-${day.toLowerCase()}`);
+      if (checkbox) {
+        const dayConfig = businessDays.find(bd => bd.day_of_week === day);
+        checkbox.checked = dayConfig ? dayConfig.is_open : false;
+      }
+    });
+
+    // Add event listener for save button
+    document.getElementById('save-standard-days')?.addEventListener('click', () => this.saveBusinessDaysConfig());
+  }
+
+  async saveBusinessDaysConfig() {
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const days = dayNames.map(day => ({
+      day_of_week: day,
+      is_open: document.getElementById(`day-${day.toLowerCase()}`)?.checked || false
+    }));
+
+    try {
+      const response = await fetch('/api/admin/schedule/business-days', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify({ days })
+      });
+
+      if (!response.ok) throw new Error('Failed to save business days');
+
+      this.showSuccess('Configuración de días guardada exitosamente');
+    } catch (error) {
+      console.error('Error saving business days config:', error);
+      this.showError('Error al guardar configuración de días');
+    }
+  }
+
+  async loadWeekExceptions() {
+    try {
+      const response = await fetch('/api/admin/schedule/week-exceptions', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load week exceptions');
+
+      const exceptions = await response.json();
+      this.renderWeekExceptions(exceptions);
+    } catch (error) {
+      console.error('Error loading week exceptions:', error);
+      this.showError('Error al cargar excepciones semanales');
+    }
+  }
+
+  renderWeekExceptions(exceptions) {
+    const container = document.getElementById('week-exceptions-list');
+    if (!container) return;
+
+    if (exceptions.length === 0) {
+      container.innerHTML = '<div class="text-center text-muted py-3">No hay excepciones configuradas</div>';
+      return;
+    }
+
+    container.innerHTML = exceptions.map(exception => `
+      <div class="card mb-2">
+        <div class="card-body py-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <strong>Semana del ${this.formatDate(exception.week_start_date)}</strong>
+              <br><small class="text-muted">${exception.description || 'Sin descripción'}</small>
+              <br><small>Días abiertos: ${exception.days_open.join(', ')}</small>
+            </div>
+            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteWeekException(${exception.id})">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    // Add event listeners
+    document.getElementById('save-week-exception')?.addEventListener('click', () => this.saveWeekException());
+  }
+
+  async saveWeekException() {
+    const formData = {
+      week_start_date: document.getElementById('exception-week-start').value,
+      description: document.getElementById('exception-description').value,
+      days_open: Array.from(document.querySelectorAll('#exception-week-days input:checked')).map(cb => cb.value)
+    };
+
+    if (!formData.week_start_date) {
+      this.showError('La fecha de inicio es obligatoria');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/schedule/week-exceptions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) throw new Error('Failed to save week exception');
+
+      this.showSuccess('Excepción semanal guardada exitosamente');
+      
+      const modal = bootstrap.Modal.getInstance(document.getElementById('addWeekExceptionModal'));
+      modal.hide();
+      document.getElementById('add-week-exception-form').reset();
+      
+      await this.loadWeekExceptions();
+    } catch (error) {
+      console.error('Error saving week exception:', error);
+      this.showError('Error al guardar excepción semanal');
+    }
+  }
+
+  async deleteWeekException(id) {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta excepción semanal?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/schedule/week-exceptions/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to delete week exception');
+
+      this.showSuccess('Excepción eliminada exitosamente');
+      await this.loadWeekExceptions();
+    } catch (error) {
+      console.error('Error deleting week exception:', error);
+      this.showError('Error al eliminar excepción');
+    }
+  }
+
+  // =================
+  // USER APPROVAL SYSTEM
+  // =================
+
+  async loadApprovalSettings() {
+    try {
+      const response = await fetch('/api/admin/approval/settings', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load approval settings');
+
+      const settings = await response.json();
+      this.renderApprovalSettings(settings);
+    } catch (error) {
+      console.error('Error loading approval settings:', error);
+      this.showError('Error al cargar configuración de aprobación');
+    }
+  }
+
+  renderApprovalSettings(settings) {
+    document.getElementById('approval-system-enabled').checked = settings.approval_system_enabled || false;
+    document.getElementById('require-approval-guests').checked = settings.require_approval_guests || false;
+    document.getElementById('require-approval-first-time').checked = settings.require_approval_first_time || false;
+    document.getElementById('approval-message').value = settings.approval_message || '';
+
+    document.getElementById('save-approval-settings')?.addEventListener('click', () => this.saveApprovalSettings());
+  }
+
+  async saveApprovalSettings() {
+    const formData = {
+      approval_system_enabled: document.getElementById('approval-system-enabled').checked,
+      require_approval_guests: document.getElementById('require-approval-guests').checked,
+      require_approval_first_time: document.getElementById('require-approval-first-time').checked,
+      approval_message: document.getElementById('approval-message').value
+    };
+
+    try {
+      const response = await fetch('/api/admin/approval/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) throw new Error('Failed to save approval settings');
+
+      this.showSuccess('Configuración de aprobación guardada exitosamente');
+    } catch (error) {
+      console.error('Error saving approval settings:', error);
+      this.showError('Error al guardar configuración de aprobación');
+    }
+  }
+
+  async loadPendingUsers() {
+    try {
+      const response = await fetch('/api/admin/approval/pending-users', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load pending users');
+
+      const users = await response.json();
+      this.renderPendingUsers(users);
+    } catch (error) {
+      console.error('Error loading pending users:', error);
+      this.showError('Error al cargar usuarios pendientes');
+    }
+  }
+
+  renderPendingUsers(users) {
+    const container = document.getElementById('pending-users-list');
+    if (!container) return;
+
+    if (users.length === 0) {
+      container.innerHTML = '<div class="text-center text-muted py-3">No hay usuarios pendientes de aprobación</div>';
+      return;
+    }
+
+    container.innerHTML = users.map(user => `
+      <div class="card mb-2">
+        <div class="card-body py-2">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <strong>${user.full_name}</strong>
+              <br><small class="text-muted">${user.email}</small>
+              ${user.phone ? `<br><small class="text-muted">${user.phone}</small>` : ''}
+              <br><small class="text-muted">Solicitado: ${this.formatDate(user.requested_at)}</small>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-success btn-sm" onclick="adminPanel.approveUser(${user.id})">
+                <i class="fas fa-check"></i> Aprobar
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="adminPanel.rejectUser(${user.id})">
+                <i class="fas fa-times"></i> Rechazar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async approveUser(id) {
+    const notes = prompt('Notas adicionales (opcional):');
+    
+    try {
+      const response = await fetch(`/api/admin/approval/users/${id}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify({ notes })
+      });
+
+      if (!response.ok) throw new Error('Failed to approve user');
+
+      this.showSuccess('Usuario aprobado exitosamente');
+      await this.loadPendingUsers();
+    } catch (error) {
+      console.error('Error approving user:', error);
+      this.showError('Error al aprobar usuario');
+    }
+  }
+
+  async rejectUser(id) {
+    const notes = prompt('Motivo del rechazo:');
+    if (!notes) return;
+    
+    try {
+      const response = await fetch(`/api/admin/approval/users/${id}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify({ notes })
+      });
+
+      if (!response.ok) throw new Error('Failed to reject user');
+
+      this.showNotification('Usuario rechazado', 'warning');
+      await this.loadPendingUsers();
+    } catch (error) {
+      console.error('Error rejecting user:', error);
+      this.showError('Error al rechazar usuario');
+    }
+  }
+
+  // =================
+  // ANNOUNCEMENTS MANAGEMENT
+  // =================
+
+  async loadAnnouncements() {
+    try {
+      const response = await fetch('/api/admin/announcements', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load announcements');
+
+      const announcements = await response.json();
+      this.renderAnnouncements(announcements);
+    } catch (error) {
+      console.error('Error loading announcements:', error);
+      this.showError('Error al cargar anuncios');
+    }
+  }
+
+  renderAnnouncements(announcements) {
+    const container = document.getElementById('announcements-list');
+    if (!container) return;
+
+    if (announcements.length === 0) {
+      container.innerHTML = '<div class="text-center text-muted py-4">No hay anuncios configurados</div>';
+      return;
+    }
+
+    container.innerHTML = announcements.map(announcement => `
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div class="flex-grow-1">
+              <div class="d-flex align-items-center mb-2">
+                <h6 class="card-title mb-0">${announcement.title}</h6>
+                <span class="badge bg-${this.getAnnouncementTypeColor(announcement.type)} ms-2">${this.getAnnouncementTypeLabel(announcement.type)}</span>
+                <span class="badge bg-${this.getAnnouncementPriorityColor(announcement.priority)} ms-1">${this.getAnnouncementPriorityLabel(announcement.priority)}</span>
+                ${announcement.is_active ? '<span class="badge bg-success ms-1">Activo</span>' : '<span class="badge bg-secondary ms-1">Inactivo</span>'}
+              </div>
+              <p class="card-text text-muted mb-2">${announcement.content}</p>
+              <div class="d-flex gap-3 text-sm">
+                <span><i class="fas fa-calendar"></i> ${this.formatDateRange(announcement.start_date, announcement.end_date)}</span>
+                <span><i class="fas fa-user"></i> ${announcement.created_by_name}</span>
+              </div>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-outline-primary btn-sm" onclick="adminPanel.editAnnouncement(${announcement.id})">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteAnnouncement(${announcement.id})">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    // Add event listener for save button
+    document.getElementById('save-announcement')?.addEventListener('click', () => this.saveAnnouncement());
+  }
+
+  async deleteAnnouncement(id) {
+    if (!confirm('¿Estás seguro de que quieres eliminar este anuncio?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/announcements/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to delete announcement');
+
+      this.showSuccess('Anuncio eliminado exitosamente');
+      await this.loadAnnouncements();
+    } catch (error) {
+      console.error('Error deleting announcement:', error);
+      this.showError('Error al eliminar anuncio');
+    }
+  }
+
+  // Helper functions for announcements
+  getAnnouncementTypeColor(type) {
+    const colors = { info: 'info', warning: 'warning', success: 'success', urgent: 'danger' };
+    return colors[type] || 'secondary';
+  }
+
+  getAnnouncementTypeLabel(type) {
+    const labels = { info: 'Información', warning: 'Advertencia', success: 'Buenas Noticias', urgent: 'Urgente' };
+    return labels[type] || 'Otro';
+  }
+
+  getAnnouncementPriorityColor(priority) {
+    const colors = { low: 'secondary', normal: 'primary', high: 'warning' };
+    return colors[priority] || 'secondary';
+  }
+
+  getAnnouncementPriorityLabel(priority) {
+    const labels = { low: 'Baja', normal: 'Normal', high: 'Alta' };
+    return labels[priority] || 'Normal';
+  }
+
+  // =================
+  // NEW SCHEDULE FUNCTIONALITY
+  // =================
+
+  async loadBusinessDayExceptions() {
+    try {
+      const response = await fetch('/api/admin/schedule/closures', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load business day exceptions');
+
+      const exceptions = await response.json();
+      this.renderBusinessDayExceptions(exceptions);
+    } catch (error) {
+      console.error('Error loading business day exceptions:', error);
+      this.showError('Error al cargar excepciones de días laborales');
+    }
+  }
+
+  renderBusinessDayExceptions(exceptions) {
+    const container = document.getElementById('business-day-exceptions-list');
+    if (!container) return;
+
+    if (exceptions.length === 0) {
+      container.innerHTML = '<div class="text-center text-muted py-4">No hay excepciones programadas</div>';
+      return;
+    }
+
+    container.innerHTML = exceptions.map(exception => `
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <h6 class="card-title">${exception.title}</h6>
+              <p class="card-text text-muted">${exception.description || 'Sin descripción'}</p>
+              <div class="d-flex gap-3 text-sm">
+                <span><i class="fas fa-calendar"></i> ${this.formatDateRange(exception.start_date, exception.end_date)}</span>
+                <span class="badge bg-${this.getClosureTypeColor(exception.closure_type)}">${this.getClosureTypeLabel(exception.closure_type)}</span>
+                ${exception.is_recurring ? '<span class="badge bg-info">Anual</span>' : ''}
+              </div>
+            </div>
+            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteBusinessDayException(${exception.id})">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async saveBusinessDayException() {
+    const scheduleAdjustment = document.querySelector('input[name="schedule-adjustment"]:checked').value;
+    
+    const formData = {
+      title: document.getElementById('exception-title').value,
+      description: document.getElementById('exception-description').value,
+      start_date: document.getElementById('exception-start-date').value,
+      end_date: document.getElementById('exception-end-date').value,
+      closure_type: scheduleAdjustment === 'closed' ? 'closed' : 'custom_hours',
+      is_recurring: document.getElementById('exception-recurring').checked
+    };
+
+    // Add custom hours if selected
+    if (scheduleAdjustment === 'custom') {
+      formData.custom_open_time = document.getElementById('custom-open-time').value;
+      formData.custom_close_time = document.getElementById('custom-close-time').value;
+      
+      if (!formData.custom_open_time || !formData.custom_close_time) {
+        this.showError('Debe especificar horarios de apertura y cierre para horario personalizado');
+        return;
+      }
+    }
+
+    if (!formData.title || !formData.start_date || !formData.end_date) {
+      this.showError('Faltan campos obligatorios');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/schedule/closures', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) throw new Error('Failed to save business day exception');
+
+      this.showSuccess('Ajuste de horario guardado exitosamente');
+      
+      // Close modal and reload data
+      const modal = bootstrap.Modal.getInstance(document.getElementById('addBusinessDayExceptionModal'));
+      modal.hide();
+      document.getElementById('add-business-day-exception-form').reset();
+      // Reset radio buttons and hide custom hours section
+      document.getElementById('closed-all-day').checked = true;
+      document.getElementById('custom-hours-section').style.display = 'none';
+      
+      await this.loadBusinessDayExceptions();
+    } catch (error) {
+      console.error('Error saving business day exception:', error);
+      this.showError('Error al guardar la excepción');
+    }
+  }
+
+  async deleteBusinessDayException(id) {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta excepción?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/schedule/closures/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to delete business day exception');
+
+      this.showSuccess('Excepción eliminada exitosamente');
+      await this.loadBusinessDayExceptions();
+    } catch (error) {
+      console.error('Error deleting business day exception:', error);
+      this.showError('Error al eliminar la excepción');
+    }
+  }
+
+  initTemporaryHoursToggle() {
+    const toggle = document.getElementById('temporary-hours-enabled');
+    const rangeDiv = document.getElementById('temporary-hours-range');
+    
+    if (toggle && rangeDiv) {
+      toggle.addEventListener('change', function() {
+        rangeDiv.style.display = this.checked ? 'block' : 'none';
+      });
+    }
+  }
+
+  async initWeekSelector() {
+    const weekSelector = document.getElementById('exception-week-selector');
+    if (weekSelector) {
+      // Set current week as default
+      const now = new Date();
+      const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 1));
+      const year = startOfWeek.getFullYear();
+      const week = this.getWeekNumber(startOfWeek);
+      weekSelector.value = `${year}-W${week.toString().padStart(2, '0')}`;
+      
+      weekSelector.addEventListener('change', () => {
+        this.loadWeekExceptionsForWeek(weekSelector.value);
+      });
+      
+      // Load current week exceptions
+      this.loadWeekExceptionsForWeek(weekSelector.value);
+    }
+  }
+
+  getWeekNumber(date) {
+    const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+    const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
+    return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+  }
+
+  async loadWeekExceptionsForWeek(weekValue) {
+    try {
+      const response = await fetch(`/api/admin/schedule/week-exceptions?week=${weekValue}`, {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load week exceptions');
+
+      const exceptions = await response.json();
+      this.renderWeekExceptions(exceptions);
+    } catch (error) {
+      console.error('Error loading week exceptions:', error);
+      this.showError('Error al cargar excepciones de la semana');
+    }
+  }
+
+  renderWeekExceptions(exceptions) {
+    const container = document.getElementById('week-exceptions-container');
+    if (!container) return;
+
+    if (exceptions.length === 0) {
+      container.innerHTML = `
+        <div class="text-center text-muted py-4">
+          <i class="fas fa-calendar-check fa-3x mb-3"></i>
+          <p>No hay excepciones para esta semana</p>
+          <button class="btn btn-outline-primary" onclick="adminPanel.addWeekException()">
+            <i class="fas fa-plus"></i> Agregar Primera Excepción
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = exceptions.map(exception => `
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-8">
+              <h6>${exception.day_name} - ${this.formatDate(exception.date)}</h6>
+              <p class="text-muted">${exception.reason || 'Sin motivo especificado'}</p>
+              ${exception.is_open ? 
+                `<small><i class="fas fa-clock"></i> ${exception.open_time} - ${exception.close_time}</small>` 
+                : '<small class="badge bg-danger">Cerrado</small>'}
+            </div>
+            <div class="col-md-4 text-end">
+              <button class="btn btn-outline-primary btn-sm me-2" onclick="adminPanel.editWeekException(${exception.id})">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteWeekException(${exception.id})">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async loadPendingAppointmentsManagement() {
+    try {
+      const response = await fetch('/api/admin/appointments?status=pending', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load pending appointments');
+
+      const data = await response.json();
+      this.renderPendingAppointmentsManagement(data.appointments || data);
+    } catch (error) {
+      console.error('Error loading pending appointments:', error);
+      this.showError('Error al cargar citas pendientes');
+    }
+  }
+
+  renderPendingAppointmentsManagement(appointments) {
+    const container = document.getElementById('pending-appointments-container');
+    if (!container) return;
+
+    if (appointments.length === 0) {
+      container.innerHTML = `
+        <div class="text-center text-muted py-4">
+          <i class="fas fa-calendar-check fa-3x mb-3"></i>
+          <p>No hay citas pendientes</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = appointments.map(apt => `
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-md-4">
+              <h6 class="mb-1">${apt.name}</h6>
+              <small class="text-muted">
+                <i class="fas fa-envelope"></i> ${apt.email || 'Sin email'}<br>
+                <i class="fas fa-phone"></i> ${apt.phone || 'Sin teléfono'}
+              </small>
+            </div>
+            <div class="col-md-3">
+              <strong>${this.formatDate(apt.appointment_date)}</strong><br>
+              <small class="text-muted">${apt.appointment_time}</small>
+            </div>
+            <div class="col-md-2">
+              <span class="badge bg-warning">Pendiente</span>
+            </div>
+            <div class="col-md-3">
+              <div class="btn-group" role="group">
+                <button class="btn btn-success btn-sm" onclick="adminPanel.approveAppointment(${apt.id})" title="Aprobar">
+                  <i class="fas fa-check"></i>
+                </button>
+                <button class="btn btn-primary btn-sm" onclick="adminPanel.rescheduleAppointment(${apt.id})" title="Reagendar">
+                  <i class="fas fa-calendar-alt"></i>
+                </button>
+                <button class="btn btn-info btn-sm" onclick="adminPanel.contactClient(${apt.id})" title="Contactar">
+                  <i class="fas fa-phone"></i>
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="adminPanel.cancelAppointment(${apt.id})" title="Cancelar">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Action methods for pending appointments
+  async approveAppointment(appointmentId) {
+    if (!confirm('¿Confirmar esta cita?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/appointments/${appointmentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify({ status: 'confirmed' })
+      });
+
+      if (!response.ok) throw new Error('Error approving appointment');
+
+      this.showSuccess('Cita aprobada exitosamente');
+      await this.loadPendingAppointmentsManagement();
+    } catch (error) {
+      console.error('Error approving appointment:', error);
+      this.showError('Error al aprobar la cita');
+    }
+  }
+
+  async cancelAppointment(appointmentId) {
+    if (!confirm('¿Cancelar esta cita?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/appointments/${appointmentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify({ status: 'cancelled' })
+      });
+
+      if (!response.ok) throw new Error('Error cancelling appointment');
+
+      this.showSuccess('Cita cancelada exitosamente');
+      await this.loadPendingAppointmentsManagement();
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      this.showError('Error al cancelar la cita');
+    }
+  }
+
+  rescheduleAppointment(appointmentId) {
+    // This could open a modal or redirect to edit appointment
+    this.editAppointment(appointmentId);
+  }
+
+  contactClient(appointmentId) {
+    // This could show contact options (phone, email, SMS)
+    alert('Función de contacto en desarrollo. Use los datos mostrados para contactar al cliente.');
+  }
+
+  addWeekException() {
+    // Initialize the enhanced week exception modal
+    this.initializeWeekExceptionModal();
+  }
+
+  initializeWeekExceptionModal() {
+    // Set up event listeners for the enhanced modal
+    const modal = document.getElementById('addWeekExceptionModal');
+    
+    // Exception type toggle
+    const typeClosureRadio = document.getElementById('type-closure');
+    const typeScheduleRadio = document.getElementById('type-schedule');
+    const closureMode = document.getElementById('closure-mode');
+    const scheduleMode = document.getElementById('schedule-mode');
+
+    // Toggle between closure and schedule modes
+    const toggleExceptionMode = () => {
+      if (typeClosureRadio.checked) {
+        closureMode.classList.remove('d-none');
+        scheduleMode.classList.add('d-none');
+      } else {
+        closureMode.classList.add('d-none');
+        scheduleMode.classList.remove('d-none');
+      }
+    };
+
+    typeClosureRadio.addEventListener('change', toggleExceptionMode);
+    typeScheduleRadio.addEventListener('change', toggleExceptionMode);
+
+    // Schedule configuration toggles
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    
+    days.forEach(day => {
+      const enableToggle = document.getElementById(`schedule-${day}-enable`);
+      const scheduleConfig = document.getElementById(`${day}-schedule`);
+      const closedCheckbox = document.getElementById(`${day}-closed`);
+      const hoursInputs = document.getElementById(`${day}-hours`);
+
+      // Toggle schedule configuration visibility
+      enableToggle?.addEventListener('change', () => {
+        if (enableToggle.checked) {
+          scheduleConfig.classList.remove('d-none');
+        } else {
+          scheduleConfig.classList.add('d-none');
+          // Reset form values when disabled
+          this.resetDaySchedule(day);
+        }
+      });
+
+      // Toggle hours inputs when closed checkbox is changed
+      closedCheckbox?.addEventListener('change', () => {
+        if (closedCheckbox.checked) {
+          hoursInputs.classList.add('closed-day');
+          // Clear time inputs
+          ['open', 'close', 'break-start', 'break-end'].forEach(timeType => {
+            const input = document.getElementById(`${day}-${timeType}`);
+            if (input) input.value = '';
+          });
+        } else {
+          hoursInputs.classList.remove('closed-day');
+          // Set default hours
+          this.setDefaultHours(day);
+        }
+      });
+    });
+
+    // Save button handler
+    const saveButton = document.getElementById('save-week-exception');
+    saveButton.onclick = () => this.saveWeekException();
+
+    // Reset modal when opened
+    modal.addEventListener('show.bs.modal', () => {
+      this.resetWeekExceptionModal();
+    });
+  }
+
+  resetDaySchedule(day) {
+    const closedCheckbox = document.getElementById(`${day}-closed`);
+    if (closedCheckbox) closedCheckbox.checked = false;
+    
+    ['open', 'close', 'break-start', 'break-end'].forEach(timeType => {
+      const input = document.getElementById(`${day}-${timeType}`);
+      if (input) input.value = '';
+    });
+  }
+
+  setDefaultHours(day) {
+    // Set default business hours (you can customize these)
+    const defaultHours = {
+      open: '09:00',
+      close: '18:00',
+      'break-start': '13:00',
+      'break-end': '14:00'
+    };
+
+    Object.keys(defaultHours).forEach(timeType => {
+      const input = document.getElementById(`${day}-${timeType}`);
+      if (input) input.value = defaultHours[timeType];
+    });
+  }
+
+  resetWeekExceptionModal() {
+    // Reset form
+    document.getElementById('add-week-exception-form').reset();
+    
+    // Reset to closure mode
+    document.getElementById('type-closure').checked = true;
+    document.getElementById('closure-mode').classList.remove('d-none');
+    document.getElementById('schedule-mode').classList.add('d-none');
+
+    // Reset all schedule configurations
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    days.forEach(day => {
+      const enableToggle = document.getElementById(`schedule-${day}-enable`);
+      const scheduleConfig = document.getElementById(`${day}-schedule`);
+      
+      if (enableToggle) enableToggle.checked = false;
+      if (scheduleConfig) scheduleConfig.classList.add('d-none');
+      
+      this.resetDaySchedule(day);
+    });
+
+    // Set default week start date to next Monday
+    const nextMonday = this.getNextMonday();
+    document.getElementById('exception-week-start').value = nextMonday;
+  }
+
+  getNextMonday() {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+    const nextMonday = new Date(today);
+    nextMonday.setDate(today.getDate() + daysUntilMonday);
+    return nextMonday.toISOString().split('T')[0];
+  }
+
+  async saveWeekException() {
+    try {
+      const weekStart = document.getElementById('exception-week-start').value;
+      const description = document.getElementById('exception-description').value;
+      const exceptionType = document.querySelector('input[name="exception-type"]:checked').value;
+
+      if (!weekStart) {
+        this.showError('Por favor seleccione la fecha de inicio de la semana');
+        return;
+      }
+
+      let exceptionData = {
+        week_start: weekStart,
+        description: description || 'Excepción semanal',
+        type: exceptionType,
+        days: {}
+      };
+
+      if (exceptionType === 'closure') {
+        // Collect closure data
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        days.forEach(day => {
+          const checkbox = document.getElementById(`closure-${day}`);
+          if (checkbox && checkbox.checked) {
+            exceptionData.days[day] = { closed: true };
+          }
+        });
+      } else {
+        // Collect schedule data
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        days.forEach(day => {
+          const enableToggle = document.getElementById(`schedule-${day}-enable`);
+          if (enableToggle && enableToggle.checked) {
+            const closedCheckbox = document.getElementById(`${day}-closed`);
+            
+            if (closedCheckbox && closedCheckbox.checked) {
+              exceptionData.days[day] = { closed: true };
+            } else {
+              exceptionData.days[day] = {
+                closed: false,
+                open_time: document.getElementById(`${day}-open`).value,
+                close_time: document.getElementById(`${day}-close`).value,
+                break_start: document.getElementById(`${day}-break-start`).value,
+                break_end: document.getElementById(`${day}-break-end`).value
+              };
+            }
+          }
+        });
+      }
+
+      const response = await fetch('/api/admin/schedule/week-exceptions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify(exceptionData)
+      });
+
+      if (!response.ok) throw new Error('Error saving week exception');
+
+      this.showSuccess('Excepción semanal guardada correctamente');
+      
+      // Close modal
+      const modal = bootstrap.Modal.getInstance(document.getElementById('addWeekExceptionModal'));
+      modal.hide();
+
+      // Refresh the week exceptions list
+      this.loadWeekExceptions();
+
+    } catch (error) {
+      console.error('Error saving week exception:', error);
+      this.showError('Error guardando la excepción semanal');
+    }
+  }
+
+  searchPendingAppointments() {
+    const query = document.getElementById('pending-search')?.value;
+    if (query) {
+      // Implement search functionality
+      console.log('Searching for:', query);
+    }
+  }
+
+  filterPendingAppointments() {
+    const filter = document.getElementById('pending-date-filter')?.value;
+    if (filter) {
+      // Implement filter functionality
+      console.log('Filtering by:', filter);
+    }
+  }
+
+  refreshPendingAppointments() {
+    this.loadPendingAppointmentsManagement();
+  }
+
+  // === SETTINGS METHODS ===
+
+  // Day Closing Management
+  async addDayClosing() {
+    try {
+      const date = document.getElementById('closing-date').value;
+      const reason = document.getElementById('closing-reason').value;
+      const notifyClients = document.getElementById('notify-clients').checked;
+
+      if (!date) {
+        alert('Por favor seleccione una fecha');
+        return;
+      }
+
+      const response = await fetch('/api/admin/settings/day-closings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify({
+          date,
+          reason: reason || 'Cierre programado',
+          notify_clients: notifyClients
+        })
+      });
+
+      if (!response.ok) throw new Error('Error adding day closing');
+
+      alert('Cierre programado exitosamente');
+      this.loadScheduledClosings();
+      document.getElementById('day-closing-form').reset();
+
+    } catch (error) {
+      console.error('Error adding day closing:', error);
+      alert('Error al programar el cierre');
+    }
+  }
+
+  async changeClosingTime() {
+    try {
+      const date = document.getElementById('closing-change-date').value;
+      const newTime = document.getElementById('new-closing-time').value;
+      const reason = document.getElementById('closing-change-reason').value;
+
+      if (!date || !newTime) {
+        alert('Por favor complete todos los campos requeridos');
+        return;
+      }
+
+      const response = await fetch('/api/admin/settings/closing-time-changes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify({
+          date,
+          new_closing_time: newTime,
+          reason: reason || 'Cambio de horario'
+        })
+      });
+
+      if (!response.ok) throw new Error('Error changing closing time');
+
+      alert('Hora de cierre cambiada exitosamente');
+      this.loadScheduledClosings();
+      document.getElementById('closing-time-form').reset();
+
+    } catch (error) {
+      console.error('Error changing closing time:', error);
+      alert('Error al cambiar la hora de cierre');
+    }
+  }
+
+  async loadScheduledClosings() {
+    try {
+      const response = await fetch('/api/admin/schedule/closures', {
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error loading scheduled closings');
+
+      const data = await response.json();
+      this.displayScheduledClosings(data.closings);
+
+    } catch (error) {
+      console.error('Error loading scheduled closings:', error);
+    }
+  }
+
+  displayScheduledClosings(closings) {
+    const container = document.getElementById('scheduled-closings-list');
+    
+    if (!closings || closings.length === 0) {
+      container.innerHTML = '<p class="text-muted">No hay cierres programados</p>';
+      return;
+    }
+
+    container.innerHTML = closings.map(closing => `
+      <div class="card mb-2">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1">${this.formatDate(closing.date)}</h6>
+              <small class="text-muted">${closing.reason}</small>
+              ${closing.type === 'time_change' ? `<br><small class="text-info">Nueva hora de cierre: ${closing.new_closing_time}</small>` : ''}
+            </div>
+            <div>
+              <button class="btn btn-sm btn-outline-danger" onclick="adminPanel.removeScheduledClosing(${closing.id})">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async removeScheduledClosing(closingId) {
+    if (!confirm('¿Está seguro de que desea eliminar este cierre programado?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/schedule/closures/${closingId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error removing scheduled closing');
+
+      alert('Cierre eliminado exitosamente');
+      this.loadScheduledClosings();
+
+    } catch (error) {
+      console.error('Error removing scheduled closing:', error);
+      alert('Error al eliminar el cierre');
+    }
+  }
+
+  // Hours Exceptions Management
+  async addHoursException() {
+    try {
+      const startDate = document.getElementById('exception-start-date').value;
+      const endDate = document.getElementById('exception-end-date').value;
+      const blockStart = document.getElementById('exception-block-start').value;
+      const blockEnd = document.getElementById('exception-block-end').value;
+      const reason = document.getElementById('exception-reason').value;
+
+      if (!startDate || !blockStart || !blockEnd) {
+        alert('Por favor complete todos los campos requeridos (fecha inicial, hora inicio y hora fin)');
+        return;
+      }
+
+      // Validate time range
+      if (blockStart >= blockEnd) {
+        alert('La hora de inicio debe ser anterior a la hora de fin');
+        return;
+      }
+
+      // Determine exception type based on whether end date is provided
+      const exceptionType = endDate ? 'date_range' : 'single_day';
+      const finalEndDate = endDate || startDate;
+
+      const response = await fetch('/api/admin/schedule-exceptions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify({
+          exception_type: exceptionType,
+          start_date: startDate,
+          end_date: finalEndDate,
+          is_closed: false, // We're blocking specific hours, not closing completely
+          custom_open_time: blockStart,
+          custom_close_time: blockEnd,
+          reason: reason || 'Horario bloqueado',
+          description: `Bloqueo de horario: ${blockStart} - ${blockEnd}${endDate ? ` (${startDate} a ${endDate})` : ` (${startDate})`}`
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al crear la excepción de horario');
+      }
+
+      const dateRange = endDate ? `${startDate} a ${endDate}` : startDate;
+      alert(`Excepción de horario creada exitosamente:\n${dateRange} de ${blockStart} a ${blockEnd}`);
+      
+      // Reset form
+      document.getElementById('hours-exception-form').reset();
+      
+      // Reload exceptions list
+      this.loadHoursExceptions();
+
+    } catch (error) {
+      console.error('Error adding hours exception:', error);
+      alert('Error al crear la excepción de horario: ' + error.message);
+    }
+  }
+
+  consolidateTimeSlots(slots) {
+    if (slots.length === 0) return [];
+    
+    // Sort slots by start time
+    slots.sort((a, b) => a.start.localeCompare(b.start));
+    
+    const ranges = [];
+    let currentRange = { start: slots[0].start, end: slots[0].end };
+    
+    for (let i = 1; i < slots.length; i++) {
+      const slot = slots[i];
+      
+      // If this slot starts exactly when the current range ends, extend the range
+      if (slot.start === currentRange.end) {
+        currentRange.end = slot.end;
+      } else {
+        // Gap found, finish current range and start a new one
+        ranges.push(currentRange);
+        currentRange = { start: slot.start, end: slot.end };
+      }
+    }
+    
+    // Add the last range
+    ranges.push(currentRange);
+    return ranges;
+  }
+
+  async loadHoursExceptions() {
+    try {
+      const response = await fetch('/api/admin/schedule/overrides', {
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error loading hours exceptions');
+
+      const data = await response.json();
+      this.displayHoursExceptions(data.exceptions);
+
+    } catch (error) {
+      console.error('Error loading hours exceptions:', error);
+    }
+  }
+
+  displayHoursExceptions(exceptions) {
+    const container = document.getElementById('hours-exceptions-list');
+    
+    if (!exceptions || exceptions.length === 0) {
+      container.innerHTML = '<p class="text-muted">No hay excepciones de horario programadas</p>';
+      return;
+    }
+
+    container.innerHTML = exceptions.map(exception => `
+      <div class="card mb-2">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1">${this.formatDate(exception.date)}</h6>
+              <small class="text-muted">${exception.reason}</small>
+              <br><small class="text-info">Cierre: ${exception.start_time} - ${exception.end_time}</small>
+            </div>
+            <div>
+              <button class="btn btn-sm btn-outline-danger" onclick="adminPanel.removeHoursException(${exception.id})">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async removeHoursException(exceptionId) {
+    if (!confirm('¿Está seguro de que desea eliminar esta excepción de horario?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/schedule/overrides/${exceptionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error removing hours exception');
+
+      alert('Excepción eliminada exitosamente');
+      this.loadHoursExceptions();
+
+    } catch (error) {
+      console.error('Error removing hours exception:', error);
+      alert('Error al eliminar la excepción');
+    }
+  }
+
+  // User Approvals Management
+  async loadPendingUsers() {
+    try {
+      const response = await fetch('/api/admin/approval/pending-users', {
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error loading pending users');
+
+      const data = await response.json();
+      this.displayPendingUsers(data.users);
+
+    } catch (error) {
+      console.error('Error loading pending users:', error);
+    }
+  }
+
+  displayPendingUsers(users) {
+    const container = document.getElementById('pending-users-list');
+    
+    // Check if container exists (feature might not be implemented in UI)
+    if (!container) {
+      console.log('Pending users container not found - feature not implemented in UI');
+      return;
+    }
+    
+    if (!users || users.length === 0) {
+      container.innerHTML = '<p class="text-muted">No hay usuarios pendientes de aprobación</p>';
+      return;
+    }
+
+    container.innerHTML = users.map(user => `
+      <div class="card mb-2">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1">${user.name}</h6>
+              <small class="text-muted">${user.email}</small>
+              <br><small class="text-info">Registrado: ${this.formatDate(user.created_at)}</small>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-sm btn-success" onclick="adminPanel.approveUser(${user.id})">
+                <i class="fas fa-check"></i> Aprobar
+              </button>
+              <button class="btn btn-sm btn-danger" onclick="adminPanel.rejectUser(${user.id})">
+                <i class="fas fa-times"></i> Rechazar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async approveUser(userId) {
+    try {
+      const response = await fetch(`/api/admin/settings/users/${userId}/approve`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error approving user');
+
+      alert('Usuario aprobado exitosamente');
+      this.loadPendingUsers();
+      this.loadRecentApprovals();
+
+    } catch (error) {
+      console.error('Error approving user:', error);
+      alert('Error al aprobar el usuario');
+    }
+  }
+
+  async rejectUser(userId) {
+    if (!confirm('¿Está seguro de que desea rechazar este usuario?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/settings/users/${userId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error rejecting user');
+
+      alert('Usuario rechazado');
+      this.loadPendingUsers();
+
+    } catch (error) {
+      console.error('Error rejecting user:', error);
+      alert('Error al rechazar el usuario');
+    }
+  }
+
+  async saveApprovalSettings() {
+    try {
+      const requireApproval = document.getElementById('require-approval').checked;
+      const autoApproveRegulars = document.getElementById('auto-approve-regulars').checked;
+      const notificationEmail = document.getElementById('approval-notification-email').value;
+
+      const response = await fetch('/api/admin/settings/approval-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify({
+          require_approval: requireApproval,
+          auto_approve_regulars: autoApproveRegulars,
+          notification_email: notificationEmail
+        })
+      });
+
+      if (!response.ok) throw new Error('Error saving approval settings');
+
+      alert('Configuración de aprobaciones guardada exitosamente');
+
+    } catch (error) {
+      console.error('Error saving approval settings:', error);
+      alert('Error al guardar la configuración');
+    }
+  }
+
+  async loadRecentApprovals() {
+    try {
+      const response = await fetch('/api/admin/approval/recent', {
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error loading recent approvals');
+
+      const data = await response.json();
+      this.displayRecentApprovals(data.approvals);
+
+    } catch (error) {
+      console.error('Error loading recent approvals:', error);
+    }
+  }
+
+  displayRecentApprovals(approvals) {
+    const container = document.getElementById('recent-approvals-list');
+    
+    // Check if container exists (feature might not be implemented in UI)
+    if (!container) {
+      console.log('Recent approvals container not found - feature not implemented in UI');
+      return;
+    }
+    
+    if (!approvals || approvals.length === 0) {
+      container.innerHTML = '<p class="text-muted">No hay aprobaciones recientes</p>';
+      return;
+    }
+
+    container.innerHTML = approvals.map(approval => `
+      <div class="card mb-2">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1">${approval.user_name}</h6>
+              <small class="text-muted">${approval.user_email}</small>
+            </div>
+            <div>
+              <span class="badge bg-${approval.status === 'approved' ? 'success' : 'danger'}">
+                ${approval.status === 'approved' ? 'Aprobado' : 'Rechazado'}
+              </span>
+              <br><small class="text-muted">${this.formatDate(approval.approved_at)}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  initializeSettingsEventListeners() {
+    // Set default dates for forms
+    const today = new Date().toISOString().split('T')[0];
+    const exceptionStartDateInput = document.getElementById('exception-start-date');
+    const exceptionEndDateInput = document.getElementById('exception-end-date');
+    
+    if (exceptionStartDateInput) {
+      exceptionStartDateInput.min = today;
+      // Update end date minimum when start date changes
+      exceptionStartDateInput.addEventListener('change', (e) => {
+        if (exceptionEndDateInput) {
+          exceptionEndDateInput.min = e.target.value;
+          // Clear end date if it's before the new start date
+          if (exceptionEndDateInput.value && exceptionEndDateInput.value < e.target.value) {
+            exceptionEndDateInput.value = '';
+          }
+        }
+      });
+    }
+    
+    if (exceptionEndDateInput) {
+      exceptionEndDateInput.min = today;
+    }
+  }
 }
 
 // Initialize admin panel when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-  window.adminPanel = new AdminPanel();
+  try {
+    console.log('Initializing AdminPanel...');
+    window.adminPanel = new AdminPanel();
+    console.log('AdminPanel initialized successfully:', window.adminPanel);
+  } catch (error) {
+    console.error('Failed to initialize AdminPanel:', error);
+  }
+});
+
+// Global function for backward compatibility with inline onclick handlers
+function showSection(section) {
+  if (window.adminPanel && window.adminPanel.switchSection) {
+    window.adminPanel.switchSection(section);
+  } else {
+    console.error('AdminPanel not initialized');
+  }
+}
+
+// ==================== APPOINTMENT APPROVAL & USER VERIFICATION FUNCTIONS ====================
+
+// Function to display pending appointments
+async function displayPendingAppointments() {
+  try {
+    const response = await fetch('/api/admin/appointments/pending', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    
+    const appointments = await response.json();
+    
+    const container = document.getElementById('pending-appointments');
+    if (!container) {
+      console.error('Pending appointments container not found');
+      return;
+    }
+    
+    container.innerHTML = '';
+    
+    if (appointments.length === 0) {
+      container.innerHTML = '<p>No hay citas pendientes de aprobación.</p>';
+      return;
+    }
+    
+    appointments.forEach(appointment => {
+      const appointmentDiv = document.createElement('div');
+      appointmentDiv.className = 'appointment-item';
+      appointmentDiv.innerHTML = `
+        <div class="appointment-details">
+          <h4>Cita #${appointment.id}</h4>
+          <p><strong>Cliente:</strong> ${appointment.user_name}</p>
+          <p><strong>Email:</strong> ${appointment.email}</p>
+          <p><strong>Teléfono:</strong> ${appointment.phone || 'No especificado'}</p>
+          <p><strong>Fecha:</strong> ${appointment.appointment_date}</p>
+          <p><strong>Hora:</strong> ${appointment.appointment_time}</p>
+          <p><strong>Servicio:</strong> ${appointment.service}</p>
+          <p><strong>Notas:</strong> ${appointment.notes || 'Sin notas'}</p>
+          <p><strong>Fecha de solicitud:</strong> ${new Date(appointment.created_at).toLocaleString()}</p>
+        </div>
+        <div class="appointment-actions">
+          <button class="btn-approve" onclick="approveAppointment(${appointment.id})">
+            Aprobar y Enviar SMS
+          </button>
+          <button class="btn-reject" onclick="rejectAppointment(${appointment.id})">
+            Rechazar
+          </button>
+        </div>
+      `;
+      
+      container.appendChild(appointmentDiv);
+    });
+    
+  } catch (error) {
+    console.error('Error loading pending appointments:', error);
+    const container = document.getElementById('pending-appointments');
+    if (container) {
+      container.innerHTML = '<p>Error al cargar las citas pendientes.</p>';
+    }
+  }
+}
+
+// Function to approve an appointment
+async function approveAppointment(appointmentId) {
+  try {
+    const response = await fetch(`/api/admin/appointments/${appointmentId}/approve`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    // Show success message
+    showNotification('Cita aprobada y SMS enviado exitosamente', 'success');
+    
+    // Refresh the pending appointments list
+    displayPendingAppointments();
+    
+  } catch (error) {
+    console.error('Error approving appointment:', error);
+    showNotification('Error al aprobar la cita', 'error');
+  }
+}
+
+// Function to reject an appointment (placeholder for future implementation)
+async function rejectAppointment(appointmentId) {
+  if (!confirm('¿Está seguro de que desea rechazar esta cita?')) {
+    return;
+  }
+  
+  // TODO: Implement appointment rejection endpoint
+  showNotification('Función de rechazo en desarrollo', 'warning');
+}
+
+// Function to display unverified users
+async function loadUnverifiedUsers() {
+  try {
+    const response = await fetch('/api/admin/users-unverified', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    
+    const users = await response.json();
+    
+    const container = document.getElementById('unverified-users');
+    if (!container) {
+      console.error('Unverified users container not found');
+      return;
+    }
+    
+    container.innerHTML = '';
+    
+    if (users.length === 0) {
+      container.innerHTML = '<p>No hay usuarios pendientes de verificación.</p>';
+      return;
+    }
+    
+    users.forEach(user => {
+      const userDiv = document.createElement('div');
+      userDiv.className = 'user-item';
+      userDiv.innerHTML = `
+        <div class="user-details">
+          <h4>${user.name}</h4>
+          <p><strong>Email:</strong> ${user.email}</p>
+          <p><strong>Teléfono:</strong> ${user.phone || 'No especificado'}</p>
+          <p><strong>Fecha de registro:</strong> ${new Date(user.created_at).toLocaleString()}</p>
+          <p><strong>Total de citas:</strong> ${user.appointment_count || 0}</p>
+        </div>
+        <div class="user-actions">
+          <button class="btn-verify" onclick="verifyUser(${user.id})">
+            Verificar Usuario
+          </button>
+        </div>
+      `;
+      
+      container.appendChild(userDiv);
+    });
+    
+  } catch (error) {
+    console.error('Error loading unverified users:', error);
+    const container = document.getElementById('unverified-users');
+    if (container) {
+      container.innerHTML = '<p>Error al cargar usuarios no verificados.</p>';
+    }
+  }
+}
+
+// Function to verify a user
+async function verifyUser(userId) {
+  try {
+    const response = await fetch(`/api/admin/users/${userId}/verify`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    // Show success message
+    showNotification('Usuario verificado y SMS enviado exitosamente', 'success');
+    
+    // Refresh the unverified users list
+    loadUnverifiedUsers();
+    
+    // Also refresh pending appointments as this user's appointments may now be auto-approved
+    displayPendingAppointments();
+    
+  } catch (error) {
+    console.error('Error verifying user:', error);
+    showNotification('Error al verificar el usuario', 'error');
+  }
+}
+
+// Function to send appointment reminders manually
+async function sendAppointmentReminders() {
+  try {
+    const confirmSend = confirm('¿Desea enviar recordatorios SMS a todos los pacientes con citas para mañana?');
+    if (!confirmSend) return;
+    
+    const response = await fetch('/api/admin/appointments/send-reminders', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    showNotification(`Recordatorios enviados: ${result.sent} SMS enviados exitosamente`, 'success');
+    
+  } catch (error) {
+    console.error('Error sending reminders:', error);
+    showNotification('Error al enviar recordatorios', 'error');
+  }
+}
+
+// Function to show notifications
+function showNotification(message, type = 'info') {
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.className = `notification notification-${type}`;
+  notification.innerHTML = `
+    <span>${message}</span>
+    <button onclick="this.parentElement.remove()">&times;</button>
+  `;
+  
+  // Add to page
+  document.body.appendChild(notification);
+  
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    if (notification.parentElement) {
+      notification.remove();
+    }
+  }, 5000);
+}
+
+// Initialize appointment management when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  // Load data if containers exist
+  if (document.getElementById('pending-appointments')) {
+    displayPendingAppointments();
+  }
+  
+  if (document.getElementById('unverified-users')) {
+    loadUnverifiedUsers();
+  }
+  
+  // Set up refresh intervals (every 30 seconds)
+  setInterval(() => {
+    if (document.getElementById('pending-appointments')) {
+      displayPendingAppointments();
+    }
+    if (document.getElementById('unverified-users')) {
+      loadUnverifiedUsers();
+    }
+  }, 30000);
 });

@@ -28,7 +28,10 @@ passport.use(new GoogleStrategy({
 
   // First check by google_id, then by email
   db.query('SELECT * FROM users WHERE google_id = ? OR email = ?', [google_id, email], (err, results) => {
-    if (err) return done(err);
+    if (err) {
+      console.error('Database error during Google OAuth:', err);
+      return done(err);
+    }
 
     if (results.length > 0) {
       const user = results[0];

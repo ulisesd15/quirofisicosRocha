@@ -3,7 +3,7 @@ const params = new URLSearchParams(window.location.search);
 const token = params.get('token');
 
 if (token) {
-    console.log('Token received from Google OAuth:', token.substring(0, 20) + '...');
+    // Process OAuth token
     
     // Store token temporarily
     localStorage.setItem('user_token', token);
@@ -23,7 +23,7 @@ if (token) {
         return res.json();
     })
     .then(user => {
-        console.log('User profile received:', user);
+        // User profile received
         
         // Create user object
         const userObj = {
@@ -36,13 +36,13 @@ if (token) {
         // Use AuthManager to properly store login data
         if (window.authManager) {
             window.authManager.login(token, userObj);
-            console.log('AuthManager login completed');
+            // AuthManager login completed
         } else {
             // Fallback if AuthManager isn't loaded yet
             localStorage.setItem('user_id', user.id);
             localStorage.setItem('user_name', user.full_name);
             localStorage.setItem('user_role', user.role || 'user');
-            console.log('Fallback storage completed');
+            // Fallback storage completed
         }
         
         alert('Inicio de sesión con Google exitoso');

@@ -1,5 +1,7 @@
 -- Clear tables in the correct order due to foreign key constraints
 SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE announcements;
+TRUNCATE TABLE schedule_exceptions;
 TRUNCATE TABLE business_hours;
 TRUNCATE TABLE clinic_settings;
 TRUNCATE TABLE appointments;
@@ -53,3 +55,16 @@ VALUES
 ('Friday', TRUE, '09:00:00', '18:00:00', '13:00:00', '14:00:00'),
 ('Saturday', FALSE, NULL, NULL, NULL, NULL),
 ('Sunday', FALSE, NULL, NULL, NULL, NULL);
+
+-- Sample schedule exceptions
+INSERT INTO schedule_exceptions (exception_type, start_date, end_date, is_closed, reason, description, is_active)
+VALUES
+('single_day', '2025-12-25', '2025-12-25', TRUE, 'Navidad', 'Clínica cerrada por festividad navideña', TRUE),
+('single_day', '2025-01-01', '2025-01-01', TRUE, 'Año Nuevo', 'Clínica cerrada por Año Nuevo', TRUE),
+('date_range', '2025-08-15', '2025-08-19', TRUE, 'Vacaciones de verano', 'Clínica cerrada por vacaciones del personal', TRUE);
+
+-- Sample announcements  
+INSERT INTO announcements (title, message, announcement_type, priority, start_date, end_date, is_active, show_on_homepage, created_by)
+VALUES
+('Horarios especiales de verano', 'Durante julio y agosto nuestros horarios serán de 8:00 AM a 3:00 PM para brindar mejor atención en horarios matutinos.', 'info', 'normal', '2025-07-01', '2025-08-31', TRUE, TRUE, 1),
+('Nuevo sistema de citas en línea', '¡Ya puedes agendar tus citas a través de nuestra página web! Más fácil y rápido.', 'success', 'high', '2025-07-25', NULL, TRUE, TRUE, 1);

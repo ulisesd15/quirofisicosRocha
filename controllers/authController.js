@@ -35,7 +35,11 @@ const register = async (req, res) => {
         }
 
         // Generate token
-        const token = jwt.sign({ id: result.insertId, email }, secretKey, { expiresIn: '2h' });
+        const token = jwt.sign({ 
+          id: result.insertId, 
+          email,
+          role: 'user' 
+        }, secretKey, { expiresIn: '2h' });
         
         res.status(201).json({
           message: 'User created successfully',
@@ -87,7 +91,11 @@ const login = async (req, res) => {
       }
 
       // Generate token
-      const token = jwt.sign({ id: user.id, email: user.email }, secretKey, { expiresIn: '2h' });
+      const token = jwt.sign({ 
+        id: user.id, 
+        email: user.email,
+        role: user.role 
+      }, secretKey, { expiresIn: '2h' });
 
       res.json({
         message: 'Login successful',

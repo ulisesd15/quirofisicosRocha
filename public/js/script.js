@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (navItems) {
     if (userId) {
       const adminButton = userRole === 'admin' ? 
-        `<li><a href="/adminOptions.html" class="btn btn-warning w-100 mb-2">
+        `<li><a href="/admin/adminOptions.html" class="btn btn-warning w-100 mb-2">
           <i class="fas fa-user-shield"></i> Panel Admin
         </a></li>` : '';
       
@@ -98,4 +98,106 @@ document.addEventListener('DOMContentLoaded', () => {
     const mapsManager = new MapsManager();
     mapsManager.initializeMap();
   }
+
+  // Load and display announcements
+  loadAnnouncements();
 });
+
+// Announcements Management
+async function loadAnnouncements() {
+  try {
+    const response = await fetch('/api/announcements/public');
+    if (!response.ok) return; // Silently fail if no announcements
+
+    const announcements = await response.json();
+    if (announcements.length > 0) {
+      displayAnnouncements(announcements);
+    }
+  } catch (error) {
+    console.log('No announcements to display'); // Silently handle errors
+  }
+}
+
+function displayAnnouncements(announcements) {
+  const container = document.getElementById('announcements-banner');
+  if (!container) return;
+
+  const announcementsHtml = announcements.map(announcement => {
+    const typeClass = getAnnouncementTypeClass(announcement.announcement_type);
+    const icon = getAnnouncementIcon(announcement.announcement_type);
+    const priorityClass = announcement.priority === 'high' || announcement.priority === 'urgent' ? 'announcement-priority-high' : '';
+    
+    return `
+      <div class="announcement-banner ${typeClass} ${priorityClass}" data-id="${announcement.id}">
+        <div class="announcement-content">
+          <div class="announcement-text">
+            <i class="fas ${icon} announcement-icon"></i>
+            <div>
+              <div class="announcement-title">${announcement.title}</div>
+              <div class="announcement-message">${announcement.message}</div>
+              ${announcement.end_date ? `<div class="announcement-dates">Válido hasta: ${formatDate(announcement.end_date)}</div>` : ''}
+            </div>
+          </div>
+          <button class="announcement-close" onclick="dismissAnnouncement(${announcement.id})" aria-label="Cerrar anuncio">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = announcementsHtml;
+  container.style.display = 'block';
+}
+
+function getAnnouncementTypeClass(type) {
+  const classes = {
+    'info': 'info',
+    'warning': 'warning', 
+    'success': 'success',
+    'danger': 'danger'
+  };
+  return classes[type] || 'info';
+}
+
+function getAnnouncementIcon(type) {
+  const icons = {
+    'info': 'fa-info-circle',
+    'warning': 'fa-exclamation-triangle',
+    'success': 'fa-check-circle',
+    'danger': 'fa-exclamation-circle'
+  };
+  return icons[type] || 'fa-info-circle';
+}
+
+function formatDate(dateString) {
+  return new Date(dateString).toLocaleDateString('es-ES', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+
+function dismissAnnouncement(id) {
+  const banner = document.querySelector(`[data-id="${id}"]`);
+  if (banner) {
+    banner.style.transform = 'translateX(100%)';
+    banner.style.opacity = '0';
+    setTimeout(() => {
+      banner.remove();
+      
+      // Hide container if no announcements left
+      const container = document.getElementById('announcements-banner');
+      if (container && !container.querySelector('.announcement-banner')) {
+        container.style.display = 'none';
+      }
+    }, 300);
+  }
+  
+  // Store dismissed announcement to avoid showing again during this session
+  const dismissed = JSON.parse(localStorage.getItem('dismissedAnnouncements') || '[]');
+  if (!dismissed.includes(id)) {
+    dismissed.push(id);
+    localStorage.setItem('dismissedAnnouncements', JSON.stringify(dismissed));
+  }
+}

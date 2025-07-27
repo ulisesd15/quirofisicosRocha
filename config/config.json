@@ -1,0 +1,39 @@
+{
+  "development": {
+    "username": "root",
+    "password": "kimpembe",
+    "database": "appointments_db",
+    "host": "localhost",
+    "dialect": "mysql",
+    "timezone": "-07:00",
+    "define": {
+      "timestamps": true,
+      "underscored": false,
+      "createdAt": "created_at",
+      "updatedAt": "updated_at"
+    },
+    "pool": {
+      "max": 5,
+      "min": 0,
+      "acquire": 30000,
+      "idle": 10000
+    }
+  },
+  "test": {
+    "username": "root",
+    "password": "kimpembe",
+    "database": "appointments_db_test",
+    "host": "localhost",
+    "dialect": "mysql"
+  },
+  "production": {
+    "use_env_variable": "DATABASE_URL",
+    "dialect": "mysql",
+    "dialectOptions": {
+      "ssl": {
+        "require": true,
+        "rejectUnauthorized": false
+      }
+    }
+  }
+}
