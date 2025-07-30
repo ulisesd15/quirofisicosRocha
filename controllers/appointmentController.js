@@ -316,7 +316,7 @@ const appointmentController = {
   getUnverifiedUsers: async (req, res) => {
     try {
       const query = `
-        SELECT u.*, 
+        SELECT u.id, u.full_name as name, u.email, u.phone, u.created_at, u.auth_provider as provider, u.role,
                COUNT(a.id) as pending_appointments
         FROM users u
         LEFT JOIN appointments a ON u.id = a.user_id AND a.status = 'pending'

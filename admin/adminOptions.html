@@ -83,7 +83,7 @@
             </li>
             <li class="nav-item">
               <a class="nav-link" href="#" data-section="sms-management">
-                <i class="fas fa-sms"></i> Gestión SMS
+                <i class="fas fa-user-check"></i> Verificación de Usuarios
               </a>
             </li>
           </ul>
@@ -107,7 +107,7 @@
         <div id="dashboard-section" class="admin-section">
           <div class="row">
             <div class="col-md-3 mb-4">
-              <div class="card text-white bg-primary dashboard-card" onclick="adminPanel.navigateToSection('users')" style="cursor: pointer;">
+              <div class="card text-white bg-primary dashboard-card" data-navigate="users" style="cursor: pointer;">
                 <div class="card-body">
                   <div class="d-flex justify-content-between">
                     <div>
@@ -122,7 +122,7 @@
               </div>
             </div>
             <div class="col-md-3 mb-4">
-              <div class="card text-white bg-success dashboard-card" onclick="adminPanel.navigateToSection('appointments')" style="cursor: pointer;">
+              <div class="card text-white bg-success dashboard-card" data-navigate="appointments" style="cursor: pointer;">
                 <div class="card-body">
                   <div class="d-flex justify-content-between">
                     <div>
@@ -137,7 +137,7 @@
               </div>
             </div>
             <div class="col-md-3 mb-4">
-              <div class="card text-white bg-warning dashboard-card" onclick="adminPanel.navigateToSection('appointments', 'today')" style="cursor: pointer;">
+              <div class="card text-white bg-warning dashboard-card" data-navigate="appointments" data-filter="today" style="cursor: pointer;">
                 <div class="card-body">
                   <div class="d-flex justify-content-between">
                     <div>
@@ -152,15 +152,15 @@
               </div>
             </div>
             <div class="col-md-3 mb-4">
-              <div class="card text-white bg-info dashboard-card" onclick="adminPanel.navigateToSection('appointments', 'pending')" style="cursor: pointer;">
+              <div class="card text-white bg-info dashboard-card" data-navigate="user-verification" style="cursor: pointer;">
                 <div class="card-body">
                   <div class="d-flex justify-content-between">
                     <div>
-                      <h6 class="card-title">Pendientes</h6>
-                      <h2 id="pending-appointments">0</h2>
+                      <h6 class="card-title">Usuarios Pendientes</h6>
+                      <h2 id="pending-users">0</h2>
                     </div>
                     <div class="align-self-center">
-                      <i class="fas fa-clock fa-2x"></i>
+                      <i class="fas fa-user-check fa-2x"></i>
                     </div>
                   </div>
                 </div>
@@ -174,11 +174,11 @@
               <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                   <h5 class="mb-0">
-                    <a href="#" class="text-decoration-none text-dark" data-section="appointments" onclick="showSection('appointments')">
+                    <a href="#" class="text-decoration-none text-dark" data-section="appointments">
                       <i class="fas fa-calendar-check me-2"></i>Citas Recientes
                     </a>
                   </h5>
-                  <a href="#" class="btn btn-sm btn-outline-primary" data-section="appointments" onclick="showSection('appointments')">
+                  <a href="#" class="btn btn-sm btn-outline-primary" data-section="appointments">
                     Ver todas <i class="fas fa-arrow-right ms-1"></i>
                   </a>
                 </div>
@@ -214,14 +214,6 @@
             <h2>
               <i class="fas fa-calendar-check me-2 text-primary"></i>Gestión de Citas
             </h2>
-            <nav aria-label="breadcrumb">
-              <ol class="breadcrumb">
-                <li class="breadcrumb-item">
-                  <a href="#" onclick="showSection('dashboard')" class="text-decoration-none">Dashboard</a>
-                </li>
-                <li class="breadcrumb-item active">Citas</li>
-              </ol>
-            </nav>
           </div>
           
           <!-- Standardized Controls Bar -->
@@ -312,14 +304,6 @@
             <h2>
               <i class="fas fa-users me-2 text-success"></i>Gestión de Usuarios
             </h2>
-            <nav aria-label="breadcrumb">
-              <ol class="breadcrumb">
-                <li class="breadcrumb-item">
-                  <a href="#" onclick="showSection('dashboard')" class="text-decoration-none">Dashboard</a>
-                </li>
-                <li class="breadcrumb-item active">Usuarios</li>
-              </ol>
-            </nav>
           </div>
           
           <!-- Standardized Controls Bar -->
@@ -409,14 +393,6 @@
             <h2 class="mb-0">
               <i class="fas fa-calendar-alt me-2 text-primary"></i>Gestión de Horarios
             </h2>
-            <nav aria-label="breadcrumb">
-              <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item">
-                  <a href="#" onclick="showSection('dashboard')" class="text-decoration-none">Dashboard</a>
-                </li>
-                <li class="breadcrumb-item active">Horarios</li>
-              </ol>
-            </nav>
           </div>
 
           <!-- Schedule Management Tabs -->
@@ -448,16 +424,54 @@
                   <small class="text-muted">Configure los horarios regulares de atención para cada día de la semana</small>
                 </div>
                 <div class="card-body">
+                  <!-- Schedule Effective Date Section -->
+                  <div class="alert alert-info d-flex align-items-center mb-4">
+                    <i class="fas fa-calendar-check me-3 fs-4"></i>
+                    <div class="flex-grow-1">
+                      <h6 class="alert-heading mb-2">Fecha de Inicio del Nuevo Horario</h6>
+                      <div class="row align-items-center">
+                        <div class="col-md-6">
+                          <label for="schedule-effective-date" class="form-label mb-1">
+                            <strong>Los cambios entrarán en vigencia a partir de:</strong>
+                          </label>
+                          <input type="date" class="form-control" id="schedule-effective-date" 
+                                 value="" min="">
+                          <small class="text-muted">Seleccione la fecha cuando el nuevo horario comenzará a aplicar</small>
+                        </div>
+                        <div class="col-md-6">
+                          <div class="mt-2">
+                            <span class="badge bg-success" id="current-schedule-status">
+                              <i class="fas fa-check-circle me-1"></i>
+                              Horario actual activo
+                            </span>
+                            <div class="mt-1">
+                              <small class="text-muted" id="schedule-status-text">
+                                Los cambios se aplicarán inmediatamente si no se especifica fecha futura
+                              </small>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <div id="business-hours-container">
                     <!-- Business hours will be loaded here -->
                   </div>
-                  <div class="d-flex justify-content-end gap-2 mt-3">
-                    <button type="button" class="btn btn-outline-secondary" id="reset-business-hours">
-                      <i class="fas fa-undo"></i> Restablecer
-                    </button>
-                    <button type="button" class="btn btn-primary" id="save-business-hours">
-                      <i class="fas fa-save"></i> Guardar Horarios
-                    </button>
+                  <div class="d-flex justify-content-between align-items-center mt-4">
+                    <div>
+                      <button type="button" class="btn btn-outline-secondary" id="reset-business-hours">
+                        <i class="fas fa-undo"></i> Restablecer
+                      </button>
+                    </div>
+                    <div class="d-flex gap-2">
+                      <button type="button" class="btn btn-outline-primary" id="preview-schedule-changes">
+                        <i class="fas fa-eye"></i> Vista Previa
+                      </button>
+                      <button type="button" class="btn btn-primary" id="save-business-hours">
+                        <i class="fas fa-save"></i> Guardar Horarios
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -465,28 +479,92 @@
 
             <!-- Schedule Exceptions Tab -->
             <div class="tab-pane fade" id="schedule-exceptions" role="tabpanel">
-              <div class="card">
+              <div class="card d-none" id="schedule-exceptions-content">
                 <div class="card-header">
                   <h5><i class="fas fa-calendar-times me-2"></i>Excepciones de Horario</h5>
                   <small class="text-muted">Gestione cierres completos, horarios especiales y excepciones temporales</small>
                 </div>
                 <div class="card-body">
-                  <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6>Excepciones Programadas</h6>
-                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleExceptionModal">
-                      <i class="fas fa-plus"></i> Nueva Excepción
-                    </button>
-                  </div>
-                  <div id="schedule-exceptions-list">
-                    <!-- Schedule exceptions will be loaded here -->
+                  <!-- Navigation Pills for subsections -->
+                  <ul class="nav nav-pills mb-4" id="exceptions-nav-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link active" id="holiday-templates-tab" data-bs-toggle="pill" data-bs-target="#holiday-templates" type="button" role="tab">
+                        <i class="fas fa-star me-2"></i>Feriados Anuales
+                      </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link" id="manual-exceptions-tab" data-bs-toggle="pill" data-bs-target="#manual-exceptions" type="button" role="tab">
+                        <i class="fas fa-calendar-plus me-2"></i>Excepciones Manuales
+                      </button>
+                    </li>
+                  </ul>
+
+                  <!-- Tab Content -->
+                  <div class="tab-content" id="exceptions-tab-content">
+                    <!-- Holiday Templates Tab -->
+                    <div class="tab-pane fade show active" id="holiday-templates" role="tabpanel">
+                      <div class="row mb-4">
+                        <div class="col-md-8">
+                          <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6><i class="fas fa-star me-2"></i>Plantillas de Feriados</h6>
+                            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addHolidayTemplateModal">
+                              <i class="fas fa-plus"></i> Nueva Plantilla
+                            </button>
+                          </div>
+                          <div id="holiday-templates-list">
+                            <!-- Holiday templates will be loaded here -->
+                          </div>
+                        </div>
+                        <div class="col-md-4">
+                          <div class="card bg-light">
+                            <div class="card-header">
+                              <h6><i class="fas fa-magic me-2"></i>Generar Feriados por Año</h6>
+                            </div>
+                            <div class="card-body">
+                              <p class="small text-muted">Genere automáticamente los feriados para un año específico basado en las plantillas activas.</p>
+                              <div class="mb-3">
+                                <label for="holiday-year-select" class="form-label">Seleccionar Año</label>
+                                <select class="form-select" id="holiday-year-select">
+                                  <option value="2024">2024</option>
+                                  <option value="2025" selected>2025</option>
+                                  <option value="2026">2026</option>
+                                  <option value="2027">2027</option>
+                                  <option value="2028">2028</option>
+                                </select>
+                              </div>
+                              <button type="button" class="btn btn-success w-100" id="generate-holidays-btn">
+                                <i class="fas fa-calendar-check"></i> Generar Feriados
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Manual Exceptions Tab -->
+                    <div class="tab-pane fade" id="manual-exceptions" role="tabpanel">
+                      <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6><i class="fas fa-calendar-plus me-2"></i>Excepciones Manuales</h6>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleExceptionModal">
+                          <i class="fas fa-plus"></i> Nueva Excepción
+                        </button>
+                      </div>
+                      <div id="schedule-exceptions-list">
+                        <!-- Schedule exceptions will be loaded here -->
+                      </div>
+                    </div>
                   </div>
                 </div>
+              </div>
+              <div class="text-center py-4" id="schedule-exceptions-placeholder">
+                <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Haga clic en esta pestaña para cargar las excepciones de horario</p>
               </div>
             </div>
 
             <!-- Announcements Tab -->
             <div class="tab-pane fade" id="announcements" role="tabpanel">
-              <div class="card">
+              <div class="card d-none" id="announcements-content">
                 <div class="card-header">
                   <h5><i class="fas fa-bullhorn me-2"></i>Anuncios y Banners</h5>
                   <small class="text-muted">Gestione los anuncios que aparecen en la página principal del sitio web</small>
@@ -503,6 +581,10 @@
                   </div>
                 </div>
               </div>
+              <div class="text-center py-4" id="announcements-placeholder">
+                <i class="fas fa-bullhorn fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Haga clic en esta pestaña para cargar los anuncios</p>
+              </div>
             </div>
 
           </div>
@@ -515,14 +597,6 @@
             <h2>
               <i class="fas fa-cogs me-2 text-warning"></i>Configuración del Sistema
             </h2>
-            <nav aria-label="breadcrumb">
-              <ol class="breadcrumb">
-                <li class="breadcrumb-item">
-                  <a href="#" onclick="showSection('dashboard')" class="text-decoration-none">Dashboard</a>
-                </li>
-                <li class="breadcrumb-item active">Configuración</li>
-              </ol>
-            </nav>
           </div>
           
           <!-- Clean Configuration Tabs -->
@@ -533,8 +607,8 @@
               </button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="hours-exceptions-tab" data-bs-toggle="tab" data-bs-target="#hours-exceptions" type="button" role="tab">
-                <i class="fas fa-clock me-2"></i>Excepciones de Horario
+              <button class="nav-link" id="annual-exceptions-settings-tab" data-bs-toggle="tab" data-bs-target="#annual-exceptions-settings" type="button" role="tab">
+                <i class="fas fa-calendar-times me-2"></i>Excepciones de Horario Anuales
               </button>
             </li>
           </ul>
@@ -564,103 +638,85 @@
               </div>
             </div>
 
-            <!-- Hours Exceptions Tab -->
-            <div class="tab-pane fade" id="hours-exceptions" role="tabpanel">
-              <div class="card">
+            <!-- Annual Exceptions Settings Tab -->
+            <div class="tab-pane fade" id="annual-exceptions-settings" role="tabpanel">
+              <div class="content-card">
                 <div class="card-header">
-                  <h5><i class="fas fa-clock me-2"></i>Excepciones de Horario</h5>
-                  <small class="text-muted">Bloquee horarios específicos para un día o rango de fechas</small>
+                  <h5 class="mb-0">
+                    <i class="fas fa-calendar-times me-2"></i>Excepciones de Horario Anuales
+                  </h5>
+                  <small class="text-muted">Configure días cerrados que se repiten cada año</small>
                 </div>
                 <div class="card-body">
-                  <div class="row mb-4">
-                    <div class="col-md-8">
-                      <div class="card border-info">
-                        <div class="card-header bg-info text-white">
-                          <h6 class="mb-0"><i class="fas fa-ban me-2"></i>Nueva Excepción de Horario</h6>
+                  <div class="row">
+                    <div class="col-md-6">
+                      <!-- Form for creating yearly closed days -->
+                      <div class="card border-warning">
+                        <div class="card-header bg-warning text-dark">
+                          <h6 class="mb-0"><i class="fas fa-plus me-2"></i>Agregar Día Cerrado Anual</h6>
                         </div>
                         <div class="card-body">
-                          <form id="hours-exception-form">
-                            <!-- Date Range -->
-                            <div class="row">
-                              <div class="col-md-6">
-                                <div class="mb-3">
-                                  <label for="exception-start-date" class="form-label">Fecha Inicial</label>
-                                  <input type="date" class="form-control" id="exception-start-date" required>
-                                </div>
-                              </div>
-                              <div class="col-md-6">
-                                <div class="mb-3">
-                                  <label for="exception-end-date" class="form-label">Fecha Final (opcional)</label>
-                                  <input type="date" class="form-control" id="exception-end-date">
-                                  <small class="text-muted">Dejar vacío para aplicar solo a la fecha inicial</small>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <!-- Time Range to Block -->
-                            <div class="row">
-                              <div class="col-md-6">
-                                <div class="mb-3">
-                                  <label for="exception-block-start" class="form-label">Hora de Inicio del Bloqueo</label>
-                                  <input type="time" class="form-control" id="exception-block-start" required>
-                                </div>
-                              </div>
-                              <div class="col-md-6">
-                                <div class="mb-3">
-                                  <label for="exception-block-end" class="form-label">Hora de Fin del Bloqueo</label>
-                                  <input type="time" class="form-control" id="exception-block-end" required>
-                                </div>
-                              </div>
+                          <form id="annual-closure-form-settings">
+                            <div class="mb-3">
+                              <label for="closure-date-settings" class="form-label fw-bold">Fecha <span class="text-danger">*</span></label>
+                              <input type="date" class="form-control" id="closure-date-settings" required>
                             </div>
                             
                             <div class="mb-3">
-                              <label for="exception-reason" class="form-label">Motivo (opcional)</label>
-                              <input type="text" class="form-control" id="exception-reason" placeholder="Ej: Almuerzo extendido, Reunión, Capacitación">
+                              <label for="closure-reason-settings" class="form-label fw-bold">Motivo <span class="text-danger">*</span></label>
+                              <select class="form-select" id="closure-reason-settings" required>
+                                <option value="">Seleccionar motivo...</option>
+                                <option value="Año Nuevo">Año Nuevo</option>
+                                <option value="Día de la Constitución">Día de la Constitución</option>
+                                <option value="Natalicio de Benito Juárez">Natalicio de Benito Juárez</option>
+                                <option value="Jueves Santo">Jueves Santo</option>
+                                <option value="Viernes Santo">Viernes Santo</option>
+                                <option value="Día del Trabajo">Día del Trabajo</option>
+                                <option value="Día de la Independencia">Día de la Independencia</option>
+                                <option value="Día de la Revolución Mexicana">Día de la Revolución Mexicana</option>
+                                <option value="Día de Navidad">Día de Navidad</option>
+                                <option value="Vacaciones del Personal">Vacaciones del Personal</option>
+                                <option value="Mantenimiento de Equipos">Mantenimiento de Equipos</option>
+                                <option value="Capacitación del Personal">Capacitación del Personal</option>
+                                <option value="Evento Especial">Evento Especial</option>
+                                <option value="Otro">Otro (especificar en descripción)</option>
+                              </select>
                             </div>
                             
-                            <button type="button" class="btn btn-info" onclick="adminPanel.addHoursException()">
-                              <i class="fas fa-plus"></i> Crear Excepción
+                            <div class="mb-3">
+                              <label for="closure-description-settings" class="form-label">Descripción</label>
+                              <textarea class="form-control" id="closure-description-settings" rows="3" placeholder="Información adicional sobre el cierre (opcional)"></textarea>
+                            </div>
+
+                            <div class="mb-3">
+                              <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="recurring-settings" checked>
+                                <label class="form-check-label" for="recurring-settings">
+                                  <strong>Recurrente anualmente</strong>
+                                  <small class="text-muted d-block">Se repetirá automáticamente cada año</small>
+                                </label>
+                              </div>
+                            </div>
+                            
+                            <button type="button" class="btn btn-warning w-100" id="add-annual-closure-btn-settings">
+                              <i class="fas fa-plus-circle"></i> Agregar Día Cerrado
                             </button>
                           </form>
                         </div>
                       </div>
                     </div>
-                    <div class="col-md-4">
-                      <div class="card border-secondary">
-                        <div class="card-header bg-secondary text-white">
-                          <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Cómo Funciona</h6>
+                    
+                    <div class="col-md-6">
+                      <!-- List of yearly closures -->
+                      <div class="card">
+                        <div class="card-header">
+                          <h6 class="mb-0"><i class="fas fa-list me-2"></i>Días Cerrados Programados</h6>
                         </div>
                         <div class="card-body">
-                          <ol class="list-unstyled">
-                            <li class="mb-2">
-                              <span class="badge bg-primary me-2">1</span>
-                              <strong>Fechas</strong><br>
-                              <small class="text-muted">Defina fecha inicial y opcionalmente fecha final</small>
-                            </li>
-                            <li class="mb-2">
-                              <span class="badge bg-success me-2">2</span>
-                              <strong>Horario</strong><br>
-                              <small class="text-muted">Especifique el rango de horas a bloquear</small>
-                            </li>
-                            <li class="mb-2">
-                              <span class="badge bg-warning me-2">3</span>
-                              <strong>Efecto</strong><br>
-                              <small class="text-muted">La disponibilidad se cancela para esas horas</small>
-                            </li>
-                          </ol>
+                          <div id="annual-closures-list-settings">
+                            <!-- Annual closures will be loaded here -->
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- Current Exceptions List -->
-                  <div class="card">
-                    <div class="card-header">
-                      <h6><i class="fas fa-list me-2"></i>Excepciones Programadas</h6>
-                    </div>
-                    <div class="card-body">
-                      <div id="hours-exceptions-list">
-                        <!-- Will be populated by JavaScript -->
                       </div>
                     </div>
                   </div>
@@ -675,27 +731,14 @@
           <!-- Standardized Section Header -->
           <div class="section-header">
             <h2>
-              <i class="fas fa-sms me-2 text-info"></i>Gestión de SMS
+              <i class="fas fa-user-check me-2 text-info"></i>Verificación de Usuarios
             </h2>
-            <nav aria-label="breadcrumb">
-              <ol class="breadcrumb">
-                <li class="breadcrumb-item">
-                  <a href="#" onclick="showSection('dashboard')" class="text-decoration-none">Dashboard</a>
-                </li>
-                <li class="breadcrumb-item active">Gestión SMS</li>
-              </ol>
-            </nav>
           </div>
           
           <!-- SMS Management Tabs -->
           <ul class="nav nav-tabs" id="sms-tabs" role="tablist">
             <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="pending-approvals-tab" data-bs-toggle="tab" data-bs-target="#pending-approvals" type="button" role="tab">
-                <i class="fas fa-clock me-2"></i>Citas Pendientes
-              </button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="user-verification-tab" data-bs-toggle="tab" data-bs-target="#user-verification" type="button" role="tab">
+              <button class="nav-link active" id="user-verification-tab" data-bs-toggle="tab" data-bs-target="#user-verification" type="button" role="tab">
                 <i class="fas fa-user-check me-2"></i>Verificación de Usuarios
               </button>
             </li>
@@ -707,36 +750,8 @@
           </ul>
 
           <div class="tab-content" id="sms-tab-content">
-            <!-- Pending Appointments Tab -->
-            <div class="tab-pane fade show active" id="pending-approvals" role="tabpanel">
-              <div class="content-card">
-                <div class="card-header">
-                  <h5 class="mb-0">
-                    <i class="fas fa-clock me-2"></i>Citas Pendientes de Aprobación
-                  </h5>
-                  <small class="text-muted">Citas de usuarios no verificados que requieren aprobación manual</small>
-                </div>
-                <div class="card-body">
-                  <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div>
-                      <button type="button" class="btn btn-outline-primary btn-sm" onclick="displayPendingAppointments()">
-                        <i class="fas fa-sync-alt"></i> Actualizar Lista
-                      </button>
-                    </div>
-                    <div class="text-muted">
-                      <small>Se actualiza automáticamente cada 30 segundos</small>
-                    </div>
-                  </div>
-                  
-                  <div id="pending-appointments" class="appointments-container">
-                    <!-- Pending appointments will be loaded here by JavaScript -->
-                  </div>
-                </div>
-              </div>
-            </div>
-
             <!-- User Verification Tab -->
-            <div class="tab-pane fade" id="user-verification" role="tabpanel">
+            <div class="tab-pane fade show active" id="user-verification" role="tabpanel">
               <div class="content-card">
                 <div class="card-header">
                   <h5 class="mb-0">
@@ -747,7 +762,7 @@
                 <div class="card-body">
                   <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
-                      <button type="button" class="btn btn-outline-success btn-sm" onclick="loadUnverifiedUsers()">
+                      <button type="button" class="btn btn-outline-success btn-sm" id="load-unverified-users-btn">
                         <i class="fas fa-sync-alt"></i> Actualizar Lista
                       </button>
                     </div>
@@ -780,7 +795,7 @@
                   </div>
                   
                   <div class="text-center">
-                    <button type="button" class="btn btn-primary btn-lg" onclick="sendAppointmentReminders()">
+                    <button type="button" class="btn btn-primary btn-lg" id="send-reminders-btn">
                       <i class="fas fa-paper-plane me-2"></i>
                       Enviar Recordatorios para Mañana
                     </button>
@@ -1811,6 +1826,127 @@
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
           <button type="button" class="btn btn-primary" id="save-schedule-exception">
             <i class="fas fa-save"></i> Guardar Excepción
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Holiday Template Modal -->
+  <div class="modal fade" id="addHolidayTemplateModal" tabindex="-1" aria-labelledby="addHolidayTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title" id="addHolidayTemplateModalLabel">
+            <i class="fas fa-star me-2"></i>Nueva Plantilla de Feriado
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="holidayTemplateForm">
+            <input type="hidden" id="holiday-template-id">
+            
+            <div class="row mb-3">
+              <div class="col-md-8">
+                <label for="holiday-name" class="form-label fw-bold">Nombre del Feriado <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="holiday-name" placeholder="Ej: Día de la Independencia" required>
+              </div>
+              <div class="col-md-4">
+                <label for="holiday-type" class="form-label fw-bold">Tipo</label>
+                <select class="form-select" id="holiday-type">
+                  <option value="national">Nacional</option>
+                  <option value="religious">Religioso</option>
+                  <option value="cultural">Cultural</option>
+                  <option value="custom">Personalizado</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="holiday-month" class="form-label fw-bold">Mes <span class="text-danger">*</span></label>
+                <select class="form-select" id="holiday-month" required>
+                  <option value="">Seleccionar mes</option>
+                  <option value="1">Enero</option>
+                  <option value="2">Febrero</option>
+                  <option value="3">Marzo</option>
+                  <option value="4">Abril</option>
+                  <option value="5">Mayo</option>
+                  <option value="6">Junio</option>
+                  <option value="7">Julio</option>
+                  <option value="8">Agosto</option>
+                  <option value="9">Septiembre</option>
+                  <option value="10">Octubre</option>
+                  <option value="11">Noviembre</option>
+                  <option value="12">Diciembre</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label for="holiday-day" class="form-label fw-bold">Día <span class="text-danger">*</span></label>
+                <input type="number" class="form-control" id="holiday-day" min="1" max="31" placeholder="Día del mes" required>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="holiday-description" class="form-label fw-bold">Descripción</label>
+              <textarea class="form-control" id="holiday-description" rows="2" placeholder="Descripción opcional del feriado"></textarea>
+            </div>
+
+            <div class="card border-info mb-3">
+              <div class="card-header bg-info text-white">
+                <h6 class="mb-0"><i class="fas fa-clock me-2"></i>Configuración de Cierre</h6>
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <label for="closure-type" class="form-label fw-bold">Tipo de Cierre</label>
+                  <select class="form-select" id="closure-type">
+                    <option value="full_day">Cerrado todo el día</option>
+                    <option value="partial">Cerrado parcialmente</option>
+                    <option value="custom_hours">Horarios personalizados</option>
+                  </select>
+                </div>
+
+                <div id="custom-hours-section" class="d-none">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <label for="custom-open-time" class="form-label">Hora de apertura</label>
+                      <input type="time" class="form-control" id="custom-open-time">
+                    </div>
+                    <div class="col-md-6">
+                      <label for="custom-close-time" class="form-label">Hora de cierre</label>
+                      <input type="time" class="form-control" id="custom-close-time">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="is-recurring" checked>
+                  <label class="form-check-label" for="is-recurring">
+                    <strong>Recurrente anualmente</strong>
+                  </label>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="is-active" checked>
+                  <label class="form-check-label" for="is-active">
+                    <strong>Activo</strong>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times"></i> Cancelar
+          </button>
+          <button type="button" class="btn btn-primary" id="save-holiday-template">
+            <i class="fas fa-save"></i> Guardar Plantilla
           </button>
         </div>
       </div>

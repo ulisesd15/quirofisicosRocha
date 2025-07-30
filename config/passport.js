@@ -11,11 +11,13 @@ console.log('🔍 Passport Google Strategy Config:', {
   callbackURL: process.env.GOOGLE_CALLBACK_URL
 });
 
-passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: process.env.GOOGLE_CALLBACK_URL
-}, (accessToken, refreshToken, profile, done) => {
+// Only configure Google OAuth if credentials are provided
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_CALLBACK_URL
+  }, (accessToken, refreshToken, profile, done) => {
   console.log('🎯 Google OAuth callback received:', {
     email: profile.emails[0].value,
     name: profile.displayName,
@@ -62,3 +64,7 @@ passport.use(new GoogleStrategy({
     });
   });
 }));
+
+} else {
+  console.log('⚠️ Google OAuth not configured - only local authentication available');
+}

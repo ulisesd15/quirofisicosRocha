@@ -14,6 +14,28 @@ router.get('/config/maps-key', (req, res) => {
   });
 });
 
+// Get current business hours for public display
+router.get('/business-hours', (req, res) => {
+  const query = `
+    SELECT day_of_week, is_open, 
+           TIME_FORMAT(open_time, '%h:%i %p') as open_time,
+           TIME_FORMAT(close_time, '%h:%i %p') as close_time,
+           TIME_FORMAT(break_start, '%h:%i %p') as break_start,
+           TIME_FORMAT(break_end, '%h:%i %p') as break_end
+    FROM business_hours 
+    ORDER BY FIELD(day_of_week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error getting business hours:', err);
+      return res.status(500).json({ error: 'Error getting business hours' });
+    }
+    
+    res.json({ business_hours: results });
+  });
+});
+
 //get all appointments
 router.get('/appointments', authenticateToken, (req, res) => {
   db.query('SELECT * FROM appointments', (err, results) => {

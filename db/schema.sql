@@ -60,7 +60,7 @@ CREATE TABLE business_hours (
 -- Schedule Exceptions (for specific dates or date ranges)
 CREATE TABLE schedule_exceptions (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  exception_type ENUM('single_day', 'date_range', 'recurring') NOT NULL DEFAULT 'single_day',
+  exception_type ENUM('single_day', 'date_range', 'recurring', 'annual_closure') NOT NULL DEFAULT 'single_day',
   start_date DATE NOT NULL,
   end_date DATE,
   is_closed BOOLEAN DEFAULT FALSE,

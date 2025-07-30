@@ -201,3 +201,132 @@ function dismissAnnouncement(id) {
     localStorage.setItem('dismissedAnnouncements', JSON.stringify(dismissed));
   }
 }
+
+// Load and display business hours
+async function loadBusinessHours() {
+  try {
+    const response = await fetch('/api/business-hours');
+    if (!response.ok) {
+      throw new Error('Failed to load business hours');
+    }
+    
+    const data = await response.json();
+    const businessHours = data.business_hours;
+    
+    // Update info section
+    const infoSection = document.getElementById('business-hours-info');
+    if (infoSection) {
+      infoSection.innerHTML = formatBusinessHoursForInfo(businessHours);
+    }
+    
+    // Update footer section
+    const footerSection = document.getElementById('business-hours-footer');
+    if (footerSection) {
+      footerSection.innerHTML = formatBusinessHoursForFooter(businessHours);
+    }
+    
+  } catch (error) {
+    console.error('Error loading business hours:', error);
+    
+    // Fallback to default hours if API fails
+    const fallbackInfo = '<p class="mb-0">Lunes a Viernes<br>9:00 AM - 6:00 PM</p>';
+    const fallbackFooter = `
+      <p class="text-white-50 mb-1">Lunes - Viernes: 9:00 AM - 6:00 PM</p>
+      <p class="text-white-50 mb-1">Sábados: 9:00 AM - 2:00 PM</p>
+      <p class="text-white-50">Domingos: Cerrado</p>
+    `;
+    
+    const infoSection = document.getElementById('business-hours-info');
+    if (infoSection) infoSection.innerHTML = fallbackInfo;
+    
+    const footerSection = document.getElementById('business-hours-footer');
+    if (footerSection) footerSection.innerHTML = fallbackFooter;
+  }
+}
+
+function formatBusinessHoursForInfo(businessHours) {
+  const openDays = businessHours.filter(day => day.is_open);
+  
+  if (openDays.length === 0) {
+    return '<p class="mb-0">Actualmente cerrado</p>';
+  }
+  
+  // Group consecutive days with same hours
+  const groups = [];
+  let currentGroup = null;
+  
+  const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const dayNames = {
+    'Monday': 'Lunes',
+    'Tuesday': 'Martes', 
+    'Wednesday': 'Miércoles',
+    'Thursday': 'Jueves',
+    'Friday': 'Viernes',
+    'Saturday': 'Sábado',
+    'Sunday': 'Domingo'
+  };
+  
+  dayOrder.forEach(day => {
+    const dayData = businessHours.find(h => h.day_of_week === day);
+    
+    if (dayData && dayData.is_open) {
+      const timeString = `${dayData.open_time} - ${dayData.close_time}`;
+      
+      if (currentGroup && currentGroup.time === timeString) {
+        currentGroup.days.push(dayNames[day]);
+      } else {
+        if (currentGroup) groups.push(currentGroup);
+        currentGroup = {
+          days: [dayNames[day]],
+          time: timeString
+        };
+      }
+    } else {
+      if (currentGroup) {
+        groups.push(currentGroup);
+        currentGroup = null;
+      }
+    }
+  });
+  
+  if (currentGroup) groups.push(currentGroup);
+  
+  const lines = groups.map(group => {
+    const daysText = group.days.length === 1 ? 
+      group.days[0] : 
+      group.days.length === 2 ? 
+        group.days.join(' y ') :
+        `${group.days.slice(0, -1).join(', ')} y ${group.days[group.days.length - 1]}`;
+    
+    return `${daysText}<br>${group.time}`;
+  });
+  
+  return `<p class="mb-0">${lines.join('<br><br>')}</p>`;
+}
+
+function formatBusinessHoursForFooter(businessHours) {
+  const dayNames = {
+    'Monday': 'Lunes',
+    'Tuesday': 'Martes', 
+    'Wednesday': 'Miércoles',
+    'Thursday': 'Jueves',
+    'Friday': 'Viernes',
+    'Saturday': 'Sábado',
+    'Sunday': 'Domingo'
+  };
+  
+  const lines = businessHours.map(day => {
+    const dayName = dayNames[day.day_of_week];
+    
+    if (day.is_open) {
+      return `<p class="text-white-50 mb-1">${dayName}: ${day.open_time} - ${day.close_time}</p>`;
+    } else {
+      return `<p class="text-white-50 mb-1">${dayName}: Cerrado</p>`;
+    }
+  });
+  
+  return lines.join('');
+}
+
+// Load business hours when page loads
+loadBusinessHours();

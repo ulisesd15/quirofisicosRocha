@@ -662,6 +662,751 @@ const scheduleController = {
       
       res.json({ message: 'Announcement deleted successfully' });
     });
+  },
+
+  // Save scheduled business hours changes
+  saveScheduledBusinessHours: (req, res) => {
+    const { effective_date, schedule_data } = req.body;
+    
+    if (!effective_date || !schedule_data) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Fecha efectiva y datos de horario son requeridos' 
+      });
+    }
+
+    // Validate effective date is not in the past
+    const effectiveDate = new Date(effective_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    effectiveDate.setHours(0, 0, 0, 0);
+
+    if (effectiveDate < today) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No se puede programar para fechas pasadas' 
+      });
+    }
+
+    // Start transaction
+    db.beginTransaction((err) => {
+      if (err) {
+        console.error('Error starting transaction:', err);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Error interno del servidor' 
+        });
+      }
+
+      // First, deactivate any existing scheduled changes for the same date
+      const deactivateQuery = `
+        UPDATE scheduled_business_hours 
+        SET is_active = FALSE 
+        WHERE effective_date = ? AND is_active = TRUE
+      `;
+
+      db.query(deactivateQuery, [effective_date], (err, result) => {
+        if (err) {
+          return db.rollback(() => {
+            console.error('Error deactivating existing schedules:', err);
+            res.status(500).json({ 
+              success: false, 
+              message: 'Error al desactivar horarios existentes' 
+            });
+          });
+        }
+
+        // Insert new scheduled business hours
+        const insertPromises = schedule_data.map(dayData => {
+          return new Promise((resolve, reject) => {
+            const insertQuery = `
+              INSERT INTO scheduled_business_hours 
+              (day_of_week, is_open, open_time, close_time, break_start, break_end, effective_date, is_active, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, NOW())
+            `;
+
+            const values = [
+              dayData.day_of_week,
+              dayData.is_open,
+              dayData.is_open ? dayData.open_time : null,
+              dayData.is_open ? dayData.close_time : null,
+              dayData.is_open ? dayData.break_start : null,
+              dayData.is_open ? dayData.break_end : null,
+              effective_date
+            ];
+
+            db.query(insertQuery, values, (err, result) => {
+              if (err) {
+                reject(err);
+              } else {
+                resolve(result);
+              }
+            });
+          });
+        });
+
+        // Execute all inserts
+        Promise.all(insertPromises)
+          .then(results => {
+            // If effective date is today, apply changes immediately
+            if (effectiveDate.getTime() === today.getTime()) {
+              const updatePromises = schedule_data.map(dayData => {
+                return new Promise((resolve, reject) => {
+                  const updateQuery = `
+                    UPDATE business_hours 
+                    SET is_open = ?, open_time = ?, close_time = ?, break_start = ?, break_end = ?, updated_at = NOW()
+                    WHERE day_of_week = ?
+                  `;
+
+                  const values = [
+                    dayData.is_open,
+                    dayData.is_open ? dayData.open_time : null,
+                    dayData.is_open ? dayData.close_time : null,
+                    dayData.is_open ? dayData.break_start : null,
+                    dayData.is_open ? dayData.break_end : null,
+                    dayData.day_of_week
+                  ];
+
+                  db.query(updateQuery, values, (err, result) => {
+                    if (err) {
+                      reject(err);
+                    } else {
+                      resolve(result);
+                    }
+                  });
+                });
+              });
+
+              Promise.all(updatePromises)
+                .then(() => {
+                  db.commit((err) => {
+                    if (err) {
+                      return db.rollback(() => {
+                        console.error('Error committing transaction:', err);
+                        res.status(500).json({ 
+                          success: false, 
+                          message: 'Error al confirmar cambios' 
+                        });
+                      });
+                    }
+
+                    res.json({ 
+                      success: true, 
+                      message: 'Horarios guardados y aplicados inmediatamente',
+                      applied_immediately: true
+                    });
+                  });
+                })
+                .catch(err => {
+                  db.rollback(() => {
+                    console.error('Error updating current business hours:', err);
+                    res.status(500).json({ 
+                      success: false, 
+                      message: 'Error al aplicar cambios inmediatos' 
+                    });
+                  });
+                });
+            } else {
+              db.commit((err) => {
+                if (err) {
+                  return db.rollback(() => {
+                    console.error('Error committing transaction:', err);
+                    res.status(500).json({ 
+                      success: false, 
+                      message: 'Error al confirmar cambios' 
+                    });
+                  });
+                }
+
+                const diffDays = Math.ceil((effectiveDate - today) / (1000 * 60 * 60 * 24));
+                res.json({ 
+                  success: true, 
+                  message: `Horarios programados para aplicarse en ${diffDays} día(s)`,
+                  effective_date: effective_date,
+                  days_until_effective: diffDays
+                });
+              });
+            }
+          })
+          .catch(err => {
+            db.rollback(() => {
+              console.error('Error inserting scheduled business hours:', err);
+              res.status(500).json({ 
+                success: false, 
+                message: 'Error al guardar horarios programados' 
+              });
+            });
+          });
+      });
+    });
+  },
+
+  // Apply scheduled business hours that are due (for cron job)
+  applyScheduledBusinessHours: () => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Get all active scheduled changes for today
+    const getScheduledQuery = `
+      SELECT * FROM scheduled_business_hours 
+      WHERE effective_date = ? AND is_active = TRUE
+      ORDER BY day_of_week
+    `;
+
+    db.query(getScheduledQuery, [today], (err, scheduledHours) => {
+      if (err) {
+        console.error('Error getting scheduled business hours:', err);
+        return;
+      }
+
+      if (scheduledHours.length === 0) {
+        console.log('No scheduled business hours to apply for today');
+        return;
+      }
+
+      console.log(`Applying ${scheduledHours.length} scheduled business hour changes for ${today}`);
+
+      // Start transaction
+      db.beginTransaction((err) => {
+        if (err) {
+          console.error('Error starting transaction for scheduled hours:', err);
+          return;
+        }
+
+        // Update business hours with scheduled changes
+        const updatePromises = scheduledHours.map(scheduled => {
+          return new Promise((resolve, reject) => {
+            const updateQuery = `
+              UPDATE business_hours 
+              SET is_open = ?, open_time = ?, close_time = ?, break_start = ?, break_end = ?, updated_at = NOW()
+              WHERE day_of_week = ?
+            `;
+
+            const values = [
+              scheduled.is_open,
+              scheduled.open_time,
+              scheduled.close_time,
+              scheduled.break_start,
+              scheduled.break_end,
+              scheduled.day_of_week
+            ];
+
+            db.query(updateQuery, values, (err, result) => {
+              if (err) {
+                reject(err);
+              } else {
+                resolve(result);
+              }
+            });
+          });
+        });
+
+        Promise.all(updatePromises)
+          .then(() => {
+            // Mark scheduled changes as applied
+            const markAppliedQuery = `
+              UPDATE scheduled_business_hours 
+              SET is_active = FALSE, applied_at = NOW()
+              WHERE effective_date = ? AND is_active = TRUE
+            `;
+
+            db.query(markAppliedQuery, [today], (err, result) => {
+              if (err) {
+                return db.rollback(() => {
+                  console.error('Error marking scheduled hours as applied:', err);
+                });
+              }
+
+              db.commit((err) => {
+                if (err) {
+                  return db.rollback(() => {
+                    console.error('Error committing scheduled hours transaction:', err);
+                  });
+                }
+
+                console.log(`Successfully applied scheduled business hours for ${today}`);
+              });
+            });
+          })
+          .catch(err => {
+            db.rollback(() => {
+              console.error('Error applying scheduled business hours:', err);
+            });
+          });
+      });
+    });
+  },
+
+  // Holiday Templates Management
+  getHolidayTemplates: (req, res) => {
+    const query = `
+      SELECT id, name, description, month, day, is_recurring, is_active, 
+             holiday_type, closure_type, 
+             TIME_FORMAT(custom_open_time, '%H:%i') as custom_open_time,
+             TIME_FORMAT(custom_close_time, '%H:%i') as custom_close_time,
+             created_at, updated_at
+      FROM holiday_templates 
+      ORDER BY month, day, name
+    `;
+    
+    db.query(query, (err, results) => {
+      if (err) {
+        console.error('Error getting holiday templates:', err);
+        return res.status(500).json({ error: 'Error getting holiday templates' });
+      }
+      
+      res.json({ holiday_templates: results });
+    });
+  },
+
+  createHolidayTemplate: (req, res) => {
+    const { 
+      name, 
+      description, 
+      month, 
+      day, 
+      is_recurring, 
+      holiday_type, 
+      closure_type,
+      custom_open_time,
+      custom_close_time
+    } = req.body;
+
+    if (!name || !month || !day) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Nombre, mes y día son requeridos' 
+      });
+    }
+
+    // Validate month and day
+    if (month < 1 || month > 12) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'El mes debe estar entre 1 y 12' 
+      });
+    }
+
+    if (day < 1 || day > 31) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'El día debe estar entre 1 y 31' 
+      });
+    }
+
+    const query = `
+      INSERT INTO holiday_templates 
+      (name, description, month, day, is_recurring, holiday_type, closure_type, custom_open_time, custom_close_time)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const values = [
+      name,
+      description || null,
+      month,
+      day,
+      is_recurring || 1,
+      holiday_type || 'custom',
+      closure_type || 'full_day',
+      custom_open_time || null,
+      custom_close_time || null
+    ];
+
+    db.query(query, values, (err, result) => {
+      if (err) {
+        console.error('Error creating holiday template:', err);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Error al crear plantilla de feriado' 
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: 'Plantilla de feriado creada exitosamente',
+        id: result.insertId
+      });
+    });
+  },
+
+  updateHolidayTemplate: (req, res) => {
+    const { id } = req.params;
+    const { 
+      name, 
+      description, 
+      month, 
+      day, 
+      is_recurring, 
+      is_active,
+      holiday_type, 
+      closure_type,
+      custom_open_time,
+      custom_close_time
+    } = req.body;
+
+    if (!name || !month || !day) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Nombre, mes y día son requeridos' 
+      });
+    }
+
+    const query = `
+      UPDATE holiday_templates 
+      SET name = ?, description = ?, month = ?, day = ?, is_recurring = ?, 
+          is_active = ?, holiday_type = ?, closure_type = ?, 
+          custom_open_time = ?, custom_close_time = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `;
+
+    const values = [
+      name,
+      description || null,
+      month,
+      day,
+      is_recurring || 1,
+      is_active !== undefined ? is_active : 1,
+      holiday_type || 'custom',
+      closure_type || 'full_day',
+      custom_open_time || null,
+      custom_close_time || null,
+      id
+    ];
+
+    db.query(query, values, (err, result) => {
+      if (err) {
+        console.error('Error updating holiday template:', err);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Error al actualizar plantilla de feriado' 
+        });
+      }
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Plantilla de feriado no encontrada' 
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: 'Plantilla de feriado actualizada exitosamente'
+      });
+    });
+  },
+
+  deleteHolidayTemplate: (req, res) => {
+    const { id } = req.params;
+
+    const query = 'DELETE FROM holiday_templates WHERE id = ?';
+
+    db.query(query, [id], (err, result) => {
+      if (err) {
+        console.error('Error deleting holiday template:', err);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Error al eliminar plantilla de feriado' 
+        });
+      }
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Plantilla de feriado no encontrada' 
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: 'Plantilla de feriado eliminada exitosamente'
+      });
+    });
+  },
+
+  // Generate holiday exceptions for a specific year
+  generateYearlyHolidays: (req, res) => {
+    const { year } = req.params;
+    
+    if (!year || year < 2020 || year > 2030) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Año inválido. Debe estar entre 2020 y 2030' 
+      });
+    }
+
+    // Get active holiday templates
+    const getTemplatesQuery = 'SELECT * FROM holiday_templates WHERE is_active = 1';
+
+    db.query(getTemplatesQuery, (err, templates) => {
+      if (err) {
+        console.error('Error getting holiday templates:', err);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Error al obtener plantillas de feriados' 
+        });
+      }
+
+      if (templates.length === 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'No hay plantillas de feriados activas' 
+        });
+      }
+
+      db.beginTransaction((err) => {
+        if (err) {
+          console.error('Error starting transaction:', err);
+          return res.status(500).json({ 
+            success: false, 
+            message: 'Error interno del servidor' 
+          });
+        }
+
+        const insertPromises = templates.map(template => {
+          return new Promise((resolve, reject) => {
+            const holidayDate = `${year}-${template.month.toString().padStart(2, '0')}-${template.day.toString().padStart(2, '0')}`;
+            
+            // Check if holiday already exists for this year
+            const checkQuery = `
+              SELECT id FROM schedule_exceptions 
+              WHERE start_date = ? AND reason LIKE ?
+            `;
+
+            db.query(checkQuery, [holidayDate, `%${template.name}%`], (err, existing) => {
+              if (err) {
+                reject(err);
+                return;
+              }
+
+              if (existing.length > 0) {
+                resolve({ skipped: template.name });
+                return;
+              }
+
+              // Insert new holiday exception
+              const insertQuery = `
+                INSERT INTO schedule_exceptions 
+                (exception_type, start_date, end_date, is_closed, custom_open_time, custom_close_time, 
+                 reason, description, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `;
+
+              const isClosed = template.closure_type === 'full_day' ? 1 : 0;
+              const values = [
+                'single_day',
+                holidayDate,
+                holidayDate,
+                isClosed,
+                template.closure_type === 'custom_hours' ? template.custom_open_time : null,
+                template.closure_type === 'custom_hours' ? template.custom_close_time : null,
+                `${template.name} ${year}`,
+                template.description,
+                1
+              ];
+
+              db.query(insertQuery, values, (err, result) => {
+                if (err) {
+                  reject(err);
+                } else {
+                  resolve({ created: template.name, id: result.insertId });
+                }
+              });
+            });
+          });
+        });
+
+        Promise.all(insertPromises)
+          .then(results => {
+            db.commit((err) => {
+              if (err) {
+                return db.rollback(() => {
+                  console.error('Error committing transaction:', err);
+                  res.status(500).json({ 
+                    success: false, 
+                    message: 'Error al confirmar la generación de feriados' 
+                  });
+                });
+              }
+
+              const created = results.filter(r => r.created).length;
+              const skipped = results.filter(r => r.skipped).length;
+
+              res.json({ 
+                success: true, 
+                message: `Feriados generados para ${year}: ${created} creados, ${skipped} omitidos (ya existían)`,
+                year: year,
+                created: created,
+                skipped: skipped,
+                details: results
+              });
+            });
+          })
+          .catch(err => {
+            db.rollback(() => {
+              console.error('Error generating yearly holidays:', err);
+              res.status(500).json({ 
+                success: false, 
+                message: 'Error al generar feriados anuales' 
+              });
+            });
+          });
+      });
+    });
+  },
+
+  // Annual Closures Management
+  getAnnualClosures: (req, res) => {
+    const query = `
+      SELECT id, start_date as date, reason, description, 
+             'full_day' as closure_type,
+             1 as is_recurring,
+             created_at, updated_at
+      FROM schedule_exceptions 
+      WHERE exception_type = 'annual_closure'
+      ORDER BY MONTH(start_date), DAY(start_date), reason
+    `;
+    
+    db.query(query, (err, results) => {
+      if (err) {
+        console.error('Error getting annual closures:', err);
+        return res.status(500).json({ error: 'Error getting annual closures' });
+      }
+      
+      res.json({ annual_closures: results });
+    });
+  },
+
+  createAnnualClosure: (req, res) => {
+    const { 
+      date, 
+      reason, 
+      description, 
+      is_recurring
+    } = req.body;
+
+    if (!date || !reason) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Fecha y motivo son requeridos' 
+      });
+    }
+
+    const query = `
+      INSERT INTO schedule_exceptions 
+      (exception_type, start_date, end_date, is_closed, reason, description, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const values = [
+      'annual_closure',
+      date,
+      date,
+      1, // Always closed full day
+      reason,
+      description || '',
+      1
+    ];
+
+    db.query(query, values, (err, result) => {
+      if (err) {
+        console.error('Error creating annual closure:', err);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Error al crear día cerrado anual' 
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: 'Día cerrado anual creado exitosamente',
+        id: result.insertId 
+      });
+    });
+  },
+
+  updateAnnualClosure: (req, res) => {
+    const { id } = req.params;
+    const { 
+      date, 
+      reason, 
+      description
+    } = req.body;
+
+    if (!date || !reason) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Fecha y motivo son requeridos' 
+      });
+    }
+
+    const query = `
+      UPDATE schedule_exceptions 
+      SET start_date = ?, end_date = ?, is_closed = ?, reason = ?, description = ?, 
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ? AND exception_type = 'annual_closure'
+    `;
+
+    const values = [
+      date,
+      date,
+      1, // Always closed full day
+      reason,
+      description || '',
+      id
+    ];
+
+    db.query(query, values, (err, result) => {
+      if (err) {
+        console.error('Error updating annual closure:', err);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Error al actualizar día cerrado anual' 
+        });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Día cerrado anual no encontrado' 
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: 'Día cerrado anual actualizado exitosamente' 
+      });
+    });
+  },
+
+  deleteAnnualClosure: (req, res) => {
+    const { id } = req.params;
+    
+    const query = `
+      DELETE FROM schedule_exceptions 
+      WHERE id = ? AND exception_type = 'annual_closure'
+    `;
+
+    db.query(query, [id], (err, result) => {
+      if (err) {
+        console.error('Error deleting annual closure:', err);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Error al eliminar día cerrado anual' 
+        });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Día cerrado anual no encontrado' 
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        message: 'Día cerrado anual eliminado exitosamente' 
+      });
+    });
   }
 };
 

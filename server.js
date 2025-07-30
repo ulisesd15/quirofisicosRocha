@@ -4,13 +4,19 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
-require('./config/passport'); // Load passport strategy
+const cron = require('node-cron');
+
+// Load environment variables FIRST
 require('dotenv').config();
+
+// Load passport strategy AFTER env variables are loaded
+require('./config/passport');
 
 const routes = require('./routes/apiRoutes');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
+const scheduleController = require('./controllers/scheduleController');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -24,12 +30,31 @@ if (isProduction) {
         defaultSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
         scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+        scriptSrcAttr: ["'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", "https://accounts.google.com"],
         fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'"],
-        frameSrc: ["'none'"],
+        frameSrc: ["'self'", "https://accounts.google.com", "https://content.googleapis.com"],
+      },
+    },
+  }));
+} else {
+  // Development mode - more relaxed CSP for testing
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:", "http:"],
+        connectSrc: ["'self'", "https://accounts.google.com", "https://www.googleapis.com"],
+        fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'self'", "https://accounts.google.com", "https://content.googleapis.com", "https://www.google.com"],
       },
     },
   }));
@@ -105,8 +130,21 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
+// Cron job to apply scheduled business hours every day at midnight
+cron.schedule('0 0 * * *', () => {
+  console.log('Running scheduled business hours check...');
+  scheduleController.applyScheduledBusinessHours();
+}, {
+  timezone: "America/Tijuana"
+});
+
+// Also check on server startup for any missed scheduled hours
+console.log('Checking for any scheduled business hours to apply on startup...');
+scheduleController.applyScheduledBusinessHours();
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔒 Production mode: ${isProduction ? 'enabled' : 'disabled'}`);
+  console.log('⏰ Scheduled business hours cron job active');
 });

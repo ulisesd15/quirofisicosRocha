@@ -30,7 +30,8 @@ router.get('/dashboard', requireAdmin, (req, res) => {
     'SELECT COUNT(*) as totalUsers FROM users',
     'SELECT COUNT(*) as totalAppointments FROM appointments',
     'SELECT COUNT(*) as todayAppointments FROM appointments WHERE DATE(date) = CURDATE()',
-    'SELECT COUNT(*) as pendingAppointments FROM appointments WHERE status = "pending"'
+    // Count users requiring verification
+    `SELECT COUNT(*) as pendingUsers FROM users WHERE requires_verification = 1 AND is_verified = 0 AND role = 'user'`
   ];
 
   Promise.all(queries.map(query => {
@@ -44,19 +45,24 @@ router.get('/dashboard', requireAdmin, (req, res) => {
   .then(results => {
     // Get recent appointments
     db.query(`
-      SELECT id, full_name as name, email, phone, date as appointment_date, 
-             time as appointment_time, status 
+      SELECT id, full_name as name, email, phone, 
+             DATE_FORMAT(date, '%Y-%m-%d') as appointment_date, 
+             TIME_FORMAT(time, '%H:%i') as appointment_time, 
+             status, created_at
       FROM appointments 
       ORDER BY created_at DESC 
       LIMIT 5
     `, (err, recentAppointments) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
+      if (err) {
+        console.error('Recent appointments query error:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
       
       res.json({
         totalUsers: results[0].totalUsers || 0,
         totalAppointments: results[1].totalAppointments || 0,
         todayAppointments: results[2].todayAppointments || 0,
-        pendingAppointments: results[3].pendingAppointments || 0,
+        pendingAppointments: results[3].pendingUsers || 0,
         recentAppointments: recentAppointments || []
       });
     });
@@ -438,9 +444,16 @@ router.get('/approval/pending-users', requireAdmin, appointmentController.getUnv
 
 // Get business hours
 router.get('/business-hours', requireAdmin, (req, res) => {
-  db.query('SELECT * FROM business_hours ORDER BY FIELD(day_of_week, "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")', (err, results) => {
+  db.query(`SELECT id, LOWER(day_of_week) as day_of_week, is_open, 
+           TIME_FORMAT(open_time, '%H:%i') as open_time,
+           TIME_FORMAT(close_time, '%H:%i') as close_time,
+           TIME_FORMAT(break_start, '%H:%i') as break_start,
+           TIME_FORMAT(break_end, '%H:%i') as break_end,
+           updated_at
+           FROM business_hours 
+           ORDER BY FIELD(day_of_week, "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")`, (err, results) => {
     if (err) return res.status(500).json({ error: 'Database error' });
-    res.json(results);
+    res.json({ businessHours: results });
   });
 });
 
@@ -618,11 +631,33 @@ router.get('/schedule/business-hours', requireAdmin, scheduleController.getBusin
 // Update business hours for a specific day
 router.put('/schedule/business-hours/:day_of_week', requireAdmin, scheduleController.updateBusinessHours);
 
+// Save scheduled business hours changes
+router.post('/schedule/business-hours', requireAdmin, scheduleController.saveScheduledBusinessHours);
+
 // Get available time slots for a date
 router.get('/schedule/available-slots/:date', requireAdmin, scheduleController.getAvailableSlots);
 
 // Get clinic statistics (including schedule stats)
 router.get('/schedule/stats', requireAdmin, scheduleController.getClinicStats);
+
+// =================
+// HOLIDAY TEMPLATES MANAGEMENT
+// =================
+
+// Holiday templates CRUD
+router.get('/schedule/holiday-templates', requireAdmin, scheduleController.getHolidayTemplates);
+router.post('/schedule/holiday-templates', requireAdmin, scheduleController.createHolidayTemplate);
+router.put('/schedule/holiday-templates/:id', requireAdmin, scheduleController.updateHolidayTemplate);
+router.delete('/schedule/holiday-templates/:id', requireAdmin, scheduleController.deleteHolidayTemplate);
+
+// Generate yearly holidays from templates
+router.post('/schedule/generate-holidays/:year', requireAdmin, scheduleController.generateYearlyHolidays);
+
+// Annual closures CRUD
+router.get('/schedule/annual-closures', requireAdmin, scheduleController.getAnnualClosures);
+router.post('/schedule/annual-closures', requireAdmin, scheduleController.createAnnualClosure);
+router.put('/schedule/annual-closures/:id', requireAdmin, scheduleController.updateAnnualClosure);
+router.delete('/schedule/annual-closures/:id', requireAdmin, scheduleController.deleteAnnualClosure);
 
 // =================
 // ENHANCED SCHEDULE MANAGEMENT
@@ -687,12 +722,19 @@ router.get('/approval/recent', requireAdmin, (req, res) => {
 
 // Get business hours
 router.get('/business-hours', requireAdmin, (req, res) => {
-  db.query('SELECT * FROM business_hours ORDER BY FIELD(day_of_week, "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")', (err, results) => {
+  db.query(`SELECT id, LOWER(day_of_week) as day_of_week, is_open, 
+           TIME_FORMAT(open_time, '%H:%i') as open_time,
+           TIME_FORMAT(close_time, '%H:%i') as close_time,
+           TIME_FORMAT(break_start, '%H:%i') as break_start,
+           TIME_FORMAT(break_end, '%H:%i') as break_end,
+           updated_at
+           FROM business_hours 
+           ORDER BY FIELD(day_of_week, "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")`, (err, results) => {
     if (err) {
       console.error('Error fetching business hours:', err);
       return res.status(500).json({ error: 'Database error' });
     }
-    res.json(results);
+    res.json({ businessHours: results });
   });
 });
 
