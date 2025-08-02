@@ -11,6 +11,7 @@ const secretKey = process.env.SECRET_KEY;
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 router.get('/profile', auth, authController.getUserProfile);
+router.get('/me', auth, authController.getUserProfile); // Alias for profile endpoint
 router.put('/profile', auth, authController.updateProfile);
 router.put('/update-profile', auth, authController.updateUserProfile);
 router.put('/change-password', auth, authController.changePassword);

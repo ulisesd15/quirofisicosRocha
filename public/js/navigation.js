@@ -102,8 +102,8 @@ class NavigationManager {
                         <i class="fas fa-user me-1"></i>${user?.full_name || 'Usuario'}
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="/appointment.html">
-                            <i class="fas fa-calendar me-2"></i>Mis Citas
+                        <li><a class="dropdown-item" href="/mis-citas.html">
+                            <i class="fas fa-calendar-check me-2"></i>Mis Citas
                         </a></li>
                         <li><a class="dropdown-item" href="/user-settings.html">
                             <i class="fas fa-user-cog me-2"></i>Configuración
@@ -136,8 +136,8 @@ class NavigationManager {
             const isAdmin = window.authManager.isAdmin();
             
             return `
-                <a href="/appointment.html" class="sidebar-nav-item">
-                    <i class="fas fa-calendar"></i>Mis Citas
+                <a href="/mis-citas.html" class="sidebar-nav-item">
+                    <i class="fas fa-calendar-check"></i>Mis Citas
                 </a>
                 ${isAdmin ? `
                     <a href="/admin/adminOptions.html" class="sidebar-nav-item">

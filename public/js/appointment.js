@@ -527,6 +527,14 @@ function setupUI() {
 // ───────── INITIALIZATION ─────────
 async function initializeAppointmentSystem() {
   try {
+    // Check for reschedule parameter and redirect to new reschedule page
+    const urlParams = new URLSearchParams(window.location.search);
+    const rescheduleId = urlParams.get('reschedule');
+    if (rescheduleId) {
+      console.log('Reschedule request detected, redirecting to new reschedule page');
+      window.location.href = `reschedule.html?id=${rescheduleId}`;
+      return;
+    }
     
     // Set up guest fields based on user login status
     const isLoggedIn = window.authManager && window.authManager.isLoggedIn();

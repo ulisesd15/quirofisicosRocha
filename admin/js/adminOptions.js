@@ -192,6 +192,28 @@ class AdminPanel {
       this.currentPage = 1;
       this.loadAppointments();
     });
+
+    // Users role filter
+    document.getElementById('users-role-filter')?.addEventListener('change', (e) => {
+      this.currentPage = 1;
+      this.loadUsers();
+    });
+
+    // Users refresh button
+    document.getElementById('refresh-users-btn')?.addEventListener('click', () => {
+      this.currentPage = 1;
+      this.loadUsers();
+    });
+
+    // Add user button
+    document.getElementById('add-user-btn')?.addEventListener('click', () => {
+      this.showAddUserModal();
+    });
+
+    // Clear users filters button
+    document.getElementById('clear-users-filters-btn')?.addEventListener('click', () => {
+      this.clearUsersFilters();
+    });
   }
 
   initModalListeners() {
@@ -638,6 +660,9 @@ class AdminPanel {
       const search = document.getElementById('users-search')?.value;
       if (search) params.append('search', search);
 
+      const roleFilter = document.getElementById('users-role-filter')?.value;
+      if (roleFilter) params.append('role', roleFilter);
+
       const response = await fetch(`/api/admin/users?${params}`, {
         headers: {
           'Authorization': `Bearer ${this.getAuthToken()}`
@@ -650,6 +675,7 @@ class AdminPanel {
       
       this.displayUsers(data.users);
       this.updatePagination('users', data.pagination);
+      this.updateUsersCount(data.pagination.total_records);
       
     } catch (error) {
       console.error('Error loading users:', error);
@@ -682,9 +708,10 @@ class AdminPanel {
         <td>${user.email}</td>
         <td>${user.phone || '-'}</td>
         <td>
-          <span class="badge ${user.provider === 'google' ? 'bg-danger' : 'bg-secondary'}">
-            ${user.provider === 'google' ? 'Google' : 'Local'}
+          <span class="badge ${user.role === 'admin' ? 'bg-danger' : 'bg-primary'}">
+            ${user.role === 'admin' ? 'Administrador' : 'Usuario'}
           </span>
+          ${user.provider === 'google' ? '<small class="d-block text-muted">Google</small>' : '<small class="d-block text-muted">Local</small>'}
         </td>
         <td>${this.formatDate(user.created_at)}</td>
         <td>
@@ -699,6 +726,32 @@ class AdminPanel {
         </td>
       </tr>
     `).join('');
+  }
+
+  updateUsersCount(count) {
+    const countElement = document.getElementById('users-total-count');
+    if (countElement) {
+      countElement.textContent = `Total: ${count} usuarios`;
+    }
+  }
+
+  showAddUserModal() {
+    // For now, show a simple alert. You can implement a proper modal later
+    alert('Funcionalidad de agregar usuario - pendiente de implementar');
+  }
+
+  clearUsersFilters() {
+    // Clear search input
+    const searchInput = document.getElementById('users-search');
+    if (searchInput) searchInput.value = '';
+
+    // Clear role filter
+    const roleFilter = document.getElementById('users-role-filter');
+    if (roleFilter) roleFilter.value = '';
+
+    // Reset to first page and reload
+    this.currentPage = 1;
+    this.loadUsers();
   }
 
   async loadBusinessHours() {
@@ -1055,23 +1108,202 @@ class AdminPanel {
       </div>
 
       <div class="settings-group">
-        <h6>Notificaciones</h6>
-        <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" id="email_notifications" 
-                 ${settingsMap.email_notifications === 'true' ? 'checked' : ''}>
-          <label class="form-check-label" for="email_notifications">
-            Enviar notificaciones por email
-          </label>
+        <h6><i class="fas fa-bell me-2"></i>Configuración de Notificaciones</h6>
+        <div class="alert alert-info">
+          <i class="fas fa-info-circle me-2"></i>
+          Configure cómo desea enviar notificaciones automáticas a los pacientes sobre sus citas.
         </div>
-        <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" id="sms_notifications" 
-                 ${settingsMap.sms_notifications === 'true' ? 'checked' : ''}>
-          <label class="form-check-label" for="sms_notifications">
-            Enviar notificaciones por SMS
-          </label>
+        
+        <div class="row">
+          <div class="col-md-6">
+            <div class="card border-primary">
+              <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="fas fa-envelope me-2"></i>Notificaciones por Email</h6>
+              </div>
+              <div class="card-body">
+                <div class="form-check form-switch mb-3">
+                  <input class="form-check-input" type="checkbox" id="email_notifications" 
+                         ${settingsMap.email_notifications === 'true' ? 'checked' : ''}>
+                  <label class="form-check-label" for="email_notifications">
+                    <strong>Activar notificaciones por email</strong>
+                  </label>
+                </div>
+                
+                <div class="notification-options" id="email-options" style="display: ${settingsMap.email_notifications === 'true' ? 'block' : 'none'}">
+                  <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="email_appointment_confirmation" 
+                           ${settingsMap.email_appointment_confirmation === 'true' ? 'checked' : ''}>
+                    <label class="form-check-label" for="email_appointment_confirmation">
+                      Confirmación de cita
+                    </label>
+                  </div>
+                  
+                  <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="email_appointment_reminder" 
+                           ${settingsMap.email_appointment_reminder === 'true' ? 'checked' : ''}>
+                    <label class="form-check-label" for="email_appointment_reminder">
+                      Recordatorio de cita (24h antes)
+                    </label>
+                  </div>
+                  
+                  <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="email_appointment_changes" 
+                           ${settingsMap.email_appointment_changes === 'true' ? 'checked' : ''}>
+                    <label class="form-check-label" for="email_appointment_changes">
+                      Cambios en la cita
+                    </label>
+                  </div>
+                  
+                  <div class="mt-3">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="adminPanel.testEmailNotification()">
+                      <i class="fas fa-envelope me-1"></i>Probar Email
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-md-6">
+            <div class="card border-success">
+              <div class="card-header bg-success text-white">
+                <h6 class="mb-0"><i class="fas fa-sms me-2"></i>Notificaciones por SMS</h6>
+              </div>
+              <div class="card-body">
+                <div class="form-check form-switch mb-3">
+                  <input class="form-check-input" type="checkbox" id="sms_notifications" 
+                         ${settingsMap.sms_notifications === 'true' ? 'checked' : ''}>
+                  <label class="form-check-label" for="sms_notifications">
+                    <strong>Activar notificaciones por SMS</strong>
+                  </label>
+                </div>
+                
+                <div class="notification-options" id="sms-options" style="display: ${settingsMap.sms_notifications === 'true' ? 'block' : 'none'}">
+                  <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="sms_appointment_confirmation" 
+                           ${settingsMap.sms_appointment_confirmation === 'true' ? 'checked' : ''}>
+                    <label class="form-check-label" for="sms_appointment_confirmation">
+                      Confirmación de cita
+                    </label>
+                  </div>
+                  
+                  <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="sms_appointment_reminder" 
+                           ${settingsMap.sms_appointment_reminder === 'true' ? 'checked' : ''}>
+                    <label class="form-check-label" for="sms_appointment_reminder">
+                      Recordatorio de cita (24h antes)
+                    </label>
+                  </div>
+                  
+                  <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="sms_appointment_changes" 
+                           ${settingsMap.sms_appointment_changes === 'true' ? 'checked' : ''}>
+                    <label class="form-check-label" for="sms_appointment_changes">
+                      Cambios en la cita
+                    </label>
+                  </div>
+                </div>
+                
+                <div class="mt-3">
+                  <button type="button" class="btn btn-outline-primary btn-sm" onclick="adminPanel.testEmailNotification()">
+                    <i class="fas fa-envelope me-1"></i>Probar Email
+                  </button>
+                </div>
+                
+                <div class="mt-3">
+                  <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Servicio SMS: ${settingsMap.sms_service_status || 'Vonage (activo)'}
+                  </small>
+                </div>
+                
+                <div class="mt-3">
+                  <button type="button" class="btn btn-outline-success btn-sm" onclick="adminPanel.testSMSNotification()">
+                    <i class="fas fa-paper-plane me-1"></i>Probar SMS
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="row mt-3">
+          <div class="col-12">
+            <div class="card border-warning">
+              <div class="card-header bg-warning text-dark">
+                <h6 class="mb-0"><i class="fas fa-clock me-2"></i>Configuración de Horarios</h6>
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label for="reminder_hours_before" class="form-label">Enviar recordatorios (horas antes)</label>
+                      <select class="form-select" id="reminder_hours_before">
+                        <option value="1" ${settingsMap.reminder_hours_before === '1' ? 'selected' : ''}>1 hora antes</option>
+                        <option value="2" ${settingsMap.reminder_hours_before === '2' ? 'selected' : ''}>2 horas antes</option>
+                        <option value="6" ${settingsMap.reminder_hours_before === '6' ? 'selected' : ''}>6 horas antes</option>
+                        <option value="12" ${settingsMap.reminder_hours_before === '12' ? 'selected' : ''}>12 horas antes</option>
+                        <option value="24" ${settingsMap.reminder_hours_before === '24' || !settingsMap.reminder_hours_before ? 'selected' : ''}>24 horas antes</option>
+                        <option value="48" ${settingsMap.reminder_hours_before === '48' ? 'selected' : ''}>48 horas antes</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label for="business_hours_only" class="form-label">Envío de notificaciones</label>
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="business_hours_only" 
+                               ${settingsMap.business_hours_only === 'true' ? 'checked' : ''}>
+                        <label class="form-check-label" for="business_hours_only">
+                          Solo en horario de atención (8:00 AM - 6:00 PM)
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `;
+    
+    // Add event listeners for notification toggles
+    this.setupNotificationToggles();
+  }
+
+  setupNotificationToggles() {
+    // Email notifications toggle
+    const emailToggle = document.getElementById('email_notifications');
+    const emailOptions = document.getElementById('email-options');
+    
+    if (emailToggle && emailOptions) {
+      emailToggle.addEventListener('change', () => {
+        emailOptions.style.display = emailToggle.checked ? 'block' : 'none';
+        if (!emailToggle.checked) {
+          // Uncheck all email sub-options when main toggle is off
+          document.getElementById('email_appointment_confirmation').checked = false;
+          document.getElementById('email_appointment_reminder').checked = false;
+          document.getElementById('email_appointment_changes').checked = false;
+        }
+      });
+    }
+    
+    // SMS notifications toggle
+    const smsToggle = document.getElementById('sms_notifications');
+    const smsOptions = document.getElementById('sms-options');
+    
+    if (smsToggle && smsOptions) {
+      smsToggle.addEventListener('change', () => {
+        smsOptions.style.display = smsToggle.checked ? 'block' : 'none';
+        if (!smsToggle.checked) {
+          // Uncheck all SMS sub-options when main toggle is off
+          document.getElementById('sms_appointment_confirmation').checked = false;
+          document.getElementById('sms_appointment_reminder').checked = false;
+          document.getElementById('sms_appointment_changes').checked = false;
+        }
+      });
+    }
   }
 
   // Edit/Delete Functions
@@ -1322,15 +1554,34 @@ class AdminPanel {
   async saveClinicSettings() {
     try {
       const settings = [
+        // General clinic settings
         { key: 'clinic_name', value: document.getElementById('clinic_name').value },
         { key: 'clinic_phone', value: document.getElementById('clinic_phone').value },
         { key: 'clinic_address', value: document.getElementById('clinic_address').value },
         { key: 'clinic_email', value: document.getElementById('clinic_email').value },
+        
+        // Appointment settings
         { key: 'appointment_duration', value: document.getElementById('appointment_duration').value },
         { key: 'advance_booking_days', value: document.getElementById('advance_booking_days').value },
         { key: 'auto_confirm_appointments', value: document.getElementById('auto_confirm_appointments').checked },
+        
+        // Main notification toggles
         { key: 'email_notifications', value: document.getElementById('email_notifications').checked },
-        { key: 'sms_notifications', value: document.getElementById('sms_notifications').checked }
+        { key: 'sms_notifications', value: document.getElementById('sms_notifications').checked },
+        
+        // Email notification options
+        { key: 'email_appointment_confirmation', value: document.getElementById('email_appointment_confirmation')?.checked || false },
+        { key: 'email_appointment_reminder', value: document.getElementById('email_appointment_reminder')?.checked || false },
+        { key: 'email_appointment_changes', value: document.getElementById('email_appointment_changes')?.checked || false },
+        
+        // SMS notification options
+        { key: 'sms_appointment_confirmation', value: document.getElementById('sms_appointment_confirmation')?.checked || false },
+        { key: 'sms_appointment_reminder', value: document.getElementById('sms_appointment_reminder')?.checked || false },
+        { key: 'sms_appointment_changes', value: document.getElementById('sms_appointment_changes')?.checked || false },
+        
+        // Timing and schedule settings
+        { key: 'reminder_hours_before', value: document.getElementById('reminder_hours_before')?.value || '24' },
+        { key: 'business_hours_only', value: document.getElementById('business_hours_only')?.checked || false }
       ];
 
       const response = await fetch('/api/admin/settings', {
@@ -1344,7 +1595,7 @@ class AdminPanel {
 
       if (!response.ok) throw new Error('Error saving settings');
 
-      this.showSuccess('Configuración guardada correctamente');
+      this.showSuccess('Configuración de notificaciones guardada correctamente');
 
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -5147,6 +5398,118 @@ class AdminPanel {
 
     return true;
   }
+
+  // Notification Testing Functions
+  async testEmailNotification() {
+    try {
+      const response = await fetch('/api/admin/test-email-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify({
+          testType: 'email',
+          message: 'Este es un mensaje de prueba del sistema de notificaciones por email.'
+        })
+      });
+
+      if (!response.ok) throw new Error('Error sending test email');
+      
+      const result = await response.json();
+      this.showSuccess('Email de prueba enviado correctamente. Revisa tu bandeja de entrada.');
+      
+    } catch (error) {
+      console.error('Error testing email:', error);
+      this.showError('Error enviando el email de prueba: ' + error.message);
+    }
+  }
+
+  async testSMSNotification() {
+    try {
+      const phone = prompt('Ingresa el número de teléfono para la prueba (incluye código de país, ej: +52XXXXXXXXXX):');
+      if (!phone) return;
+
+      const response = await fetch('/api/admin/test-sms-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify({
+          testType: 'sms',
+          phone: phone,
+          message: 'Este es un mensaje de prueba del sistema de notificaciones SMS de Quirofísicos Rocha.'
+        })
+      });
+
+      if (!response.ok) throw new Error('Error sending test SMS');
+      
+      const result = await response.json();
+      this.showSuccess('SMS de prueba enviado correctamente a ' + phone);
+      
+    } catch (error) {
+      console.error('Error testing SMS:', error);
+      this.showError('Error enviando el SMS de prueba: ' + error.message);
+    }
+  }
+
+  // Admin Password Management
+  showPasswordChangeModal() {
+    const modal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
+    document.getElementById('admin-password-form').reset();
+    modal.show();
+  }
+
+  async changeAdminPassword() {
+    const currentPassword = document.getElementById('admin-current-password').value;
+    const newPassword = document.getElementById('admin-new-password').value;
+    const confirmPassword = document.getElementById('admin-confirm-password').value;
+
+    // Validate fields
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      this.showError('Todos los campos son obligatorios');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      this.showError('Las contraseñas no coinciden');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      this.showError('La nueva contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/auth/change-password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify({
+          currentPassword: currentPassword,
+          newPassword: newPassword
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        this.showSuccess('Contraseña de administrador actualizada correctamente');
+        const modal = bootstrap.Modal.getInstance(document.getElementById('changePasswordModal'));
+        modal.hide();
+        document.getElementById('admin-password-form').reset();
+      } else {
+        throw new Error(result.error || 'Error al cambiar la contraseña');
+      }
+    } catch (error) {
+      console.error('Error changing admin password:', error);
+      this.showError('Error al cambiar la contraseña: ' + error.message);
+    }
+  }
 }
 
 // Initialize admin panel when DOM is loaded
@@ -5418,6 +5781,9 @@ function showNotification(message, type = 'info') {
 
 // Initialize appointment management when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
+  // Initialize admin panel
+  window.adminPanel = new AdminPanel();
+  
   // Load data if containers exist
   if (document.getElementById('pending-appointments')) {
     displayPendingAppointments();
@@ -5436,4 +5802,23 @@ document.addEventListener('DOMContentLoaded', function() {
       loadUnverifiedUsers();
     }
   }, 30000);
+  
+  // Add event listeners for admin dropdown actions
+  setTimeout(() => {
+    const logoutLink = document.querySelector('a[onclick="window.adminPanel.logout()"]');
+    if (logoutLink) {
+      logoutLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        window.adminPanel.logout();
+      });
+    }
+    
+    const passwordChangeLink = document.querySelector('a[onclick="window.adminPanel.showPasswordChangeModal()"]');
+    if (passwordChangeLink) {
+      passwordChangeLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        window.adminPanel.showPasswordChangeModal();
+      });
+    }
+  }, 100);
 });

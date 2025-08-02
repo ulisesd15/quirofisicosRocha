@@ -83,13 +83,81 @@ router.post('/appointments', (req, res) => {
 // Update appointment
 router.put('/appointments/:id', authenticateToken,(req, res) => {
   const { full_name, email, phone, date, time, note } = req.body;
-  db.query('UPDATE appointments SET full_name = ?, email = ?, phone = ?, date = ?, time = ?, note = ? WHERE id = ?', 
-    [full_name, email, phone, date, time, note, req.params.id], 
-    (err) => {
-      if (err) return res.status(500).json(err);
-      res.sendStatus(204);
+  const appointmentId = req.params.id;
+  const userId = req.user.id;
+  
+  // First verify the appointment belongs to the user (unless admin)
+  const verifyQuery = req.user.role === 'admin' 
+    ? 'SELECT * FROM appointments WHERE id = ?'
+    : 'SELECT * FROM appointments WHERE id = ? AND user_id = ?';
+  
+  const verifyParams = req.user.role === 'admin' 
+    ? [appointmentId]
+    : [appointmentId, userId];
+  
+  db.query(verifyQuery, verifyParams, (err, results) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'Cita no encontrada o no autorizada' });
     }
-  );
+
+    // Update the appointment
+    db.query(
+      'UPDATE appointments SET full_name = ?, email = ?, phone = ?, date = ?, time = ?, note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', 
+      [full_name, email, phone, date, time, note, appointmentId], 
+      (err, updateResult) => {
+        if (err) return res.status(500).json({ error: 'Error actualizando la cita' });
+        if (updateResult.affectedRows === 0) {
+          return res.status(404).json({ error: 'Cita no encontrada' });
+        }
+        res.json({ message: 'Cita actualizada exitosamente' });
+      }
+    );
+  });
+});
+
+// Get user's own appointments (for "Mis Citas" page) - MUST come before :id route
+router.get('/appointments/my-appointments', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const query = `
+    SELECT id, full_name, email, phone, date, time, note, status, created_at, updated_at
+    FROM appointments 
+    WHERE user_id = ? 
+    ORDER BY date DESC, time DESC
+  `;
+  
+  db.query(query, [userId], (err, results) => {
+    if (err) {
+      console.error('Error getting user appointments:', err);
+      return res.status(500).json({ error: 'Error getting appointments' });
+    }
+    
+    res.json({ appointments: results });
+  });
+});
+
+// Get single appointment by ID (for authenticated users)
+router.get('/appointments/:id', authenticateToken, (req, res) => {
+  const appointmentId = req.params.id;
+  const userId = req.user.id;
+  
+  // Verify the appointment belongs to the user (unless admin)
+  const query = req.user.role === 'admin' 
+    ? 'SELECT * FROM appointments WHERE id = ?'
+    : 'SELECT * FROM appointments WHERE id = ? AND user_id = ?';
+  
+  const params = req.user.role === 'admin' 
+    ? [appointmentId]
+    : [appointmentId, userId];
+  
+  db.query(query, params, (err, results) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'Cita no encontrada o no autorizada' });
+    }
+    
+    res.json(results[0]);
+  });
 });
 
 // Get appointments by date (public endpoint for checking availability)
@@ -140,26 +208,43 @@ router.get('/appointments/date/:date/time/:time', authenticateToken,(req, res) =
   });
 });
 
+;
+
+// Cancel appointment (user can cancel their own appointments) - MUST come before :id route
+router.put('/appointments/:id/cancel', authenticateToken, (req, res) => {
+  const appointmentId = req.params.id;
+  const userId = req.user.id;
+  
+  // First check if the appointment belongs to the user
+  const checkQuery = 'SELECT id FROM appointments WHERE id = ? AND user_id = ?';
+  db.query(checkQuery, [appointmentId, userId], (err, results) => {
+    if (err) {
+      console.error('Error checking appointment ownership:', err);
+      return res.status(500).json({ error: 'Error processing request' });
+    }
+    
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'Appointment not found or not authorized' });
+    }
+    
+    // Update appointment status to cancelled
+    const updateQuery = 'UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+    db.query(updateQuery, ['cancelled', appointmentId], (err, result) => {
+      if (err) {
+        console.error('Error cancelling appointment:', err);
+        return res.status(500).json({ error: 'Error cancelling appointment' });
+      }
+      
+      res.json({ message: 'Appointment cancelled successfully' });
+    });
+  });
+});
+
 // Delete appointment
 router.delete('/appointments/:id', authenticateToken,(req, res) => {
   db.query('DELETE FROM appointments WHERE id = ?', [req.params.id], (err) => {
     if (err) return res.status(500).json(err);
     res.sendStatus(204);
-  });
-});
-
-//get single
-router.get("/appointments/:id",  authenticateToken,(req, res) => {
-  const appointmentId = req.params.id;
-  db.query("SELECT * FROM appointments WHERE id = ?", [appointmentId], (err, results) => {
-    if (err) {
-      console.error("Error al obtener la cita:", err);
-      return res.status(500).json({ message: "Error al obtener la cita" });
-    }
-    if (results.length === 0) {
-      return res.status(404).json({ message: "Cita no encontrada" });
-    }
-    res.status(200).json(results[0]);
   });
 });
 
@@ -222,7 +307,6 @@ router.get("/registeredUsers", (req, res) => {
 router.post('/login', (req, res) => {
   const { email, password } = req.body;
 
-
   db.query(
     'SELECT * FROM users WHERE email = ?',
     [email],
@@ -231,26 +315,35 @@ router.post('/login', (req, res) => {
         console.error('Error en login:', err);
         return res.status(500).json({ message: 'Error del servidor' });
       }
-    const user = results[0];
+      
+      if (results.length === 0) {
+        return res.status(401).json({ message: 'Credenciales inválidas' });
+      }
+      
+      const user = results[0];
+      console.log('User found during login:', { id: user.id, email: user.email, role: user.role });
 
-    bcrypt.compare(password, user.password, (err, isMatch) => {
-      if (err) return res.status(500).json({ message: 'Error del servidor' });
+      bcrypt.compare(password, user.password, (err, isMatch) => {
+        if (err) return res.status(500).json({ message: 'Error del servidor' });
 
-      if (!isMatch) return res.status(401).json({ message: 'Credenciales inválidas' });
+        if (!isMatch) return res.status(401).json({ message: 'Credenciales inválidas' });
 
-      const token = jwt.sign({ id: user.id, email: user.email }, secretKey, { expiresIn: '2h' });
+        const token = jwt.sign({ 
+          id: user.id, 
+          email: user.email, 
+          role: user.role || 'user' 
+        }, secretKey, { expiresIn: '2h' });
+        
+        console.log('JWT payload created:', { id: user.id, email: user.email, role: user.role || 'user' });
 
-      res.status(200).json({
-        message: 'Inicio de sesión exitoso',
-        user_id: user.id,
-        token  // ✅ send token back to frontend
+        res.status(200).json({
+          message: 'Inicio de sesión exitoso',
+          user_id: user.id,
+          token
+        });
       });
-    });
-
-
-
-});
-  
+    }
+  );
 });
 
 // Get user email, phone and name info by ID

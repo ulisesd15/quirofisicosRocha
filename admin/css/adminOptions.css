@@ -284,6 +284,18 @@ body {
 /* Tables */
 .table-responsive {
   border-radius: 0.5rem;
+  max-height: 600px;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* Sticky header for scrollable tables */
+.table-responsive .standard-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #f8f9fa !important;
+  border-bottom: 2px solid #dee2e6;
 }
 
 .table th {
@@ -296,6 +308,61 @@ body {
 
 .table td {
   vertical-align: middle;
+}
+
+/* Enhanced user management table styles */
+#users-section .table-responsive {
+  border: 1px solid #dee2e6;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+#users-section .standard-table tbody tr:hover {
+  background-color: #f8f9fa;
+  transition: background-color 0.15s ease-in-out;
+}
+
+/* User role badges */
+#users-section .badge {
+  font-size: 0.75rem;
+  padding: 0.35em 0.65em;
+}
+
+/* Action buttons styling */
+.action-buttons {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: center;
+}
+
+.action-buttons .btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Users count display */
+#users-total-count {
+  font-weight: 600;
+  color: #6c757d;
+}
+
+/* Responsive table scrollbar styling */
+.table-responsive::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 /* Badges */

@@ -125,14 +125,22 @@ router.get('/users', requireAdmin, (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
   const search = req.query.search || '';
+  const roleFilter = req.query.role || '';
   
   let query = `
     SELECT id, full_name as name, email, phone, auth_provider as provider, role, created_at 
     FROM users 
-    WHERE role = 'user'
+    WHERE 1=1
   `;
   let params = [];
   
+  // Role filter
+  if (roleFilter) {
+    query += ` AND role = ?`;
+    params.push(roleFilter);
+  }
+  
+  // Search filter
   if (search) {
     query += ` AND (full_name LIKE ? OR email LIKE ?)`;
     params.push(`%${search}%`, `%${search}%`);
@@ -145,8 +153,13 @@ router.get('/users', requireAdmin, (req, res) => {
     if (err) return res.status(500).json({ error: 'Database error' });
     
     // Get total count for pagination
-    let countQuery = `SELECT COUNT(*) as total FROM users WHERE role = 'user'`;
+    let countQuery = `SELECT COUNT(*) as total FROM users WHERE 1=1`;
     let countParams = [];
+    
+    if (roleFilter) {
+      countQuery += ` AND role = ?`;
+      countParams.push(roleFilter);
+    }
     
     if (search) {
       countQuery += ` AND (full_name LIKE ? OR email LIKE ?)`;
@@ -1066,6 +1079,123 @@ router.delete('/announcements/:id', requireAdmin, (req, res) => {
     
     res.json({ message: 'Announcement deleted successfully' });
   });
+});
+
+// =================
+// NOTIFICATION TESTING ENDPOINTS
+// =================
+
+// Test email notification
+router.post('/test-email-notification', requireAdmin, async (req, res) => {
+  try {
+    const { message } = req.body;
+    const adminEmail = req.user.email;
+    
+    // Import email service (you might need to adjust this path)
+    const smsController = require('../controllers/smsController');
+    
+    // For now, we'll just log the email test since we don't have email service set up
+    console.log('📧 Email test notification:');
+    console.log('To:', adminEmail);
+    console.log('Message:', message);
+    
+    // In a real implementation, you would send the email here
+    // await emailService.sendTestEmail(adminEmail, message);
+    
+    res.json({ 
+      success: true, 
+      message: 'Test email logged successfully (email service not configured)',
+      recipient: adminEmail
+    });
+    
+  } catch (error) {
+    console.error('Error testing email notification:', error);
+    res.status(500).json({ error: 'Error sending test email' });
+  }
+});
+
+// Test SMS notification
+router.post('/test-sms-notification', requireAdmin, async (req, res) => {
+  try {
+    const { phone, message } = req.body;
+    
+    if (!phone || !message) {
+      return res.status(400).json({ error: 'Phone number and message are required' });
+    }
+    
+    // Import SMS service
+    const smsController = require('../controllers/smsController');
+    
+    // Send test SMS
+    const result = await smsController.sendTestSMS(phone, message);
+    
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        message: 'Test SMS sent successfully',
+        recipient: phone,
+        messageId: result.messageId
+      });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+    
+  } catch (error) {
+    console.error('Error testing SMS notification:', error);
+    res.status(500).json({ error: 'Error sending test SMS' });
+  }
+});
+
+// Manually set user as admin (temporary endpoint for development)
+router.post('/set-admin/:id', requireAdmin, (req, res) => {
+  const userId = req.params.id;
+  
+  db.query(
+    'UPDATE users SET role = "admin" WHERE id = ?',
+    [userId],
+    (err, result) => {
+      if (err) {
+        console.error('Error setting admin role:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      res.json({ message: 'User role updated to admin successfully' });
+    }
+  );
+});
+
+// Reset user password (temporary endpoint for development)
+router.post('/reset-password/:id', requireAdmin, (req, res) => {
+  const userId = req.params.id;
+  const { newPassword } = req.body;
+  
+  if (!newPassword) {
+    return res.status(400).json({ error: 'New password is required' });
+  }
+  
+  const bcrypt = require('bcrypt');
+  const hashedPassword = bcrypt.hashSync(newPassword, 10);
+  
+  db.query(
+    'UPDATE users SET password = ? WHERE id = ?',
+    [hashedPassword, userId],
+    (err, result) => {
+      if (err) {
+        console.error('Error resetting password:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      res.json({ message: 'Password reset successfully' });
+    }
+  );
 });
 
 module.exports = router;

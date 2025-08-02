@@ -43,6 +43,23 @@
         <a href="../index.html" class="btn btn-outline-light btn-sm me-2">
           <i class="fas fa-home"></i> Sitio Principal
         </a>
+        
+        <!-- Admin Account Dropdown -->
+        <div class="dropdown me-2">
+          <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+            <i class="fas fa-user-cog"></i> Cuenta
+          </button>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" onclick="adminPanel.showPasswordChangeModal()">
+              <i class="fas fa-key me-2"></i>Cambiar Contraseña
+            </a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#" id="logout-btn-dropdown">
+              <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
+            </a></li>
+          </ul>
+        </div>
+        
         <button class="btn btn-outline-light btn-sm" id="logout-btn">
           <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
         </button>
@@ -326,7 +343,13 @@
                   <option value="admin">Administrador</option>
                 </select>
               </div>
-              <div class="col-md-2">
+              <div class="col-md-1">
+                <label class="form-label fw-bold text-white">.</label>
+                <button type="button" class="btn btn-outline-secondary w-100" id="clear-users-filters-btn" title="Limpiar filtros">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <div class="col-md-1">
                 <label class="form-label fw-bold text-white">.</label>
                 <button type="button" class="btn btn-success w-100" id="add-user-btn">
                   <i class="fas fa-plus"></i> Nuevo
@@ -833,17 +856,17 @@
               <input type="text" class="form-control" id="exception-title" required placeholder="Ej: Cerrado por feriado, Horario especial, etc.">
             </div>
             <div class="mb-3">
-              <label for="exception-description" class="form-label">Descripción</label>
-              <textarea class="form-control" id="exception-description" rows="2" placeholder="Detalles del ajuste de horario"></textarea>
+              <label for="business-exception-description" class="form-label">Descripción</label>
+              <textarea class="form-control" id="business-exception-description" rows="2" placeholder="Detalles del ajuste de horario"></textarea>
             </div>
             <div class="row">
               <div class="col-md-6">
-                <label for="exception-start-date" class="form-label">Fecha de Inicio</label>
-                <input type="date" class="form-control" id="exception-start-date" required>
+                <label for="business-exception-start-date" class="form-label">Fecha de Inicio</label>
+                <input type="date" class="form-control" id="business-exception-start-date" required>
               </div>
               <div class="col-md-6">
-                <label for="exception-end-date" class="form-label">Fecha de Fin</label>
-                <input type="date" class="form-control" id="exception-end-date" required>
+                <label for="business-exception-end-date" class="form-label">Fecha de Fin</label>
+                <input type="date" class="form-control" id="business-exception-end-date" required>
               </div>
             </div>
             <div class="mb-3">
@@ -864,12 +887,12 @@
             <div id="custom-hours-section" class="mb-3" style="display: none;">
               <div class="row">
                 <div class="col-md-6">
-                  <label for="custom-open-time" class="form-label">Hora de Apertura</label>
-                  <input type="time" class="form-control" id="custom-open-time">
+                  <label for="day-custom-open-time" class="form-label">Hora de Apertura</label>
+                  <input type="time" class="form-control" id="day-custom-open-time">
                 </div>
                 <div class="col-md-6">
-                  <label for="custom-close-time" class="form-label">Hora de Cierre</label>
-                  <input type="time" class="form-control" id="custom-close-time">
+                  <label for="day-custom-close-time" class="form-label">Hora de Cierre</label>
+                  <input type="time" class="form-control" id="day-custom-close-time">
                 </div>
               </div>
             </div>
@@ -1043,8 +1066,8 @@
               </div>
             </div>
             <div class="mb-3">
-              <label for="closure-type" class="form-label">Tipo de Cierre</label>
-              <select class="form-select" id="closure-type">
+              <label for="day-closure-type" class="form-label">Tipo de Cierre</label>
+              <select class="form-select" id="day-closure-type">
                 <option value="holiday">Feriado</option>
                 <option value="vacation">Vacaciones</option>
                 <option value="maintenance">Mantenimiento</option>
@@ -1210,10 +1233,10 @@
                 <small class="text-muted">Selecciona el lunes de la semana a configurar</small>
               </div>
               <div class="col-md-6">
-                <label for="exception-description" class="form-label fw-bold">
+                <label for="week-exception-description" class="form-label fw-bold">
                   <i class="fas fa-sticky-note me-1"></i>Descripción
                 </label>
-                <input type="text" class="form-control" id="exception-description" 
+                <input type="text" class="form-control" id="week-exception-description" 
                        placeholder="Ej: Semana de vacaciones, Horario especial navideño">
               </div>
             </div>
@@ -1767,12 +1790,12 @@
 
             <div class="row mb-3">
               <div class="col-md-6">
-                <label for="exception-start-date" class="form-label fw-bold">Fecha de inicio</label>
-                <input type="date" class="form-control" id="exception-start-date" required>
+                <label for="schedule-exception-start-date" class="form-label fw-bold">Fecha de inicio</label>
+                <input type="date" class="form-control" id="schedule-exception-start-date" required>
               </div>
               <div class="col-md-6" id="end-date-container" style="display: none;">
-                <label for="exception-end-date" class="form-label fw-bold">Fecha de fin</label>
-                <input type="date" class="form-control" id="exception-end-date">
+                <label for="schedule-exception-end-date" class="form-label fw-bold">Fecha de fin</label>
+                <input type="date" class="form-control" id="schedule-exception-end-date">
               </div>
             </div>
 
@@ -1817,8 +1840,8 @@
             </div>
 
             <div class="mb-3">
-              <label for="exception-description" class="form-label">Descripción adicional (opcional)</label>
-              <textarea class="form-control" id="exception-description" rows="2" placeholder="Información adicional sobre la excepción..."></textarea>
+              <label for="schedule-exception-description" class="form-label">Descripción adicional (opcional)</label>
+              <textarea class="form-control" id="schedule-exception-description" rows="2" placeholder="Información adicional sobre la excepción..."></textarea>
             </div>
           </form>
         </div>
@@ -1898,8 +1921,8 @@
               </div>
               <div class="card-body">
                 <div class="mb-3">
-                  <label for="closure-type" class="form-label fw-bold">Tipo de Cierre</label>
-                  <select class="form-select" id="closure-type">
+                  <label for="week-closure-type" class="form-label fw-bold">Tipo de Cierre</label>
+                  <select class="form-select" id="week-closure-type">
                     <option value="full_day">Cerrado todo el día</option>
                     <option value="partial">Cerrado parcialmente</option>
                     <option value="custom_hours">Horarios personalizados</option>
@@ -1909,12 +1932,12 @@
                 <div id="custom-hours-section" class="d-none">
                   <div class="row">
                     <div class="col-md-6">
-                      <label for="custom-open-time" class="form-label">Hora de apertura</label>
-                      <input type="time" class="form-control" id="custom-open-time">
+                      <label for="week-custom-open-time" class="form-label">Hora de apertura</label>
+                      <input type="time" class="form-control" id="week-custom-open-time">
                     </div>
                     <div class="col-md-6">
-                      <label for="custom-close-time" class="form-label">Hora de cierre</label>
-                      <input type="time" class="form-control" id="custom-close-time">
+                      <label for="week-custom-close-time" class="form-label">Hora de cierre</label>
+                      <input type="time" class="form-control" id="week-custom-close-time">
                     </div>
                   </div>
                 </div>
@@ -1947,6 +1970,55 @@
           </button>
           <button type="button" class="btn btn-primary" id="save-holiday-template">
             <i class="fas fa-save"></i> Guardar Plantilla
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Password Change Modal -->
+  <div class="modal fade" id="changePasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="fas fa-key me-2"></i>Cambiar Contraseña de Administrador
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            Por seguridad, debes proporcionar tu contraseña actual para establecer una nueva.
+          </div>
+          <form id="admin-password-form">
+            <div class="mb-3">
+              <label for="admin-current-password" class="form-label">
+                <i class="fas fa-lock me-1"></i>Contraseña Actual <span class="text-danger">*</span>
+              </label>
+              <input type="password" class="form-control" id="admin-current-password" required>
+            </div>
+            <div class="mb-3">
+              <label for="admin-new-password" class="form-label">
+                <i class="fas fa-key me-1"></i>Nueva Contraseña <span class="text-danger">*</span>
+              </label>
+              <input type="password" class="form-control" id="admin-new-password" minlength="6" required>
+              <div class="form-text">La contraseña debe tener al menos 6 caracteres.</div>
+            </div>
+            <div class="mb-3">
+              <label for="admin-confirm-password" class="form-label">
+                <i class="fas fa-check me-1"></i>Confirmar Nueva Contraseña <span class="text-danger">*</span>
+              </label>
+              <input type="password" class="form-control" id="admin-confirm-password" minlength="6" required>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times"></i> Cancelar
+          </button>
+          <button type="button" class="btn btn-primary" id="save-admin-password">
+            <i class="fas fa-save"></i> Cambiar Contraseña
           </button>
         </div>
       </div>
