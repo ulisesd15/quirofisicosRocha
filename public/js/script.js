@@ -17,31 +17,58 @@ document.addEventListener('DOMContentLoaded', () => {
     if (userId) {
       const adminButton = userRole === 'admin' ? 
         `<li><a href="/admin/adminOptions.html" class="btn btn-warning w-100 mb-2">
-          <i class="fas fa-user-shield"></i> Panel Admin
+          <i class="fas fa-user-shield me-2"></i> Panel Admin
         </a></li>` : '';
       
       navItems.innerHTML = `
-        <li><a href="/appointment.html" class="btn btn-outline-primary w-100 mb-2">Agendar Cita</a></li>
+        <li><a href="/appointment.html" class="btn btn-primary w-100 mb-2">
+          <i class="fas fa-calendar-plus me-2"></i> Agendar Cita
+        </a></li>
+        <li><a href="/mis-citas.html" class="btn btn-outline-info w-100 mb-2">
+          <i class="fas fa-calendar-check me-2"></i> Mis Citas
+        </a></li>
+        <li><a href="/user-settings.html" class="btn btn-outline-secondary w-100 mb-2">
+          <i class="fas fa-cog me-2"></i> Configuración
+        </a></li>
         ${adminButton}
-        <li><a href="#" id="logoutBtn" class="btn btn-danger w-100 mb-2">Cerrar Sesión</a></li>
-        <li><span class="text-muted small">Hola, ${localStorage.getItem('user_name') || 'Usuario'}</span></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a href="#" id="logoutBtn" class="btn btn-danger w-100 mb-2">
+          <i class="fas fa-sign-out-alt me-2"></i> Cerrar Sesión
+        </a></li>
+        <li><span class="text-muted small mt-2 d-block text-center">
+          <i class="fas fa-user me-1"></i> Hola, ${localStorage.getItem('user_name') || 'Usuario'}
+        </span></li>
       `;
     } else {
       navItems.innerHTML = `
-        <li><a href="/login.html" class="btn btn-outline-success w-100 mb-2">Iniciar Sesión</a></li>
-        <li><a href="/appointment.html?guest=true" class="btn btn-outline-primary w-100 mb-2">Agendar como Invitado</a></li>
-        <li><a href="/register.html" class="btn btn-outline-secondary w-100 mb-2">Crear Cuenta</a></li>
+        <li><a href="/login.html" class="btn btn-success w-100 mb-2">
+          <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
+        </a></li>
+        <li><a href="/appointment.html?guest=true" class="btn btn-primary w-100 mb-2">
+          <i class="fas fa-user me-2"></i>Agendar como Invitado
+        </a></li>
+        <li><a href="/register.html" class="btn btn-outline-secondary w-100 mb-2">
+          <i class="fas fa-user-plus me-2"></i>Crear Cuenta
+        </a></li>
       `;
     }
 
     // Re-attach logoutBtn listener after injecting it dynamically
     if (userId) {
-      const logoutBtn = document.getElementById('logoutBtn');
-      logoutBtn?.addEventListener('click', () => {
-        localStorage.removeItem('user_id');
-        alert('Sesión cerrada exitosamente.');
-        window.location.href = '/index.html';
-      });
+      // Use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+          logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.removeItem('user_id');
+            localStorage.removeItem('user_role');
+            localStorage.removeItem('user_name');
+            alert('Sesión cerrada exitosamente.');
+            window.location.href = '/index.html';
+          });
+        }
+      }, 100);
     }
   }
 

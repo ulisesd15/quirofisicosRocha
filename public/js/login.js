@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.authManager.login(data.token, data.user);
           }
           
-          alert('Admin login successful! Redirecting to admin panel...');
+          // alert('Admin login successful! Redirecting to admin panel...');
           window.location.href = '/admin/adminOptions.html';
         } else {
           alert('Admin login failed: ' + data.error);

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reagendar Cita - Quirophisicos Rocha</title>
+  <title>Reagendar Cita - Quirophisicos Rocha</title>  
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <link rel="stylesheet" href="./css/navigation.css" />
@@ -15,53 +15,58 @@
 
 <!-- Navigation will be inserted here -->
 
-<!-- Reschedule Hero Section -->
+<!-- Appointment Hero Section -->
 <section class="services-section">
   <div class="container">
     <div class="text-center mb-5">
-      <p class="section-subtitle">Modificar tu cita</p>
+      <p class="section-subtitle">Reagendar tu cita</p>
       <h2>Reagendar Consulta Quiropráctica</h2>
-      <p class="lead">Actualiza la fecha y hora de tu cita existente</p>
+      <p class="lead">Selecciona una nueva fecha y hora para tu cita</p>
     </div>
     
     <div class="row justify-content-center">
       <div class="col-lg-8">
+        <!-- Current Appointment Reminder -->
+        <div class="alert alert-warning border-0 shadow-sm mb-4" id="currentAppointmentAlert">
+          <div class="d-flex align-items-center">
+            <div class="flex-shrink-0">
+              <i class="fas fa-calendar-times fa-2x text-warning"></i>
+            </div>
+            <div class="flex-grow-1 ms-3">
+              <h5 class="alert-heading mb-2">
+                <i class="fas fa-info-circle me-2"></i>Reagendando tu cita actual
+              </h5>
+              <p class="mb-2" id="currentAppointmentInfo">
+                Cargando información de tu cita actual...
+              </p>
+              <small class="text-muted">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                Tu cita actual será cancelada automáticamente cuando confirmes la nueva fecha y hora.
+              </small>
+            </div>
+          </div>
+        </div>
+
         <div class="card border-0 shadow-lg">
           <div class="card-body p-5">
             <div class="text-center mb-4">
               <h3 class="text-warning mb-2">
                 <i class="fas fa-calendar-alt me-2"></i>
-                Reagendar Cita
+                Nueva Cita
               </h3>
-              <p class="text-muted">Modifica tu cita existente seleccionando una nueva fecha y hora</p>
-            </div>
-
-            <!-- Current Appointment Info -->
-            <div id="currentAppointmentInfo" class="alert alert-info mb-4" style="display: none;">
-              <h5 class="alert-heading">
-                <i class="fas fa-info-circle me-2"></i>Cita Actual
-              </h5>
-              <div id="currentAppointmentDetails"></div>
-            </div>
-
-            <!-- Loading State -->
-            <div id="loadingState" class="text-center mb-4">
-              <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Cargando...</span>
-              </div>
-              <div class="mt-2">Cargando información de la cita...</div>
+              <p class="text-muted">Selecciona tu nueva fecha y hora preferida</p>
             </div>
             
-            <!-- Reschedule Form -->
-            <form id="rescheduleForm" style="display: none;">
-              <input type="hidden" id="appointmentId" name="appointmentId">
+            <!-- Appointment Form -->
+            <form id="rescheduleForm">
+              <input type="hidden" id="currentAppointmentId" name="currentAppointmentId">
               
               <!-- Date Selection -->
               <div class="mb-4">
-                <h5 class="mb-3">
-                  <i class="fas fa-calendar-day me-2"></i>Nueva Fecha
-                </h5>
-                <div class="calendar-controls d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <h5 class="mb-0">
+                    <i class="fas fa-calendar me-2"></i>Selecciona la Nueva Fecha
+                  </h5>
                   <div class="btn-group btn-group-sm" role="group">
                     <input type="radio" class="btn-check" name="calendarView" id="weekView" checked>
                     <label class="btn btn-outline-secondary" for="weekView">
@@ -91,11 +96,9 @@
               <!-- Time Selection -->
               <div class="mb-4">
                 <h5 class="mb-3">
-                  <i class="fas fa-clock me-2"></i>Nuevo Horario
+                  <i class="fas fa-clock me-2"></i>Nuevo Horario Disponible
                 </h5>
-                <div id="timeCards" class="row g-2">
-                  <p class="text-muted text-center">Selecciona una fecha para ver horarios disponibles</p>
-                </div>
+                <div id="timeCards" class="row g-2"></div>
                 <input type="hidden" name="time" id="selectedTime" required />
               </div>
 
@@ -107,19 +110,10 @@
                 <textarea class="form-control" name="note" id="note" rows="3" placeholder="Actualiza el motivo de tu consulta o cualquier información relevante..."></textarea>
               </div>
 
-              <!-- Action Buttons -->
-              <div class="row g-2">
-                <div class="col-md-6">
-                  <button class="btn btn-warning w-100" type="submit">
-                    <i class="fas fa-calendar-check me-2"></i>Reagendar Cita
-                  </button>
-                </div>
-                <div class="col-md-6">
-                  <button type="button" class="btn btn-danger w-100" id="cancelAppointmentBtn">
-                    <i class="fas fa-times me-2"></i>Cancelar Cita
-                  </button>
-                </div>
-              </div>
+              <!-- Submit Button -->
+              <button class="btn btn-warning w-100" type="submit">
+                <i class="fas fa-calendar-check me-2"></i>Confirmar Reagendamiento
+              </button>
             </form>
             
             <!-- Navigation Links -->
@@ -137,18 +131,27 @@
   </div>
 </section>
 
-<!-- Bootstrap JavaScript -->
+<!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="text-center">
+      <small class="text-white-50">&copy; 2025 Quirophisicos Rocha. Todos los derechos reservados.</small>
+    </div>
+  </div>
+</footer>
+
+<script src="./js/auth.js"></script>
+<script src="./js/navigation.js"></script>
+<script src="./js/enhanced-calendar.js"></script>
+<script src="./js/reschedule.js"></script>
+<script src="./js/script.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- Auth & Navigation -->
-<script src="/js/auth.js"></script>
-<script src="/js/navigation.js"></script>
-
-<!-- Calendar Components -->
-<script src="/js/enhanced-calendar.js"></script>
-
-<!-- Main Reschedule Script -->
-<script src="/js/reschedule.js"></script>
-
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const navManager = new NavigationManager();
+    navManager.init();
+});
+</script>
 </body>
 </html>

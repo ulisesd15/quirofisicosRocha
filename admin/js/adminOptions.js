@@ -3,6 +3,15 @@
  * Handles all admin functionality including dashboard, users, appointments, schedules, and settings
  */
 
+// Global utility function for time formatting
+function formatTimeToAMPM(timeString) {
+  if (!timeString) return '-';
+  const [hours, minutes] = timeString.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hours12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+}
+
 class AdminPanel {
   constructor() {
     this.currentSection = 'dashboard';
@@ -486,7 +495,7 @@ class AdminPanel {
       return `
         <tr>
           <td>${this.formatDate(apt.appointment_date)}</td>
-          <td>${apt.appointment_time}</td>
+          <td>${this.formatTime(apt.appointment_time)}</td>
           <td>${apt.name}</td>
           <td><span class="badge ${statusClass}">${statusText}</span></td>
           <td>
@@ -627,7 +636,7 @@ class AdminPanel {
       <tr>
         <td>${apt.id}</td>
         <td>${this.formatDate(apt.appointment_date)}</td>
-        <td>${apt.appointment_time}</td>
+        <td>${this.formatTime(apt.appointment_time)}</td>
         <td>${apt.name}</td>
         <td>
           ${apt.email ? `<div>${apt.email}</div>` : ''}
@@ -1678,6 +1687,14 @@ class AdminPanel {
       month: '2-digit',
       day: '2-digit'
     });
+  }
+
+  formatTime(timeString) {
+    if (!timeString) return '-';
+    const [hours, minutes] = timeString.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hours12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
   }
 
   getStatusText(status) {
@@ -3853,7 +3870,7 @@ class AdminPanel {
             </div>
             <div class="col-md-3">
               <strong>${this.formatDate(apt.appointment_date)}</strong><br>
-              <small class="text-muted">${apt.appointment_time}</small>
+              <small class="text-muted">${this.formatTime(apt.appointment_time)}</small>
             </div>
             <div class="col-md-2">
               <span class="badge bg-warning">Pendiente</span>
@@ -5573,7 +5590,7 @@ async function displayPendingAppointments() {
           <p><strong>Email:</strong> ${appointment.email}</p>
           <p><strong>Teléfono:</strong> ${appointment.phone || 'No especificado'}</p>
           <p><strong>Fecha:</strong> ${appointment.appointment_date}</p>
-          <p><strong>Hora:</strong> ${appointment.appointment_time}</p>
+          <p><strong>Hora:</strong> ${formatTimeToAMPM(appointment.appointment_time)}</p>
           <p><strong>Servicio:</strong> ${appointment.service}</p>
           <p><strong>Notas:</strong> ${appointment.notes || 'Sin notas'}</p>
           <p><strong>Fecha de solicitud:</strong> ${new Date(appointment.created_at).toLocaleString()}</p>

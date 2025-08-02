@@ -75,7 +75,7 @@ router.post('/appointments', (req, res) => {
         console.error('Error inserting appointment:', err);
         return res.status(500).json({ error: 'Database error', details: err });
       }
-      res.json({ message: 'Cita agendada correctamente', id: result.insertId });
+      // res.json({ message: 'Cita agendada correctamente', id: result.insertId });
     });
   });
 });
@@ -110,7 +110,7 @@ router.put('/appointments/:id', authenticateToken,(req, res) => {
         if (updateResult.affectedRows === 0) {
           return res.status(404).json({ error: 'Cita no encontrada' });
         }
-        res.json({ message: 'Cita actualizada exitosamente' });
+        // res.json({ message: 'Cita actualizada exitosamente' });
       }
     );
   });
@@ -279,7 +279,7 @@ router.post("/register", async (req, res) => {
     // localStorage.setItem('token', token); ❌ Remove this!
 
     res.status(201).json({
-      message: "Usuario registrado exitosamente",
+      // message: "Usuario registrado exitosamente",
       userId: results.insertId,
       token  // ✅ send the token in the response
     });
@@ -337,7 +337,7 @@ router.post('/login', (req, res) => {
         console.log('JWT payload created:', { id: user.id, email: user.email, role: user.role || 'user' });
 
         res.status(200).json({
-          message: 'Inicio de sesión exitoso',
+          // message: 'Inicio de sesión exitoso',
           user_id: user.id,
           token
         });

@@ -227,7 +227,7 @@ router.put('/users/:id', requireAdmin, (req, res) => {
         return res.status(404).json({ error: 'User not found' });
       }
       
-      res.json({ message: 'User updated successfully' });
+      // res.json({ message: 'User updated successfully' });
     }
   );
 });
@@ -243,7 +243,7 @@ router.delete('/users/:id', requireAdmin, (req, res) => {
       return res.status(404).json({ error: 'User not found or cannot delete admin' });
     }
     
-    res.json({ message: 'User deleted successfully' });
+    // res.json({ message: 'User deleted successfully' });
   });
 });
 
@@ -1077,7 +1077,7 @@ router.delete('/announcements/:id', requireAdmin, (req, res) => {
       return res.status(404).json({ error: 'Announcement not found' });
     }
     
-    res.json({ message: 'Announcement deleted successfully' });
+    // res.json({ message: 'Announcement deleted successfully' });
   });
 });
 
