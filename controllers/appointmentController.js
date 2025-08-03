@@ -25,6 +25,17 @@ const appointmentController = {
         });
       }
 
+      // Validate appointment time is at least 30 minutes in advance
+      const appointmentDateTime = new Date(`${date}T${time}:00`);
+      const now = new Date();
+      const thirtyMinutesFromNow = new Date(now.getTime() + (30 * 60 * 1000));
+
+      if (appointmentDateTime < thirtyMinutesFromNow) {
+        return res.status(400).json({ 
+          error: 'Las citas deben agendarse con al menos 30 minutos de anticipación' 
+        });
+      }
+
       // Check if user is registered and verified
       let user = null;
       let requiresApproval = true;
@@ -330,6 +341,109 @@ const appointmentController = {
     } catch (error) {
       console.error('Error getting unverified users:', error);
       res.status(500).json({ error: 'Error al obtener usuarios no verificados' });
+    }
+  },
+
+  // Reschedule an existing appointment
+  rescheduleAppointment: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { date, time, note } = req.body;
+      const user_id = req.user ? req.user.id : null;
+
+      // Validate required fields
+      if (!date || !time) {
+        return res.status(400).json({ 
+          error: 'Fecha y hora son requeridos' 
+        });
+      }
+
+      // Validate appointment time is at least 30 minutes in advance
+      const appointmentDateTime = new Date(`${date}T${time}:00`);
+      const now = new Date();
+      const thirtyMinutesFromNow = new Date(now.getTime() + (30 * 60 * 1000));
+
+      if (appointmentDateTime < thirtyMinutesFromNow) {
+        return res.status(400).json({ 
+          error: 'Las citas deben agendarse con al menos 30 minutos de anticipación' 
+        });
+      }
+
+      // Check if appointment exists and user has permission to modify it
+      const checkQuery = user_id 
+        ? 'SELECT * FROM appointments WHERE id = ? AND user_id = ?'
+        : 'SELECT * FROM appointments WHERE id = ?';
+      
+      const checkParams = user_id ? [id, user_id] : [id];
+      const [appointmentResults] = await db.promise().query(checkQuery, checkParams);
+      
+      if (appointmentResults.length === 0) {
+        return res.status(404).json({ error: 'Cita no encontrada o no autorizada' });
+      }
+
+      const currentAppointment = appointmentResults[0];
+
+      // Check if new time slot is available
+      const conflictQuery = `
+        SELECT id FROM appointments 
+        WHERE date = ? AND time = ? AND status IN ('pending', 'confirmed') AND id != ?
+      `;
+      
+      const [conflictResults] = await db.promise().query(conflictQuery, [date, time, id]);
+      
+      if (conflictResults.length > 0) {
+        return res.status(400).json({ 
+          error: 'La fecha y hora seleccionada ya está ocupada' 
+        });
+      }
+
+      // Update the appointment
+      const updateQuery = `
+        UPDATE appointments 
+        SET date = ?, time = ?, note = ?, updated_at = NOW()
+        WHERE id = ?
+      `;
+      
+      await db.promise().query(updateQuery, [date, time, note, id]);
+
+      // Get updated appointment
+      const [updatedResults] = await db.promise().query(
+        'SELECT * FROM appointments WHERE id = ?', 
+        [id]
+      );
+      
+      const updatedAppointment = updatedResults[0];
+
+      // Send SMS notification about reschedule (if user exists)
+      try {
+        if (currentAppointment.user_id) {
+          const [userResults] = await db.promise().query(
+            'SELECT * FROM users WHERE id = ?', 
+            [currentAppointment.user_id]
+          );
+          
+          if (userResults.length > 0) {
+            console.log('📩 Would send reschedule SMS, but function temporarily disabled');
+            // TODO: Re-enable SMS function
+            // const user = userResults[0];
+            // await smsService.sendAppointmentReschedule(updatedAppointment, user);
+          }
+        }
+      } catch (smsError) {
+        console.error('Error sending reschedule SMS:', smsError);
+        // Don't fail the reschedule if SMS fails
+      }
+
+      res.json({
+        message: 'Cita reagendada exitosamente',
+        appointment: updatedAppointment,
+        previous_date: currentAppointment.date,
+        previous_time: currentAppointment.time
+      });
+
+    } catch (error) {
+      console.error('Error rescheduling appointment:', error);
+      res.status(500).json({ error: 'Error al reagendar la cita' });
     }
   }
 };

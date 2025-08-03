@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const authenticateToken = require('../middleware/auth'); // Adjust the path as necessary
 const scheduleController = require('../controllers/scheduleController');
+const appointmentController = require('../controllers/appointmentController');
 const secretKey = process.env.SECRET_KEY;
 
 // Get Google Maps API key for frontend
@@ -159,6 +160,24 @@ router.get('/appointments/:id', authenticateToken, (req, res) => {
     res.json(results[0]);
   });
 });
+
+// Test endpoint for reschedule (temporarily without auth for debugging)
+router.get('/appointments-test/:id', (req, res) => {
+  const appointmentId = req.params.id;
+  
+  db.query('SELECT * FROM appointments WHERE id = ?', [appointmentId], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'Cita no encontrada' });
+    }
+    
+    res.json(results[0]);
+  });
+});
+
+// Reschedule an appointment
+router.put('/appointments/:id/reschedule', authenticateToken, appointmentController.rescheduleAppointment);
+router.post('/appointments/:id/reschedule', authenticateToken, appointmentController.rescheduleAppointment);
 
 // Get appointments by date (public endpoint for checking availability)
 router.get('/appointments/date/:date', (req, res) => {

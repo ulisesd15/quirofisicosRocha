@@ -9,12 +9,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const offcanvas = document.getElementById('sideNav');
   const signOutBtn = document.getElementById('logoutBtn');
 
-  const userId = localStorage.getItem('user_id');
-  const userRole = localStorage.getItem('user_role');
+  // Check authentication using AuthManager
+  const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
+  const currentUser = isLoggedIn ? window.authManager.getCurrentUser() : null;
+  const userRole = isLoggedIn ? window.authManager.userRole : null;
 
   // Navigation menu
   if (navItems) {
-    if (userId) {
+    if (isLoggedIn && currentUser) {
       const adminButton = userRole === 'admin' ? 
         `<li><a href="/admin/adminOptions.html" class="btn btn-warning w-100 mb-2">
           <i class="fas fa-user-shield me-2"></i> Panel Admin
@@ -36,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <i class="fas fa-sign-out-alt me-2"></i> Cerrar Sesión
         </a></li>
         <li><span class="text-muted small mt-2 d-block text-center">
-          <i class="fas fa-user me-1"></i> Hola, ${localStorage.getItem('user_name') || 'Usuario'}
+          <i class="fas fa-user me-1"></i> Hola, ${currentUser.name || 'Usuario'}
         </span></li>
       `;
     } else {
@@ -54,16 +56,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Re-attach logoutBtn listener after injecting it dynamically
-    if (userId) {
+    if (isLoggedIn) {
       // Use setTimeout to ensure DOM is updated
       setTimeout(() => {
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) {
           logoutBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            localStorage.removeItem('user_id');
-            localStorage.removeItem('user_role');
-            localStorage.removeItem('user_name');
+            window.authManager.logout();
             alert('Sesión cerrada exitosamente.');
             window.location.href = '/index.html';
           });
@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // UI control visibility
-  if (userId) {
+  if (isLoggedIn) {
     guestBtn?.style?.setProperty('display', 'none');
     registerBtn?.style?.setProperty('display', 'none');
     loginBtn?.style?.setProperty('display', 'none');
@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   signOutBtn?.addEventListener('click', () => {
-    localStorage.removeItem('user_id');
+    window.authManager.logout();
     window.location.href = '/index.html';
   });
 
@@ -128,7 +128,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load and display announcements
   loadAnnouncements();
+  
+  // Load business hours
+  loadBusinessHours();
 });
+
 
 // Announcements Management
 async function loadAnnouncements() {

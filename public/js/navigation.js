@@ -42,12 +42,12 @@ class NavigationManager {
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link main-nav-link" href="#services" onclick="this.scrollToSection('services')">
+                                <a class="nav-link main-nav-link" href="#servicios" data-scroll="servicios">
                                     <i class="fas fa-hand-holding-medical me-1"></i>Servicios
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link main-nav-link" href="#contact" onclick="this.scrollToSection('contact')">
+                                <a class="nav-link main-nav-link" href="#contacto-section" data-scroll="contacto-section">
                                     <i class="fas fa-phone me-1"></i>Contacto
                                 </a>
                             </li>
@@ -74,13 +74,13 @@ class NavigationManager {
                     <a href="/appointment.html" class="sidebar-nav-item ${this.currentPage === 'appointment' ? 'active' : ''}">
                         <i class="fas fa-calendar-plus"></i>Agendar Cita
                     </a>
-                    <a href="/index.html#services" class="sidebar-nav-item">
+                    <a href="/index.html#servicios" class="sidebar-nav-item" data-scroll="servicios">
                         <i class="fas fa-hand-holding-medical"></i>Nuestros Servicios
                     </a>
                     <a href="/index.html#about" class="sidebar-nav-item">
                         <i class="fas fa-info-circle"></i>Acerca de Nosotros
                     </a>
-                    <a href="/index.html#contact" class="sidebar-nav-item">
+                    <a href="/index.html#contacto-section" class="sidebar-nav-item" data-scroll="contacto-section">
                         <i class="fas fa-phone"></i>Contacto
                     </a>
                     <div class="sidebar-nav" style="border-top: 1px solid #e9ecef; margin-top: 1rem; padding-top: 1rem;">
@@ -139,6 +139,9 @@ class NavigationManager {
                 <a href="/mis-citas.html" class="sidebar-nav-item">
                     <i class="fas fa-calendar-check"></i>Mis Citas
                 </a>
+                <a href="/user-settings.html" class="sidebar-nav-item">
+                    <i class="fas fa-user-cog"></i>Configuración
+                </a>
                 ${isAdmin ? `
                     <a href="/admin/adminOptions.html" class="sidebar-nav-item">
                         <i class="fas fa-cog"></i>Panel Admin
@@ -170,7 +173,31 @@ class NavigationManager {
         // If we're on the home page, scroll to the section
         const element = document.getElementById(sectionId);
         if (element) {
-            element.scrollIntoView({ behavior: 'smooth' });
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    handleScrollLinks() {
+        // Handle scroll links in navigation
+        document.addEventListener('click', (e) => {
+            const scrollLink = e.target.closest('[data-scroll]');
+            if (scrollLink) {
+                e.preventDefault();
+                const sectionId = scrollLink.getAttribute('data-scroll');
+                
+                // Close mobile sidebar if open
+                this.closeMobileSidebar();
+                
+                this.scrollToSection(sectionId);
+            }
+        });
+
+        // Handle hash on page load
+        if (window.location.hash) {
+            setTimeout(() => {
+                const sectionId = window.location.hash.substring(1);
+                this.scrollToSection(sectionId);
+            }, 100);
         }
     }
 
@@ -219,6 +246,9 @@ class NavigationManager {
         if (toggler) {
             toggler.addEventListener('click', () => this.toggleMobileSidebar());
         }
+        
+        // Initialize scroll link handlers
+        this.handleScrollLinks();
         
         // Update auth nav item periodically
         setInterval(() => this.updateAuthNavigation(), 5000);

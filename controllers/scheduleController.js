@@ -127,7 +127,7 @@ const scheduleController = {
 
         // Generate available time slots
         const bookedTimes = appointmentResults.map(a => a.time);
-        const slots = generateTimeSlots(businessHours, bookedTimes);
+        const slots = generateTimeSlots(businessHours, bookedTimes, date);
         
         console.log(`Generated ${slots.length} available slots for ${date}`);
         res.json({ availableSlots: slots, business_hours: businessHours });
@@ -1411,7 +1411,7 @@ const scheduleController = {
 };
 
 // Helper function to generate time slots (original)
-function generateTimeSlots(businessHours, bookedTimes) {
+function generateTimeSlots(businessHours, bookedTimes, appointmentDate) {
   const slots = [];
   const { open_time, close_time, break_start, break_end } = businessHours;
   
@@ -1425,6 +1425,11 @@ function generateTimeSlots(businessHours, bookedTimes) {
   let currentHour = startHour;
   let currentMinute = startMinute;
 
+  // Calculate 30 minutes from now for time filtering
+  const now = new Date();
+  const thirtyMinutesFromNow = new Date(now.getTime() + (30 * 60 * 1000));
+  const isToday = appointmentDate === now.toISOString().split('T')[0];
+
   while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
     const timeSlot = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
     
@@ -1435,7 +1440,14 @@ function generateTimeSlots(businessHours, bookedTimes) {
     // Check if already booked
     const isBooked = bookedTimes.includes(timeSlot);
     
-    if (!isBreakTime && !isBooked) {
+    // Check if the slot is less than 30 minutes from now (only for today)
+    let isTooSoon = false;
+    if (isToday) {
+      const slotDateTime = new Date(`${appointmentDate}T${timeSlot}:00`);
+      isTooSoon = slotDateTime < thirtyMinutesFromNow;
+    }
+    
+    if (!isBreakTime && !isBooked && !isTooSoon) {
       slots.push(timeSlot);
     }
 
