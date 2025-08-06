@@ -19,10 +19,10 @@ router.get('/config/maps-key', (req, res) => {
 router.get('/business-hours', (req, res) => {
   const query = `
     SELECT day_of_week, is_open, 
-           TIME_FORMAT(open_time, '%h:%i %p') as open_time,
-           TIME_FORMAT(close_time, '%h:%i %p') as close_time,
-           TIME_FORMAT(break_start, '%h:%i %p') as break_start,
-           TIME_FORMAT(break_end, '%h:%i %p') as break_end
+           TIME_FORMAT(open_time, '%H:%i') as open_time,
+           TIME_FORMAT(close_time, '%H:%i') as close_time,
+           TIME_FORMAT(break_start, '%H:%i') as break_start,
+           TIME_FORMAT(break_end, '%H:%i') as break_end
     FROM business_hours 
     ORDER BY FIELD(day_of_week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
   `;
