@@ -84,7 +84,19 @@ async function fetchBasicAvailability(dayISO) {
   
   // Get already taken appointments
   const taken = await fetchAppointments(dayISO);
-  const available = allSlots.filter(t => !taken.includes(t));
+  let available = allSlots.filter(t => !taken.includes(t));
+  
+  // Filter out slots that are less than 30 minutes from now (only for today)
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const thirtyMinutesFromNow = new Date(now.getTime() + (30 * 60 * 1000));
+  
+  if (dayISO === today) {
+    available = available.filter(timeSlot => {
+      const slotDateTime = new Date(`${dayISO}T${timeSlot}:00`);
+      return slotDateTime >= thirtyMinutesFromNow;
+    });
+  }
   
   return available;
 }
@@ -527,6 +539,14 @@ function setupUI() {
 // ───────── INITIALIZATION ─────────
 async function initializeAppointmentSystem() {
   try {
+    // Check for reschedule parameter and redirect to new reschedule page
+    const urlParams = new URLSearchParams(window.location.search);
+    const rescheduleId = urlParams.get('reschedule');
+    if (rescheduleId) {
+      console.log('Reschedule request detected, redirecting to new reschedule page');
+      window.location.href = `reschedule.html?id=${rescheduleId}`;
+      return;
+    }
     
     // Set up guest fields based on user login status
     const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
@@ -691,6 +711,16 @@ document.addEventListener('DOMContentLoaded', () => {
       // Validate required fields
       if (!data.full_name || !data.email || !data.date || !data.time) {
         showBookingMessage('Por favor completa todos los campos requeridos', 'error');
+        return;
+      }
+
+      // Validate appointment time is at least 30 minutes in advance
+      const appointmentDateTime = new Date(`${data.date}T${data.time}:00`);
+      const now = new Date();
+      const thirtyMinutesFromNow = new Date(now.getTime() + (30 * 60 * 1000));
+
+      if (appointmentDateTime < thirtyMinutesFromNow) {
+        showBookingMessage('Las citas deben agendarse con al menos 30 minutos de anticipación', 'error');
         return;
       }
 

@@ -167,7 +167,7 @@ class AuthManager {
       document.addEventListener('click', (e) => {
         if (e.target.id === 'logoutBtn') {
           this.logout();
-          alert('Sesión cerrada exitosamente.');
+          // alert('Sesión cerrada exitosamente.');
           window.location.href = '/index.html';
         }
       });

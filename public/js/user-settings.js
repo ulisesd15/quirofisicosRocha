@@ -170,8 +170,8 @@ class UserSettings {
                 method: 'PUT',
                 headers: this.authManager.getAuthHeaders(),
                 body: JSON.stringify({
-                    current_password: currentPassword,
-                    new_password: newPassword
+                    currentPassword: currentPassword,
+                    newPassword: newPassword
                 })
             });
 

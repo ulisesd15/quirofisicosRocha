@@ -58,7 +58,372 @@
   cursor: not-allowed;
 }
 
-/* Calendar Day Buttons - Enhanced Week View */
+/* ===========================================
+   RESPONSIVE RESCHEDULE PAGE ENHANCEMENTS
+   =========================================== */
+
+/* Main Container Improvements */
+.main-container {
+  padding-top: 1rem;
+  padding-bottom: 2rem;
+}
+
+/* Card Responsive Spacing */
+.card {
+  margin-bottom: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  border: 1px solid #e9ecef;
+}
+
+.card-header {
+  border-radius: 12px 12px 0 0 !important;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+.card-body {
+  padding: 1.25rem;
+}
+
+/* Calendar Toggle Improvements */
+.calendar-toggle-group {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.calendar-toggle-group .btn {
+  border-radius: 0 !important;
+  padding: 0.75rem 1rem;
+  font-weight: 500;
+  border: 2px solid #e9ecef;
+  transition: all 0.3s ease;
+}
+
+.calendar-toggle-group .btn:first-child {
+  border-top-left-radius: 8px !important;
+  border-bottom-left-radius: 8px !important;
+}
+
+.calendar-toggle-group .btn:last-child {
+  border-top-right-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
+  border-left: none;
+}
+
+.calendar-toggle-group .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
+}
+
+.calendar-toggle-group .btn:checked,
+.calendar-toggle-group .btn.active {
+  background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%);
+  border-color: #0d6efd;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+}
+
+/* Loading Indicator */
+#loadingIndicator {
+  padding: 2rem;
+}
+
+#loadingIndicator .spinner-border {
+  width: 3rem;
+  height: 3rem;
+  border-width: 0.3em;
+}
+
+/* Current Appointment Card */
+#currentAppointmentCard .card-body {
+  background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+}
+
+.appointment-detail {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
+  background: rgba(13, 110, 253, 0.05);
+  border-radius: 8px;
+  border-left: 4px solid #0d6efd;
+}
+
+.appointment-detail:last-child {
+  margin-bottom: 0;
+}
+
+.appointment-detail i {
+  color: #0d6efd;
+  width: 20px;
+  text-align: center;
+  margin-right: 0.75rem;
+}
+
+.appointment-detail .detail-label {
+  font-weight: 600;
+  color: #495057;
+  margin-right: 0.5rem;
+}
+
+.appointment-detail .detail-value {
+  color: #212529;
+  flex: 1;
+}
+
+/* Section Headers */
+.section-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #f8f9fa;
+}
+
+.section-header i {
+  color: #0d6efd;
+  margin-right: 0.5rem;
+}
+
+.section-header h5 {
+  margin: 0;
+  font-weight: 600;
+  color: #212529;
+}
+
+/* Calendar Container Enhancements */
+#weekViewContainer, #monthViewContainer {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* Time Slots Enhanced Styling */
+#timeCards {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  background: #f8f9fa;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+#timeCards::-webkit-scrollbar {
+  width: 6px;
+}
+
+#timeCards::-webkit-scrollbar-track {
+  background: #e9ecef;
+  border-radius: 3px;
+}
+
+#timeCards::-webkit-scrollbar-thumb {
+  background: #0d6efd;
+  border-radius: 3px;
+}
+
+.time-slot-btn {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.time-slot-btn::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+  transform: rotate(45deg);
+  transition: all 0.5s ease;
+  opacity: 0;
+}
+
+.time-slot-btn:hover::before {
+  opacity: 1;
+  animation: shine 0.5s ease-in-out;
+}
+
+@keyframes shine {
+  0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+.time-slot-btn.btn-primary {
+  background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%);
+  border-color: #0d6efd;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(13, 110, 253, 0.3);
+}
+
+/* Action Buttons */
+.btn-group-reschedule {
+  gap: 0.75rem;
+}
+
+.btn-reschedule-primary {
+  background: linear-gradient(135deg, #fd7e14 0%, #dc6301 100%);
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(253, 126, 20, 0.3);
+}
+
+.btn-reschedule-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(253, 126, 20, 0.4);
+}
+
+.btn-cancel-appointment {
+  background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+.btn-cancel-appointment:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(220, 53, 69, 0.4);
+}
+
+/* Mobile Specific Improvements */
+@media (max-width: 768px) {
+  .main-container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  
+  .card {
+    margin-bottom: 1rem;
+  }
+  
+  .card-body {
+    padding: 1rem;
+  }
+  
+  .calendar-toggle-group .btn {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.875rem;
+  }
+  
+  #weekViewContainer, #monthViewContainer {
+    padding: 0.75rem;
+  }
+  
+  .time-slot-btn {
+    font-size: 0.875rem;
+    padding: 0.6rem 0.75rem;
+    min-height: 40px;
+  }
+  
+  .appointment-detail {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+  
+  .appointment-detail i {
+    margin-bottom: 0.25rem;
+    margin-right: 0;
+  }
+  
+  .btn-group-reschedule {
+    flex-direction: column;
+  }
+  
+  .btn-reschedule-primary,
+  .btn-cancel-appointment {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* Small Mobile Devices */
+@media (max-width: 576px) {
+  .calendar-day-btn {
+    min-width: 50px;
+    min-height: 60px;
+    padding: 8px 4px;
+    font-size: 0.75rem;
+  }
+  
+  .calendar-day-btn .day-name {
+    font-size: 0.6rem;
+  }
+  
+  .calendar-day-btn .day-number {
+    font-size: 1rem;
+  }
+  
+  .section-header h5 {
+    font-size: 1.1rem;
+  }
+  
+  #timeCards {
+    max-height: 300px;
+  }
+}
+
+/* Animation for smooth transitions */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Enhanced Alert Messages */
+.alert-message {
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  border: none;
+  backdrop-filter: blur(10px);
+}
+
+.alert-message.alert-success {
+  background: linear-gradient(135deg, rgba(25, 135, 84, 0.95) 0%, rgba(20, 108, 67, 0.95) 100%);
+  color: white;
+}
+
+.alert-message.alert-danger {
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.95) 0%, rgba(176, 42, 55, 0.95) 100%);
+  color: white;
+}
+
+.alert-message .btn-close {
+  filter: brightness(0) invert(1);
+  opacity: 0.8;
+}
+
+.alert-message .btn-close:hover {
+  opacity: 1;
+}
 .calendar-day-btn {
   border-radius: 12px;
   transition: all 0.3s ease;

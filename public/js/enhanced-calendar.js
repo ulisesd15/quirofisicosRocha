@@ -688,6 +688,7 @@ async function initializeEnhancedCalendar() {
 
 // Export functions to window for external access
 window.renderMonthlyCalendar = renderMonthlyCalendar;
+window.formatTimeToAMPM = formatTimeToAMPM;
 
 // Auto-initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', initializeEnhancedCalendar);

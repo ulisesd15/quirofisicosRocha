@@ -45,7 +45,7 @@ if (token) {
             // Fallback storage completed
         }
         
-        alert('Inicio de sesión con Google exitoso');
+        
         window.location.href = '/index.html'; // Redirect to main page instead
     })
     .catch(error => {

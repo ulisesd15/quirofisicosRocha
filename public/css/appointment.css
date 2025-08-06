@@ -177,3 +177,82 @@ form textarea{
   content:'Seleccione un día para ver horarios';
   color:var(--secondary-color-hover);
 }
+
+/* ───────── RESCHEDULE CALENDAR STYLES ───────── */
+.day-card {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.day-card:not(.past):not(.closed):hover {
+  border-color: #007bff;
+  box-shadow: 0 2px 8px rgba(0,123,255,0.1);
+  transform: translateY(-1px);
+}
+
+.day-card.selected {
+  border-color: #007bff;
+  background-color: #e3f2fd;
+}
+
+.day-card.past {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+.day-card.closed {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+.day-header {
+  margin-bottom: 8px;
+}
+
+.day-header.today {
+  color: #007bff;
+  font-weight: bold;
+}
+
+.day-name {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.day-number {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.calendar-header {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.time-slot {
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.reschedule-message {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1050;
+  min-width: 300px;
+}
