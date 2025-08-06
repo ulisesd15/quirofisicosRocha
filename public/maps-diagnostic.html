@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maps Diagnostic - Quirofísicos Rocha</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .diagnostic-card { margin: 20px 0; }
+    .status-ok { color: #28a745; }
+    .status-error { color: #dc3545; }
+    .status-warning { color: #ffc107; }
+    .log-output { 
+      background: #f8f9fa; 
+      border-radius: 8px; 
+      padding: 15px; 
+      font-family: monospace; 
+      font-size: 14px; 
+      max-height: 300px; 
+      overflow-y: auto; 
+    }
+  </style>
+</head>
+<body>
+  <div class="container my-5">
+    <h1 class="mb-4">🗺️ Google Maps Diagnostic</h1>
+    
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card diagnostic-card">
+          <div class="card-header">
+            <h5>📊 API Status</h5>
+          </div>
+          <div class="card-body">
+            <div id="api-status">Testing...</div>
+          </div>
+        </div>
+        
+        <div class="card diagnostic-card">
+          <div class="card-header">
+            <h5>🔑 API Key Info</h5>
+          </div>
+          <div class="card-body">
+            <div id="api-key-info">Loading...</div>
+          </div>
+        </div>
+        
+        <div class="card diagnostic-card">
+          <div class="card-header">
+            <h5>📝 Console Logs</h5>
+          </div>
+          <div class="card-body">
+            <div id="console-logs" class="log-output">
+              Initializing...
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-6">
+        <div class="card diagnostic-card">
+          <div class="card-header">
+            <h5>🗺️ Map Test</h5>
+          </div>
+          <div class="card-body">
+            <div id="map-container" style="position: relative;">
+              <iframe id="google-map" 
+                src="about:blank"
+                width="100%" height="300" style="border:0; border-radius: 8px;" allowfullscreen="" loading="lazy">
+              </iframe>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card diagnostic-card">
+          <div class="card-header">
+            <h5>🛠️ Actions</h5>
+          </div>
+          <div class="card-body">
+            <button class="btn btn-primary me-2" onclick="testWithAPIKey()">Test with API Key</button>
+            <button class="btn btn-secondary me-2" onclick="testFallback()">Test Fallback</button>
+            <button class="btn btn-info" onclick="clearLogs()">Clear Logs</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Console logging override
+    const logs = [];
+    const originalLog = console.log;
+    const originalWarn = console.warn;
+    const originalError = console.error;
+    
+    function addLog(level, ...args) {
+      const timestamp = new Date().toLocaleTimeString();
+      const message = args.join(' ');
+      logs.push(`[${timestamp}] ${level.toUpperCase()}: ${message}`);
+      updateLogDisplay();
+      
+      // Call original method
+      switch(level) {
+        case 'log': originalLog(...args); break;
+        case 'warn': originalWarn(...args); break;
+        case 'error': originalError(...args); break;
+      }
+    }
+    
+    console.log = (...args) => addLog('log', ...args);
+    console.warn = (...args) => addLog('warn', ...args);
+    console.error = (...args) => addLog('error', ...args);
+    
+    function updateLogDisplay() {
+      const logDiv = document.getElementById('console-logs');
+      logDiv.innerHTML = logs.slice(-20).join('\n'); // Show last 20 logs
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+    
+    function clearLogs() {
+      logs.length = 0;
+      updateLogDisplay();
+    }
+    
+    // API Status Check
+    async function checkAPIStatus() {
+      try {
+        const response = await fetch('/api/config/maps-key');
+        const data = await response.json();
+        
+        document.getElementById('api-status').innerHTML = `
+          <div class="status-ok">✅ API Endpoint: OK</div>
+          <div>Response: ${response.status} ${response.statusText}</div>
+        `;
+        
+        document.getElementById('api-key-info').innerHTML = `
+          <div><strong>Key:</strong> ${data.apiKey ? data.apiKey.substring(0, 10) + '...' : 'Not found'}</div>
+          <div><strong>Length:</strong> ${data.apiKey ? data.apiKey.length : 0} characters</div>
+          <div><strong>Status:</strong> ${data.apiKey ? 'Present' : 'Missing'}</div>
+        `;
+        
+        return data.apiKey;
+      } catch (error) {
+        document.getElementById('api-status').innerHTML = `
+          <div class="status-error">❌ API Endpoint: Error</div>
+          <div>Error: ${error.message}</div>
+        `;
+        console.error('API Status check failed:', error);
+        return null;
+      }
+    }
+    
+    async function testWithAPIKey() {
+      console.log('🧪 Testing Google Maps with API Key...');
+      const apiKey = await checkAPIStatus();
+      
+      if (!apiKey) {
+        console.error('Cannot test - API key not available');
+        return;
+      }
+      
+      const businessAddress = "Plaza Johnson, Av. Josefa Ortiz de Domínguez 1993, Independencia, 22055 Tijuana, B.C., Mexico";
+      const embedUrl = `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${encodeURIComponent(businessAddress)}&zoom=15`;
+      
+      console.log('Embed URL:', embedUrl);
+      
+      const iframe = document.getElementById('google-map');
+      iframe.onerror = (event) => {
+        console.error('❌ Iframe error:', event);
+      };
+      
+      iframe.onload = () => {
+        console.log('✅ Iframe loaded');
+      };
+      
+      iframe.src = embedUrl;
+    }
+    
+    function testFallback() {
+      console.log('🧪 Testing Fallback Map...');
+      const fallbackUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3366.2155419434!2d-117.04064468536147!3d32.51311678103924!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x80d948771984693b%3A0x8b8b8b8b8b8b8b8b!2sAv.%20Josefa%20Ortiz%20de%20Dom%C3%ADnguez%201993%2C%20Independencia%2C%2022055%20Tijuana%2C%20B.C.%2C%20Mexico!5e0!3m2!1ses-419!2sus!4v1691234567890!5m2!1ses-419!2sus";
+      
+      const iframe = document.getElementById('google-map');
+      iframe.src = fallbackUrl;
+      console.log('✅ Fallback map loaded');
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', async () => {
+      console.log('🚀 Maps Diagnostic Tool Started');
+      await checkAPIStatus();
+      console.log('✅ Diagnostic ready');
+    });
+    
+    // Global error handler
+    window.addEventListener('error', (event) => {
+      if (event.target && event.target.tagName === 'IFRAME') {
+        console.error('🖼️ Iframe error:', event.target.src);
+      }
+    }, true);
+  </script>
+</body>
+</html>

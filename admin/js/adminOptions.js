@@ -35,6 +35,29 @@ class AdminPanel {
     return window.authManager?.getToken() || localStorage.getItem('user_token') || localStorage.getItem('token');
   }
 
+  // Helper method to show notifications (using alert for now)
+  showNotification(message, type = 'info') {
+    // For now use alert, can be improved with a proper notification system later
+    if (type === 'error') {
+      alert(`Error: ${message}`);
+    } else if (type === 'warning') {
+      alert(`Advertencia: ${message}`);
+    } else if (type === 'success') {
+      alert(`Éxito: ${message}`);
+    } else {
+      alert(message);
+    }
+  }
+
+  // Helper methods for success and error notifications
+  showSuccess(message) {
+    this.showNotification(message, 'success');
+  }
+
+  showError(message) {
+    this.showNotification(message, 'error');
+  }
+
   async init() {
     console.log('AdminPanel init started');
     
@@ -1499,13 +1522,13 @@ class AdminPanel {
   async saveBusinessHours() {
     try {
       this.showLoading();
-      const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
       const businessHours = [];
 
       days.forEach(day => {
-        const checkbox = document.getElementById(`open-${day}`);
-        const startTime = document.getElementById(`start-${day}`);
-        const endTime = document.getElementById(`end-${day}`);
+        const checkbox = document.getElementById(`is-open-${day}`);
+        const startTime = document.getElementById(`open-${day}`);
+        const endTime = document.getElementById(`close-${day}`);
         const breakStart = document.getElementById(`break-start-${day}`);
         const breakEnd = document.getElementById(`break-end-${day}`);
 
@@ -1797,8 +1820,9 @@ class AdminPanel {
     const todayString = today.toISOString().split('T')[0];
     datePicker.setAttribute('min', todayString);
     
-    // Set default value to today
-    datePicker.value = todayString;
+    // Set default value to January 1, 2029
+    const defaultDate = '2029-01-01';
+    datePicker.value = defaultDate;
     
     // Add event listener for date changes
     datePicker.addEventListener('change', () => {
@@ -2000,6 +2024,9 @@ class AdminPanel {
         endDateContainer.style.display = 'none';
       }
     });
+
+    // Holiday Templates
+    document.getElementById('save-holiday-template')?.addEventListener('click', () => this.saveHolidayTemplate());
     
     // Closed toggle handler
     document.getElementById('exception-is-closed')?.addEventListener('change', (e) => {
@@ -2304,16 +2331,17 @@ class AdminPanel {
     
     const formData = {
       exception_type: document.getElementById('exception-type-select').value,
-      start_date: document.getElementById('exception-start-date').value,
-      end_date: document.getElementById('exception-end-date').value,
+      start_date: document.getElementById('schedule-exception-start-date').value,
+      end_date: document.getElementById('schedule-exception-end-date').value,
       is_closed: document.getElementById('exception-is-closed').checked,
       custom_open_time: document.getElementById('exception-open-time').value,
       custom_close_time: document.getElementById('exception-close-time').value,
       custom_break_start: document.getElementById('exception-break-start').value,
       custom_break_end: document.getElementById('exception-break-end').value,
       reason: document.getElementById('exception-reason').value,
-      description: document.getElementById('exception-description').value,
-      recurring_type: document.getElementById('exception-recurring').checked ? 'yearly' : null
+      description: document.getElementById('schedule-exception-description').value,
+      recurring_type: document.getElementById('exception-recurring') ? 
+        (document.getElementById('exception-recurring').checked ? 'yearly' : null) : null
     };
 
     console.log('Form data collected:', formData);
@@ -5184,18 +5212,15 @@ class AdminPanel {
   }
 
   // New methods for scheduled business hours functionality
-  initScheduleEventListeners() {
+  initScheduledBusinessHoursEventListeners() {
     // Preview button handler
     const previewBtn = document.getElementById('preview-schedule-btn');
     if (previewBtn) {
       previewBtn.addEventListener('click', () => this.showSchedulePreview());
     }
 
-    // Save button handler for scheduled changes
-    const saveBtn = document.getElementById('save-business-hours');
-    if (saveBtn) {
-      saveBtn.addEventListener('click', () => this.saveScheduledBusinessHours());
-    }
+    // Note: save-business-hours button should remain bound to saveBusinessHours() 
+    // for regular business hours functionality. Scheduled changes should use a different button.
   }
 
   async showSchedulePreview() {

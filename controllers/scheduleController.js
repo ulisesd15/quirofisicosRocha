@@ -11,7 +11,7 @@
 
 const db = require('../config/connections');
 
-const scheduleController = {
+const scheduleController = {    
   // Get all business hours
   getBusinessHours: (req, res) => {
     const query = `
@@ -73,66 +73,159 @@ const scheduleController = {
   },
 
   // Get available time slots for a specific date (enhanced with admin restrictions)
-  getAvailableSlots: (req, res) => {
+  getAvailableSlots: async (req, res) => {
     const { date } = req.params;
     
-    // Parse date properly to avoid timezone issues
-    const [year, month, day] = date.split('-').map(Number);
-    const appointmentDate = new Date(year, month - 1, day); // month is 0-indexed
-    const dayOfWeek = appointmentDate.toLocaleDateString('en-US', { weekday: 'long' });
+    try {
+      // Parse date properly to avoid timezone issues
+      const [year, month, day] = date.split('-').map(Number);
+      const appointmentDate = new Date(year, month - 1, day); // month is 0-indexed
+      const dayOfWeek = appointmentDate.toLocaleDateString('en-US', { weekday: 'long' });
 
-    console.log(`🔍 Processing date: ${date}`);
-    console.log(`📅 Appointment date object: ${appointmentDate.toString()}`);
-    console.log(`📅 Day of week calculated: ${dayOfWeek}`);
-    console.log(`Checking availability for ${date} (${dayOfWeek.toLowerCase()})`);
+      console.log(`🔍 Processing date: ${date}`);
+      console.log(`📅 Appointment date object: ${appointmentDate.toString()}`);
+      console.log(`📅 Day of week calculated: ${dayOfWeek}`);
 
-    // Get business hours for that day (simplified version)
-    const businessHoursQuery = `
-      SELECT is_open, 
-             TIME_FORMAT(open_time, '%H:%i') as open_time,
-             TIME_FORMAT(close_time, '%H:%i') as close_time,
-             TIME_FORMAT(break_start, '%H:%i') as break_start,
-             TIME_FORMAT(break_end, '%H:%i') as break_end
-      FROM business_hours 
-      WHERE day_of_week = ?
-    `;
-
-    db.query(businessHoursQuery, [dayOfWeek], (err, businessResults) => {
-      if (err) {
-        console.error('Error getting business hours:', err);
-        return res.status(500).json({ error: 'Error getting business hours' });
+      // Step 1: Check if date is in the past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (appointmentDate < today) {
+        return res.json({ 
+          availableSlots: [], 
+          message: 'Cannot book appointments for past dates',
+          restrictions: ['past_date']
+        });
       }
 
-      console.log(`🏢 Business hours query for ${dayOfWeek}:`, businessResults);
-
-      if (businessResults.length === 0 || !businessResults[0].is_open) {
-        console.log(`❌ No business hours found or closed for ${dayOfWeek}`);
-        return res.json({ availableSlots: [], message: 'Clinic is closed on this day' });
-      }
-
-      let businessHours = businessResults[0];
-
-      // Get existing appointments for that date
-      const appointmentsQuery = `
-        SELECT TIME_FORMAT(time, '%H:%i') as time 
-        FROM appointments 
-        WHERE date = ? AND status IN ('pending', 'confirmed')
-      `;
-
-      db.query(appointmentsQuery, [date], (err, appointmentResults) => {
-        if (err) {
-          console.error('Error getting appointments:', err);
-          return res.status(500).json({ error: 'Error getting appointments' });
-        }
-
-        // Generate available time slots
-        const bookedTimes = appointmentResults.map(a => a.time);
-        const slots = generateTimeSlots(businessHours, bookedTimes, date);
+      // Step 2: Get business hours for that day
+      const businessHours = await new Promise((resolve, reject) => {
+        const businessHoursQuery = `
+          SELECT is_open, 
+                 TIME_FORMAT(open_time, '%H:%i') as open_time,
+                 TIME_FORMAT(close_time, '%H:%i') as close_time,
+                 TIME_FORMAT(break_start, '%H:%i') as break_start,
+                 TIME_FORMAT(break_end, '%H:%i') as break_end
+          FROM business_hours 
+          WHERE day_of_week = ?
+        `;
         
-        console.log(`Generated ${slots.length} available slots for ${date}`);
-        res.json({ availableSlots: slots, business_hours: businessHours });
+        db.query(businessHoursQuery, [dayOfWeek], (err, results) => {
+          if (err) return reject(err);
+          resolve(results[0] || {});
+        });
       });
-    });
+
+      if (!businessHours.is_open) {
+        return res.json({ 
+          availableSlots: [], 
+          message: 'Clinic is closed on this day',
+          restrictions: ['closed_day']
+        });
+      }
+
+      // Step 3: Check for schedule exceptions (closures, custom hours)
+      const scheduleExceptions = await new Promise((resolve, reject) => {
+        const exceptionsQuery = `
+          SELECT exception_type, start_date, end_date, is_closed,
+                 TIME_FORMAT(custom_open_time, '%H:%i') as custom_open_time,
+                 TIME_FORMAT(custom_close_time, '%H:%i') as custom_close_time,
+                 TIME_FORMAT(custom_break_start, '%H:%i') as custom_break_start,
+                 TIME_FORMAT(custom_break_end, '%H:%i') as custom_break_end,
+                 reason, description
+          FROM schedule_exceptions 
+          WHERE is_active = 1 
+            AND start_date <= ? 
+            AND (end_date >= ? OR end_date IS NULL)
+          ORDER BY is_closed DESC, start_date ASC
+        `;
+        
+        db.query(exceptionsQuery, [date, date], (err, results) => {
+          if (err) return reject(err);
+          resolve(results);
+        });
+      });
+
+      // Step 4: Check if there's a closure exception for this date
+      const closureException = scheduleExceptions.find(ex => ex.is_closed);
+      if (closureException) {
+        return res.json({ 
+          availableSlots: [], 
+          message: closureException.reason || 'Clinic is closed on this date',
+          restrictions: ['exception_closure'],
+          exception: closureException
+        });
+      }
+
+      // Step 5: Apply custom hours if there's a schedule override
+      const customHoursException = scheduleExceptions.find(ex => 
+        !ex.is_closed && (ex.custom_open_time || ex.custom_close_time)
+      );
+      
+      if (customHoursException) {
+        businessHours.open_time = customHoursException.custom_open_time || businessHours.open_time;
+        businessHours.close_time = customHoursException.custom_close_time || businessHours.close_time;
+        businessHours.break_start = customHoursException.custom_break_start || businessHours.break_start;
+        businessHours.break_end = customHoursException.custom_break_end || businessHours.break_end;
+        console.log(`📋 Applied custom hours for ${date}:`, businessHours);
+      }
+
+      // Step 6: Get existing appointments for that date
+      const bookedTimes = await new Promise((resolve, reject) => {
+        const appointmentsQuery = `
+          SELECT TIME_FORMAT(time, '%H:%i') as time 
+          FROM appointments 
+          WHERE date = ? AND status IN ('pending', 'confirmed')
+        `;
+        
+        db.query(appointmentsQuery, [date], (err, results) => {
+          if (err) return reject(err);
+          resolve(results.map(a => a.time));
+        });
+      });
+
+      // Step 7: Get blocked time slots for this date
+      const blockedSlots = await new Promise((resolve, reject) => {
+        const blockedQuery = `
+          SELECT TIME_FORMAT(start_time, '%H:%i') as start_time,
+                 TIME_FORMAT(end_time, '%H:%i') as end_time,
+                 reason, description
+          FROM blocked_time_slots 
+          WHERE is_active = 1 
+            AND (block_date = ? OR 
+                 (is_recurring = 1 AND 
+                  ((recurring_type = 'weekly' AND DAYOFWEEK(?) = DAYOFWEEK(block_date)) OR
+                   (recurring_type = 'monthly' AND DAY(?) = DAY(block_date)))))
+        `;
+        
+        db.query(blockedQuery, [date, date, date], (err, results) => {
+          if (err) return reject(err);
+          resolve(results);
+        });
+      });
+
+      // Step 8: Generate available time slots with all restrictions
+      const slots = generateEnhancedTimeSlots(businessHours, bookedTimes, blockedSlots, date);
+      
+      console.log(`✅ Generated ${slots.length} available slots for ${date}`);
+      
+      const restrictions = [];
+      if (customHoursException) restrictions.push('custom_hours');
+      if (blockedSlots.length > 0) restrictions.push('blocked_slots');
+      if (bookedTimes.length > 0) restrictions.push('existing_appointments');
+
+      res.json({ 
+        availableSlots: slots, 
+        business_hours: businessHours,
+        restrictions,
+        blocked_slots: blockedSlots.length,
+        existing_appointments: bookedTimes.length,
+        custom_hours: customHoursException ? true : false
+      });
+
+    } catch (error) {
+      console.error('Error getting available slots:', error);
+      res.status(500).json({ error: 'Error getting available slots' });
+    }
   },
 
   // Get clinic statistics
@@ -1124,7 +1217,7 @@ const scheduleController = {
   },
 
   // Generate holiday exceptions for a specific year
-  generateYearlyHolidays: (req, res) => {
+  generateYearlyHolidays: async (req, res) => {
     const { year } = req.params;
     
     if (!year || year < 2020 || year > 2030) {
@@ -1134,17 +1227,15 @@ const scheduleController = {
       });
     }
 
-    // Get active holiday templates
-    const getTemplatesQuery = 'SELECT * FROM holiday_templates WHERE is_active = 1';
-
-    db.query(getTemplatesQuery, (err, templates) => {
-      if (err) {
-        console.error('Error getting holiday templates:', err);
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Error al obtener plantillas de feriados' 
+    try {
+      // Get active holiday templates
+      const templates = await new Promise((resolve, reject) => {
+        const getTemplatesQuery = 'SELECT * FROM holiday_templates WHERE is_active = 1';
+        db.query(getTemplatesQuery, (err, results) => {
+          if (err) reject(err);
+          else resolve(results);
         });
-      }
+      });
 
       if (templates.length === 0) {
         return res.status(400).json({ 
@@ -1153,105 +1244,85 @@ const scheduleController = {
         });
       }
 
-      db.beginTransaction((err) => {
-        if (err) {
-          console.error('Error starting transaction:', err);
-          return res.status(500).json({ 
-            success: false, 
-            message: 'Error interno del servidor' 
-          });
-        }
+      let created = 0;
+      let skipped = 0;
+      const results = [];
 
-        const insertPromises = templates.map(template => {
-          return new Promise((resolve, reject) => {
-            const holidayDate = `${year}-${template.month.toString().padStart(2, '0')}-${template.day.toString().padStart(2, '0')}`;
-            
-            // Check if holiday already exists for this year
-            const checkQuery = `
-              SELECT id FROM schedule_exceptions 
-              WHERE start_date = ? AND reason LIKE ?
+      // Process each template
+      for (const template of templates) {
+        const holidayDate = `${year}-${template.month.toString().padStart(2, '0')}-${template.day.toString().padStart(2, '0')}`;
+        
+        try {
+          // Check if holiday already exists for this year
+          const existing = await new Promise((resolve, reject) => {
+            const checkQuery = `SELECT id FROM schedule_exceptions WHERE start_date = ? AND reason LIKE ?`;
+            db.query(checkQuery, [holidayDate, `%${template.name}%`], (err, results) => {
+              if (err) reject(err);
+              else resolve(results);
+            });
+          });
+
+          if (existing.length > 0) {
+            skipped++;
+            results.push({ name: template.name, status: 'skipped', reason: 'already exists' });
+            continue;
+          }
+
+          // Insert new holiday exception
+          await new Promise((resolve, reject) => {
+            const insertQuery = `
+              INSERT INTO schedule_exceptions 
+              (exception_type, start_date, end_date, is_closed, custom_open_time, custom_close_time, 
+               reason, description, is_active)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
-            db.query(checkQuery, [holidayDate, `%${template.name}%`], (err, existing) => {
-              if (err) {
-                reject(err);
-                return;
-              }
+            const isClosed = template.closure_type === 'full_day' ? 1 : 0;
+            const values = [
+              'single_day',
+              holidayDate,
+              holidayDate,
+              isClosed,
+              template.closure_type === 'custom_hours' ? template.custom_open_time : null,
+              template.closure_type === 'custom_hours' ? template.custom_close_time : null,
+              `${template.name} ${year}`,
+              template.description,
+              1
+            ];
 
-              if (existing.length > 0) {
-                resolve({ skipped: template.name });
-                return;
-              }
-
-              // Insert new holiday exception
-              const insertQuery = `
-                INSERT INTO schedule_exceptions 
-                (exception_type, start_date, end_date, is_closed, custom_open_time, custom_close_time, 
-                 reason, description, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-              `;
-
-              const isClosed = template.closure_type === 'full_day' ? 1 : 0;
-              const values = [
-                'single_day',
-                holidayDate,
-                holidayDate,
-                isClosed,
-                template.closure_type === 'custom_hours' ? template.custom_open_time : null,
-                template.closure_type === 'custom_hours' ? template.custom_close_time : null,
-                `${template.name} ${year}`,
-                template.description,
-                1
-              ];
-
-              db.query(insertQuery, values, (err, result) => {
-                if (err) {
-                  reject(err);
-                } else {
-                  resolve({ created: template.name, id: result.insertId });
-                }
-              });
+            db.query(insertQuery, values, (err, result) => {
+              if (err) reject(err);
+              else resolve(result);
             });
           });
-        });
 
-        Promise.all(insertPromises)
-          .then(results => {
-            db.commit((err) => {
-              if (err) {
-                return db.rollback(() => {
-                  console.error('Error committing transaction:', err);
-                  res.status(500).json({ 
-                    success: false, 
-                    message: 'Error al confirmar la generación de feriados' 
-                  });
-                });
-              }
+          created++;
+          results.push({ name: template.name, status: 'created', date: holidayDate });
 
-              const created = results.filter(r => r.created).length;
-              const skipped = results.filter(r => r.skipped).length;
+        } catch (templateError) {
+          console.error(`Error processing template ${template.name}:`, templateError);
+          results.push({ name: template.name, status: 'error', error: templateError.message });
+        }
+      }
 
-              res.json({ 
-                success: true, 
-                message: `Feriados generados para ${year}: ${created} creados, ${skipped} omitidos (ya existían)`,
-                year: year,
-                created: created,
-                skipped: skipped,
-                details: results
-              });
-            });
-          })
-          .catch(err => {
-            db.rollback(() => {
-              console.error('Error generating yearly holidays:', err);
-              res.status(500).json({ 
-                success: false, 
-                message: 'Error al generar feriados anuales' 
-              });
-            });
-          });
+      res.json({
+        success: true,
+        message: `Feriados generados para ${year}: ${created} creados, ${skipped} omitidos`,
+        details: {
+          year: parseInt(year),
+          created,
+          skipped,
+          results
+        }
       });
-    });
+
+    } catch (error) {
+      console.error('Error generating yearly holidays:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error al generar feriados: ' + error.message 
+      });
+    }
   },
 
   // Annual Closures Management
@@ -1425,9 +1496,9 @@ function generateTimeSlots(businessHours, bookedTimes, appointmentDate) {
   let currentHour = startHour;
   let currentMinute = startMinute;
 
-  // Calculate 30 minutes from now for time filtering
+  // Calculate 5 minutes from now for time filtering (reduced for testing)
   const now = new Date();
-  const thirtyMinutesFromNow = new Date(now.getTime() + (30 * 60 * 1000));
+  const fiveMinutesFromNow = new Date(now.getTime() + (5 * 60 * 1000));
   const isToday = appointmentDate === now.toISOString().split('T')[0];
 
   while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
@@ -1440,11 +1511,11 @@ function generateTimeSlots(businessHours, bookedTimes, appointmentDate) {
     // Check if already booked
     const isBooked = bookedTimes.includes(timeSlot);
     
-    // Check if the slot is less than 30 minutes from now (only for today)
+    // Check if the slot is less than 5 minutes from now (only for today)
     let isTooSoon = false;
     if (isToday) {
       const slotDateTime = new Date(`${appointmentDate}T${timeSlot}:00`);
-      isTooSoon = slotDateTime < thirtyMinutesFromNow;
+      isTooSoon = slotDateTime < fiveMinutesFromNow;
     }
     
     if (!isBreakTime && !isBooked && !isTooSoon) {
@@ -1463,7 +1534,7 @@ function generateTimeSlots(businessHours, bookedTimes, appointmentDate) {
 }
 
 // Enhanced helper function to generate time slots with admin restrictions
-function generateEnhancedTimeSlots(businessHours, bookedTimes, blockedSlots, exceptions) {
+function generateEnhancedTimeSlots(businessHours, bookedTimes, blockedSlots, appointmentDate) {
   const slots = [];
   const { open_time, close_time, break_start, break_end } = businessHours;
   
@@ -1476,6 +1547,11 @@ function generateEnhancedTimeSlots(businessHours, bookedTimes, blockedSlots, exc
   
   let currentHour = startHour;
   let currentMinute = startMinute;
+
+  // Calculate 30 minutes from now for time filtering (only for today)
+  const now = new Date();
+  const thirtyMinutesFromNow = new Date(now.getTime() + (30 * 60 * 1000));
+  const isToday = appointmentDate === now.toISOString().split('T')[0];
 
   while (currentHour < endHour || (currentHour === endHour && currentMinute < endMinute)) {
     const timeSlot = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
@@ -1492,12 +1568,14 @@ function generateEnhancedTimeSlots(businessHours, bookedTimes, blockedSlots, exc
       timeSlot >= block.start_time && timeSlot < block.end_time
     );
     
-    // Check if in exception period (admin temporarily closed)
-    const isException = exceptions.some(exception => 
-      timeSlot >= exception.start_time && timeSlot < exception.end_time
-    );
+    // Check if the slot is less than 30 minutes from now (only for today)
+    let isTooSoon = false;
+    if (isToday) {
+      const slotDateTime = new Date(`${appointmentDate}T${timeSlot}:00`);
+      isTooSoon = slotDateTime < thirtyMinutesFromNow;
+    }
     
-    if (!isBreakTime && !isBooked && !isBlocked && !isException) {
+    if (!isBreakTime && !isBooked && !isBlocked && !isTooSoon) {
       slots.push(timeSlot);
     }
 

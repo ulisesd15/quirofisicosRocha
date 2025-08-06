@@ -25,14 +25,14 @@ const appointmentController = {
         });
       }
 
-      // Validate appointment time is at least 30 minutes in advance
+      // Validate appointment time is at least 5 minutes in advance (reduced for testing)
       const appointmentDateTime = new Date(`${date}T${time}:00`);
       const now = new Date();
-      const thirtyMinutesFromNow = new Date(now.getTime() + (30 * 60 * 1000));
+      const fiveMinutesFromNow = new Date(now.getTime() + (5 * 60 * 1000));
 
-      if (appointmentDateTime < thirtyMinutesFromNow) {
+      if (appointmentDateTime < fiveMinutesFromNow) {
         return res.status(400).json({ 
-          error: 'Las citas deben agendarse con al menos 30 minutos de anticipación' 
+          error: 'Las citas deben agendarse con al menos 5 minutos de anticipación' 
         });
       }
 
@@ -358,14 +358,14 @@ const appointmentController = {
         });
       }
 
-      // Validate appointment time is at least 30 minutes in advance
+      // Validate appointment time is at least 5 minutes in advance (reduced for testing)
       const appointmentDateTime = new Date(`${date}T${time}:00`);
       const now = new Date();
-      const thirtyMinutesFromNow = new Date(now.getTime() + (30 * 60 * 1000));
+      const fiveMinutesFromNow = new Date(now.getTime() + (5 * 60 * 1000));
 
-      if (appointmentDateTime < thirtyMinutesFromNow) {
+      if (appointmentDateTime < fiveMinutesFromNow) {
         return res.status(400).json({ 
-          error: 'Las citas deben agendarse con al menos 30 minutos de anticipación' 
+          error: 'Las citas deben agendarse con al menos 5 minutos de anticipación' 
         });
       }
 

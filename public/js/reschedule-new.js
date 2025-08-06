@@ -165,7 +165,7 @@ async function loadBusinessHours() {
     const response = await fetch('/api/business-hours');
     if (response.ok) {
       const data = await response.json();
-      BUSINESS_HOURS = data.businessHours || [];
+      BUSINESS_HOURS = data.business_hours || [];
       BUSINESS_DAYS = BUSINESS_HOURS.filter(bh => bh.is_open).map(bh => bh.day_of_week);
       console.log('✅ Business hours loaded:', BUSINESS_HOURS);
     } else {

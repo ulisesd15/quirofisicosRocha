@@ -459,7 +459,7 @@
                           </label>
                           <input type="date" class="form-control" id="schedule-effective-date" 
                                  value="" min="">
-                          <small class="text-muted">Seleccione la fecha cuando el nuevo horario comenzará a aplicar</small>
+                          <small class="text-muted">Seleccione la fecha cuando el nuevo horario comenzará a aplicar (por defecto: 2029)</small>
                         </div>
                         <div class="col-md-6">
                           <div class="mt-2">
@@ -469,7 +469,7 @@
                             </span>
                             <div class="mt-1">
                               <small class="text-muted" id="schedule-status-text">
-                                Los cambios se aplicarán inmediatamente si no se especifica fecha futura
+                                Horarios programados para vigencia a largo plazo hasta 2029
                               </small>
                             </div>
                           </div>
@@ -629,11 +629,6 @@
                 <i class="fas fa-cog me-2"></i>Configuración General
               </button>
             </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="annual-exceptions-settings-tab" data-bs-toggle="tab" data-bs-target="#annual-exceptions-settings" type="button" role="tab">
-                <i class="fas fa-calendar-times me-2"></i>Excepciones de Horario Anuales
-              </button>
-            </li>
           </ul>
 
           <div class="tab-content" id="settings-tab-content">
@@ -656,92 +651,6 @@
                     <button type="button" class="btn btn-primary" id="save-settings">
                       <i class="fas fa-save"></i> Guardar Configuración
                     </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Annual Exceptions Settings Tab -->
-            <div class="tab-pane fade" id="annual-exceptions-settings" role="tabpanel">
-              <div class="content-card">
-                <div class="card-header">
-                  <h5 class="mb-0">
-                    <i class="fas fa-calendar-times me-2"></i>Excepciones de Horario Anuales
-                  </h5>
-                  <small class="text-muted">Configure días cerrados que se repiten cada año</small>
-                </div>
-                <div class="card-body">
-                  <div class="row">
-                    <div class="col-md-6">
-                      <!-- Form for creating yearly closed days -->
-                      <div class="card border-warning">
-                        <div class="card-header bg-warning text-dark">
-                          <h6 class="mb-0"><i class="fas fa-plus me-2"></i>Agregar Día Cerrado Anual</h6>
-                        </div>
-                        <div class="card-body">
-                          <form id="annual-closure-form-settings">
-                            <div class="mb-3">
-                              <label for="closure-date-settings" class="form-label fw-bold">Fecha <span class="text-danger">*</span></label>
-                              <input type="date" class="form-control" id="closure-date-settings" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                              <label for="closure-reason-settings" class="form-label fw-bold">Motivo <span class="text-danger">*</span></label>
-                              <select class="form-select" id="closure-reason-settings" required>
-                                <option value="">Seleccionar motivo...</option>
-                                <option value="Año Nuevo">Año Nuevo</option>
-                                <option value="Día de la Constitución">Día de la Constitución</option>
-                                <option value="Natalicio de Benito Juárez">Natalicio de Benito Juárez</option>
-                                <option value="Jueves Santo">Jueves Santo</option>
-                                <option value="Viernes Santo">Viernes Santo</option>
-                                <option value="Día del Trabajo">Día del Trabajo</option>
-                                <option value="Día de la Independencia">Día de la Independencia</option>
-                                <option value="Día de la Revolución Mexicana">Día de la Revolución Mexicana</option>
-                                <option value="Día de Navidad">Día de Navidad</option>
-                                <option value="Vacaciones del Personal">Vacaciones del Personal</option>
-                                <option value="Mantenimiento de Equipos">Mantenimiento de Equipos</option>
-                                <option value="Capacitación del Personal">Capacitación del Personal</option>
-                                <option value="Evento Especial">Evento Especial</option>
-                                <option value="Otro">Otro (especificar en descripción)</option>
-                              </select>
-                            </div>
-                            
-                            <div class="mb-3">
-                              <label for="closure-description-settings" class="form-label">Descripción</label>
-                              <textarea class="form-control" id="closure-description-settings" rows="3" placeholder="Información adicional sobre el cierre (opcional)"></textarea>
-                            </div>
-
-                            <div class="mb-3">
-                              <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="recurring-settings" checked>
-                                <label class="form-check-label" for="recurring-settings">
-                                  <strong>Recurrente anualmente</strong>
-                                  <small class="text-muted d-block">Se repetirá automáticamente cada año</small>
-                                </label>
-                              </div>
-                            </div>
-                            
-                            <button type="button" class="btn btn-warning w-100" id="add-annual-closure-btn-settings">
-                              <i class="fas fa-plus-circle"></i> Agregar Día Cerrado
-                            </button>
-                          </form>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div class="col-md-6">
-                      <!-- List of yearly closures -->
-                      <div class="card">
-                        <div class="card-header">
-                          <h6 class="mb-0"><i class="fas fa-list me-2"></i>Días Cerrados Programados</h6>
-                        </div>
-                        <div class="card-body">
-                          <div id="annual-closures-list-settings">
-                            <!-- Annual closures will be loaded here -->
-                          </div>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
