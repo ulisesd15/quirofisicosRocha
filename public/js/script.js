@@ -9,6 +9,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const offcanvas = document.getElementById('sideNav');
   const signOutBtn = document.getElementById('logoutBtn');
 
+  // Add loading animation to menu toggle
+  if (menuToggle) {
+    menuToggle.style.opacity = '0';
+    menuToggle.style.transform = 'translateY(-20px) scale(0.8)';
+    
+    setTimeout(() => {
+      menuToggle.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+      menuToggle.style.opacity = '1';
+      menuToggle.style.transform = 'translateY(0) scale(1)';
+    }, 100);
+  }
+
   // Check authentication using AuthManager
   const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
   const currentUser = isLoggedIn ? window.authManager.getCurrentUser() : null;
@@ -18,41 +30,148 @@ document.addEventListener('DOMContentLoaded', () => {
   if (navItems) {
     if (isLoggedIn && currentUser) {
       const adminButton = userRole === 'admin' ? 
-        `<li><a href="/admin/adminOptions.html" class="btn btn-warning w-100 mb-2">
-          <i class="fas fa-user-shield me-2"></i> Panel Admin
-        </a></li>` : '';
+        `<div class="nav-section">
+          <div class="nav-section-title">
+            <i class="fas fa-shield-alt"></i> Administración
+          </div>
+          <li><a href="/admin/adminOptions.html" class="nav-link-item admin-link">
+            <i class="fas fa-user-shield"></i> Panel Administrativo
+          </a></li>
+          <li><a href="/admin/schedule.html" class="nav-link-item admin-link">
+            <i class="fas fa-calendar-alt"></i> Gestionar Horarios
+          </a></li>
+        </div>` : '';
       
       navItems.innerHTML = `
-        <li><a href="/appointment.html" class="btn btn-primary w-100 mb-2">
-          <i class="fas fa-calendar-plus me-2"></i> Agendar Cita
-        </a></li>
-        <li><a href="/mis-citas.html" class="btn btn-outline-info w-100 mb-2">
-          <i class="fas fa-calendar-check me-2"></i> Mis Citas
-        </a></li>
-        <li><a href="/user-settings.html" class="btn btn-outline-secondary w-100 mb-2">
-          <i class="fas fa-cog me-2"></i> Configuración
-        </a></li>
+        <!-- User Profile Section -->
+        <li class="user-profile-section">
+          <div class="user-profile-card">
+            <div class="user-avatar-container">
+              <div class="user-avatar-circle">
+                <i class="fas fa-user"></i>
+              </div>
+              <div class="user-status-indicator"></div>
+            </div>
+            <div class="user-profile-info">
+              <div class="user-name">Hola, ${currentUser.full_name || currentUser.name || 'Usuario'}</div>
+              <div class="user-role-badge ${userRole === 'admin' ? 'admin-badge' : 'patient-badge'}">
+                <i class="fas ${userRole === 'admin' ? 'fa-crown' : 'fa-heart'}"></i>
+                ${userRole === 'admin' ? 'Administrador' : 'Paciente'}
+              </div>
+            </div>
+          </div>
+        </li>
+        
+        <!-- Primary Actions Section -->
+        <div class="nav-section">
+          <div class="nav-section-title">
+            <i class="fas fa-calendar"></i> Mis Citas
+          </div>
+          <li><a href="/appointment.html" class="nav-link-item primary-action">
+            <i class="fas fa-calendar-plus"></i> 
+            <span class="nav-text">Agendar Nueva Cita</span>
+            <span class="nav-badge">Nuevo</span>
+          </a></li>
+          <li><a href="/mis-citas.html" class="nav-link-item">
+            <i class="fas fa-calendar-check"></i> 
+            <span class="nav-text">Mis Citas Programadas</span>
+          </a></li>
+        </div>
+        
+        <!-- Information Section -->
+        <div class="nav-section">
+          <div class="nav-section-title">
+            <i class="fas fa-info-circle"></i> Información
+          </div>
+          <li><a href="#about" class="nav-link-item" data-scroll="about">
+            <i class="fas fa-user-md"></i> 
+            <span class="nav-text">Sobre Nosotros</span>
+          </a></li>
+          <li><a href="#servicios" class="nav-link-item" data-scroll="servicios">
+            <i class="fas fa-hand-holding-medical"></i> 
+            <span class="nav-text">Nuestros Servicios</span>
+          </a></li>
+          <li><a href="#contacto-section" class="nav-link-item" data-scroll="contacto-section">
+            <i class="fas fa-map-marker-alt"></i> 
+            <span class="nav-text">Ubicación y Contacto</span>
+          </a></li>
+        </div>
+        
+        <!-- Account Section -->
+        <div class="nav-section">
+          <div class="nav-section-title">
+            <i class="fas fa-user-cog"></i> Mi Cuenta
+          </div>
+          <li><a href="/user-settings.html" class="nav-link-item">
+            <i class="fas fa-cog"></i> 
+            <span class="nav-text">Configuración</span>
+          </a></li>
+        </div>
+        
         ${adminButton}
-        <li><hr class="dropdown-divider"></li>
-        <li><a href="#" id="logoutBtn" class="btn btn-danger w-100 mb-2">
-          <i class="fas fa-sign-out-alt me-2"></i> Cerrar Sesión
-        </a></li>
-        <li><span class="text-muted small mt-2 d-block text-center">
-          <i class="fas fa-user me-1"></i> Hola, ${currentUser.name || 'Usuario'}
-        </span></li>
+        
+        <!-- Logout Section -->
+        <div class="nav-section logout-section">
+          <li><a href="#" id="logoutBtn" class="nav-link-item logout-link">
+            <i class="fas fa-sign-out-alt"></i> 
+            <span class="nav-text">Cerrar Sesión</span>
+          </a></li>
+        </div>
       `;
     } else {
       navItems.innerHTML = `
-        <li><a href="/login.html" class="btn btn-success w-100 mb-2">
-          <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
+        <li><a href="/login.html" class="nav-link-item login-link">
+          <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
         </a></li>
-        <li><a href="/appointment.html?guest=true" class="btn btn-primary w-100 mb-2">
-          <i class="fas fa-user me-2"></i>Agendar como Invitado
+        <li><a href="/register.html" class="nav-link-item register-link">
+          <i class="fas fa-user-plus"></i> Crear Cuenta Nueva
         </a></li>
-        <li><a href="/register.html" class="btn btn-outline-secondary w-100 mb-2">
-          <i class="fas fa-user-plus me-2"></i>Crear Cuenta
+        <li><a href="/appointment.html?guest=true" class="nav-link-item guest-link">
+          <i class="fas fa-user"></i> Continuar como Invitado
+        </a></li>
+        <li class="nav-divider"><div class="divider-line"></div></li>
+        <li><a href="#about" class="nav-link-item" data-scroll="about">
+          <i class="fas fa-info-circle"></i> Sobre Nosotros
+        </a></li>
+        <li><a href="#servicios" class="nav-link-item" data-scroll="servicios">
+          <i class="fas fa-hand-holding-medical"></i> Nuestros Servicios
+        </a></li>
+        <li><a href="#contacto-section" class="nav-link-item" data-scroll="contacto-section">
+          <i class="fas fa-phone"></i> Información de Contacto
         </a></li>
       `;
+    }
+
+    // Add smooth scrolling for navigation links
+    if (navItems) {
+      navItems.addEventListener('click', (e) => {
+        const target = e.target.closest('[data-scroll]');
+        if (target) {
+          e.preventDefault();
+          
+          const targetId = target.getAttribute('data-scroll');
+          const targetElement = document.getElementById(targetId);
+          
+          if (targetElement) {
+            // Close the sidebar if open
+            const sidebar = document.getElementById('sideNav');
+            if (sidebar && sidebar.classList.contains('show')) {
+              const bsOffcanvas = bootstrap.Offcanvas.getInstance(sidebar);
+              if (bsOffcanvas) {
+                bsOffcanvas.hide();
+              }
+            }
+            
+            // Smooth scroll to target
+            setTimeout(() => {
+              targetElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+              });
+            }, 300);
+          }
+        }
+      });
     }
 
     // Re-attach logoutBtn listener after injecting it dynamically

@@ -19,10 +19,10 @@ router.get('/config/maps-key', (req, res) => {
 router.get('/business-hours', (req, res) => {
   const query = `
     SELECT day_of_week, is_open, 
-           TIME_FORMAT(open_time, '%h:%i %p') as open_time,
-           TIME_FORMAT(close_time, '%h:%i %p') as close_time,
-           TIME_FORMAT(break_start, '%h:%i %p') as break_start,
-           TIME_FORMAT(break_end, '%h:%i %p') as break_end
+           TIME_FORMAT(open_time, '%H:%i') as open_time,
+           TIME_FORMAT(close_time, '%H:%i') as close_time,
+           TIME_FORMAT(break_start, '%H:%i') as break_start,
+           TIME_FORMAT(break_end, '%H:%i') as break_end
     FROM business_hours 
     ORDER BY FIELD(day_of_week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
   `;
@@ -268,46 +268,135 @@ router.delete('/appointments/:id', authenticateToken,(req, res) => {
 });
 
 
-//USER ROUTES
+// Replace the existing /login route with /auth/login
+router.post('/auth/login', (req, res) => {
+  const { email, password } = req.body;
+  
+  console.log('🔐 Login attempt for:', email);
 
-// Register user
-router.post("/register", async (req, res) => {
+  db.query(
+    'SELECT * FROM users WHERE email = ?',
+    [email],
+    (err, results) => {
+      if (err) {
+        console.error('Database error during login:', err);
+        return res.status(500).json({ 
+          success: false,
+          message: 'Error del servidor' 
+        });
+      }
+      
+      if (results.length === 0) {
+        console.log('❌ No user found with email:', email);
+        return res.status(401).json({ 
+          success: false,
+          message: 'Credenciales inválidas' 
+        });
+      }
+      
+      const user = results[0];
+      console.log('✅ User found:', { id: user.id, email: user.email, role: user.role });
+
+      bcrypt.compare(password, user.password, (err, isMatch) => {
+        if (err) {
+          console.error('Bcrypt error:', err);
+          return res.status(500).json({ 
+            success: false,
+            message: 'Error del servidor' 
+          });
+        }
+
+        if (!isMatch) {
+          console.log('❌ Password mismatch for user:', email);
+          return res.status(401).json({ 
+            success: false,
+            message: 'Credenciales inválidas' 
+          });
+        }
+
+        const token = jwt.sign({ 
+          id: user.id, 
+          email: user.email, 
+          role: user.role || 'user' 
+        }, secretKey, { expiresIn: '2h' });
+        
+        console.log('✅ Login successful for:', email);
+
+        res.status(200).json({
+          success: true,
+          message: 'Inicio de sesión exitoso',
+          user: {
+            id: user.id,
+            email: user.email,
+            full_name: user.full_name,
+            role: user.role || 'user'
+          },
+          token: token
+        });
+      });
+    }
+  );
+});
+
+// Also add the register route with proper structure
+router.post('/auth/register', async (req, res) => {
   const { full_name, phone, email, password } = req.body;
 
   if (!full_name || !phone || !email || !password) {
-    return res.status(400).json({ message: "Faltan campos requeridos" });
+    return res.status(400).json({ 
+      success: false,
+      message: "Faltan campos requeridos" 
+    });
   }
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const insertUserSql = `
-      INSERT INTO users (full_name, email, phone, password) VALUES (?, ?, ?, ?)
+      INSERT INTO users (full_name, email, phone, password, role, auth_provider, created_at) 
+      VALUES (?, ?, ?, ?, 'user', 'local', NOW())
     `;
 
     db.query(insertUserSql, [full_name, email, phone, hashedPassword], (err, results) => {
       if (err) {
         if (err.code === 'ER_DUP_ENTRY') {
-          return res.status(400).json({ message: 'El correo ya está registrado' });
+          return res.status(400).json({ 
+            success: false,
+            message: 'El correo ya está registrado' 
+          });
         }
         console.error("Error al registrar el usuario:", err);
-        return res.status(500).json({ message: "Error al registrar el usuario" });
+        return res.status(500).json({ 
+          success: false,
+          message: "Error al registrar el usuario" 
+        });
       }
 
-      const token = jwt.sign({ id: results.insertId, email }, secretKey, { expiresIn: '2h' });
-    // localStorage.setItem('token', token); ❌ Remove this!
+      const token = jwt.sign({ 
+        id: results.insertId, 
+        email,
+        role: 'user'
+      }, secretKey, { expiresIn: '2h' });
 
-    res.status(201).json({
-      // message: "Usuario registrado exitosamente",
-      userId: results.insertId,
-      token  // ✅ send the token in the response
+      res.status(201).json({
+        success: true,
+        message: "Usuario registrado exitosamente",
+        user: {
+          id: results.insertId,
+          email: email,
+          full_name: full_name,
+          role: 'user'
+        },
+        token: token
+      });
     });
-  });
-
 
   } catch (err) {
     console.error("Error hashing password:", err);
-    res.status(500).json({ message: "Error interno del servidor" });
+    res.status(500).json({ 
+      success: false,
+      message: "Error interno del servidor" 
+    });
   }
 });
 

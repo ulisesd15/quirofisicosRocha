@@ -114,14 +114,10 @@ async function fetchBusinessHours() {
     const data = await response.json();
     // Process business hours data
     
-    // Convert day_of_week to lowercase and normalize time format
-    const businessHours = data.businessHours.map(bh => ({
+    // Convert day_of_week to lowercase for consistency
+    const businessHours = data.business_hours.map(bh => ({
       ...bh,
-      day_of_week: bh.day_of_week.toLowerCase(),
-      open_time: bh.open_time ? bh.open_time.substring(0, 5) : null, // Convert "09:00:00" to "09:00"
-      close_time: bh.close_time ? bh.close_time.substring(0, 5) : null, // Convert "18:00:00" to "18:00"
-      break_start: bh.break_start ? bh.break_start.substring(0, 5) : null,
-      break_end: bh.break_end ? bh.break_end.substring(0, 5) : null
+      day_of_week: bh.day_of_week.toLowerCase()
     }));
     
     // Business hours loaded successfully

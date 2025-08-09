@@ -40,15 +40,44 @@ A complete web application for managing chiropractic appointments with dual cale
    ```
 
 3. **Configure environment variables**
-   Create a `.env` file in the root directory:
-   ```env
-   SECRET_KEY=your-secret-key-here
-   DB_NAME=appointments_db
-   DB_USER=root
-   DB_PASSWORD=your-password
-   GOOGLE_CLIENT_ID=your-google-client-id
-   GOOGLE_CLIENT_SECRET=your-google-client-secret
+   Copy `.env.example` to `.env` and fill in your actual values:
+   ```bash
+   cp .env.example .env
    ```
+   
+   **Required Environment Variables:**
+   ```env
+   # Database Configuration
+   DB_HOST=localhost
+   DB_USER=root
+   DB_PASSWORD=your-mysql-password
+   DB_NAME=appointments_db
+   
+   # Security & Authentication
+   SECRET_KEY=your-jwt-secret-key-here
+   JWT_SECRET=your-jwt-secret-key-here
+   SESSION_SECRET=your-session-secret-key-here
+   
+   # Google Services (Optional but recommended)
+   GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=your-google-client-secret
+   GOOGLE_MAPS_API_KEY=your-google-maps-api-key
+   
+   # SMS Service (Vonage/Nexmo) - For appointment notifications
+   VONAGE_API_KEY=your-vonage-api-key
+   VONAGE_API_SECRET=your-vonage-api-secret
+   VONAGE_FROM_NUMBER=your-vonage-phone-number
+   
+   # Admin Settings
+   ADMIN_PHONE_NUMBER=+526641234567
+   
+   # Application Settings
+   PORT=3001
+   NODE_ENV=development
+   WEBSITE_URL=http://localhost:3001
+   ```
+   
+   **🔒 Security Note:** Never commit your `.env` file to version control! It contains sensitive API keys and passwords.
 
 4. **Set up the database**
    ```bash

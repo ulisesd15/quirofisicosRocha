@@ -90,14 +90,10 @@ async function fetchBusinessHours() {
     const data = await response.json();
     console.log('📊 Monthly calendar business hours data:', data);
     
-    // Convert day_of_week to lowercase and normalize time format
-    const processedBusinessHours = data.businessHours.map(bh => ({
+    // Convert day_of_week to lowercase for consistency
+    const processedBusinessHours = data.business_hours.map(bh => ({
       ...bh,
-      day_of_week: bh.day_of_week.toLowerCase(),
-      open_time: bh.open_time ? bh.open_time.substring(0, 5) : null,
-      close_time: bh.close_time ? bh.close_time.substring(0, 5) : null,
-      break_start: bh.break_start ? bh.break_start.substring(0, 5) : null,
-      break_end: bh.break_end ? bh.break_end.substring(0, 5) : null
+      day_of_week: bh.day_of_week.toLowerCase()
     }));
     
     // Update the global businessHours variable
