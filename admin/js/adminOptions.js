@@ -1,67 +1,33 @@
 /**
- * Admin Panel JavaScript
- * Handles all admin functionality including dashboard, users, appointments, schedules, and settings
+ * Main Admin Panel - Modular Architecture
+ * Coordinates all admin functionality modules
  */
 
-// Global utility function for time formatting
-function formatTimeToAMPM(timeString) {
-  if (!timeString) return '-';
-  const [hours, minutes] = timeString.split(':').map(Number);
-  const period = hours >= 12 ? 'PM' : 'AM';
-  const hours12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
-}
+import { ApiService } from './utils/api.js';
+import { NotificationService } from './utils/notifications.js';
+import { DashboardModule } from './modules/dashboard.js';
+import { AppointmentsModule } from './modules/appointments.js';
+import { UsersModule } from './modules/users.js';
+import { SettingsModule } from './modules/settings.js';
 
 class AdminPanel {
   constructor() {
     this.currentSection = 'dashboard';
-    this.currentPage = 1;
-    this.itemsPerPage = 10;
     this.searchTimeout = null;
     this.isLoading = false;
     
-    // Track initialized tab listeners to prevent duplicates
-    this.initializedTabListeners = {
-      schedule: false,
-      settings: false,
-      sms: false
-    };
+    // Initialize modules
+    this.dashboard = new DashboardModule();
+    this.appointments = new AppointmentsModule();
+    this.users = new UsersModule();
+    this.settings = new SettingsModule();
     
     this.init();
-  }
-
-  // Helper method to get authentication token consistently
-  getAuthToken() {
-    return window.authManager?.getToken() || localStorage.getItem('user_token') || localStorage.getItem('token');
-  }
-
-  // Helper method to show notifications (using alert for now)
-  showNotification(message, type = 'info') {
-    // For now use alert, can be improved with a proper notification system later
-    if (type === 'error') {
-      alert(`Error: ${message}`);
-    } else if (type === 'warning') {
-      alert(`Advertencia: ${message}`);
-    } else if (type === 'success') {
-      alert(`Éxito: ${message}`);
-    } else {
-      alert(message);
-    }
-  }
-
-  // Helper methods for success and error notifications
-  showSuccess(message) {
-    this.showNotification(message, 'success');
-  }
-
-  showError(message) {
-    this.showNotification(message, 'error');
   }
 
   async init() {
     console.log('AdminPanel init started');
     
-    // Check admin authentication
     try {
       await this.checkAdminAuth();
       console.log('Admin auth check completed successfully');
@@ -70,31 +36,25 @@ class AdminPanel {
       return;
     }
     
-    // Initialize event listeners
     this.initEventListeners();
     
-    // Check for URL hash navigation
     const hash = window.location.hash.replace('#', '');
     if (hash && ['dashboard', 'appointments', 'users', 'schedule', 'settings'].includes(hash)) {
-      console.log('Navigating to section from URL hash:', hash);
       await this.switchSection(hash);
     } else {
-      // Load initial dashboard data
       await this.loadDashboard();
     }
   }
 
   async checkAdminAuth() {
     try {
-      const token = this.getAuthToken();
+      const token = ApiService.getAuthToken();
       
       if (!token) {
-        console.error('No authentication token found, redirecting to login');
         window.location.href = '../login.html';
         return;
       }
 
-      // Verify admin role with backend first
       const response = await fetch('/api/admin/dashboard', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -103,10 +63,7 @@ class AdminPanel {
       });
 
       if (!response.ok) {
-        console.error('Admin auth failed:', response.status, response.statusText);
         if (response.status === 401) {
-          console.log('Token invalid, redirecting to login');
-          // Clear invalid token
           localStorage.removeItem('user_token');
           localStorage.removeItem('token');
           window.location.href = '../login.html';
@@ -120,18 +77,15 @@ class AdminPanel {
         throw new Error(`Error verificando autenticación: ${response.status}`);
       }
 
-      // Check localStorage for user data
       const userRole = localStorage.getItem('user_role');
       const userName = localStorage.getItem('user_name');
       
       if (userRole !== 'admin') {
-        console.log('User role is not admin, redirecting');
         alert('Acceso denegado. No tienes permisos de administrador.');
         window.location.href = '../index.html';
         return;
       }
 
-      // Set admin name in navbar
       if (userName) {
         document.getElementById('admin-name').textContent = userName;
       }
@@ -158,9 +112,7 @@ class AdminPanel {
         const section = card.dataset.navigate;
         const filter = card.dataset.filter;
         
-        if (section === 'user-verification') {
-          this.navigateToUserVerification();
-        } else if (filter) {
+        if (filter) {
           this.navigateToSection(section, filter);
         } else {
           this.navigateToSection(section);
@@ -169,23 +121,18 @@ class AdminPanel {
     });
 
     // Logout
-    document.getElementById('logout-btn').addEventListener('click', () => {
-      window.authManager.logout();
+    document.getElementById('logout-btn')?.addEventListener('click', () => {
+      window.authManager?.logout();
       window.location.href = '../login.html';
     });
 
     // Refresh button
-    document.getElementById('refresh-btn').addEventListener('click', () => {
+    document.getElementById('refresh-btn')?.addEventListener('click', () => {
       this.refreshCurrentSection();
     });
 
-    // Search functionality
     this.initSearchListeners();
-    
-    // Modal listeners
     this.initModalListeners();
-    
-    // Filter listeners
     this.initFilterListeners();
   }
 
@@ -203,108 +150,59 @@ class AdminPanel {
         });
       }
     });
-
-    // Search buttons
-    document.getElementById('search-appointments-btn')?.addEventListener('click', () => {
-      this.handleSearch('appointments-search', document.getElementById('appointments-search').value);
-    });
-    
-    document.getElementById('search-users-btn')?.addEventListener('click', () => {
-      this.handleSearch('users-search', document.getElementById('users-search').value);
-    });
   }
 
   initFilterListeners() {
-    document.getElementById('appointments-status-filter')?.addEventListener('change', (e) => {
-      this.currentPage = 1;
-      this.loadAppointments();
+    document.getElementById('appointments-status-filter')?.addEventListener('change', () => {
+      this.appointments.currentPage = 1;
+      this.appointments.load();
     });
 
-    document.getElementById('appointments-date-filter')?.addEventListener('change', (e) => {
-      this.currentPage = 1;
-      this.loadAppointments();
+    document.getElementById('appointments-date-filter')?.addEventListener('change', () => {
+      this.appointments.currentPage = 1;
+      this.appointments.load();
     });
 
-    // Users role filter
-    document.getElementById('users-role-filter')?.addEventListener('change', (e) => {
-      this.currentPage = 1;
-      this.loadUsers();
+    document.getElementById('users-role-filter')?.addEventListener('change', () => {
+      this.users.currentPage = 1;
+      this.users.load();
     });
 
-    // Users refresh button
-    document.getElementById('refresh-users-btn')?.addEventListener('click', () => {
-      this.currentPage = 1;
-      this.loadUsers();
-    });
-
-    // Add user button
-    document.getElementById('add-user-btn')?.addEventListener('click', () => {
-      this.showAddUserModal();
-    });
-
-    // Clear users filters button
     document.getElementById('clear-users-filters-btn')?.addEventListener('click', () => {
-      this.clearUsersFilters();
+      this.users.clearFilters();
     });
   }
 
   initModalListeners() {
-    // Save appointment changes
     document.getElementById('save-appointment-btn')?.addEventListener('click', () => {
-      this.saveAppointmentChanges();
+      this.appointments.save();
     });
 
-    // Save user changes
     document.getElementById('save-user-btn')?.addEventListener('click', () => {
-      this.saveUserChanges();
+      this.users.save();
     });
 
-    // Save business hours
-    document.getElementById('save-business-hours')?.addEventListener('click', () => {
-      this.saveBusinessHours();
-    });
-
-    // Reset business hours
-    document.getElementById('reset-business-hours')?.addEventListener('click', () => {
-      this.loadBusinessHours();
-    });
-
-    // Save clinic settings
     document.getElementById('save-settings')?.addEventListener('click', () => {
-      this.saveClinicSettings();
+      this.settings.save();
     });
   }
 
   async switchSection(section) {
-    console.log('switchSection called with:', section);
-    if (this.isLoading) {
-      console.log('Already loading, skipping section switch');
-      return;
-    }
+    if (this.isLoading) return;
 
     try {
       // Update navigation
-      document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active');
-      });
+      document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
       const navLink = document.querySelector(`[data-section="${section}"]`);
-      console.log('Nav link found:', navLink);
-      if (navLink) {
-        navLink.classList.add('active');
-      }
+      if (navLink) navLink.classList.add('active');
 
       // Hide all sections
-      document.querySelectorAll('.admin-section').forEach(sec => {
-        sec.classList.add('d-none');
-      });
+      document.querySelectorAll('.admin-section').forEach(sec => sec.classList.add('d-none'));
 
       // Show target section
       const targetSection = document.getElementById(`${section}-section`);
-      console.log('Target section:', targetSection);
       if (targetSection) {
         targetSection.classList.remove('d-none');
-      } else {
-        console.error('Target section not found:', `${section}-section`);
       }
 
       // Update page title
@@ -313,143 +211,45 @@ class AdminPanel {
         appointments: 'Gestión de Citas',
         users: 'Gestión de Usuarios',
         schedule: 'Horarios de Atención',
-        settings: 'Configuración',
-        'sms-management': 'Verificación de Usuarios'
+        settings: 'Configuración'
       };
+      
       const titleElement = document.getElementById('page-title');
-      if (titleElement) {
-        titleElement.textContent = titles[section];
-      }
+      if (titleElement) titleElement.textContent = titles[section];
 
       this.currentSection = section;
-      this.currentPage = 1;
 
-      console.log('Loading section data...');
-      // Load section data
       await this.loadSectionData(section);
-      console.log('Section switch completed');
     } catch (error) {
       console.error('Error in switchSection:', error);
     }
   }
 
   async navigateToSection(section, filter = null) {
-    // Set the filter before switching sections
-    this.currentFilter = filter;
-    
-    // Switch to the target section
     await this.switchSection(section);
     
-    // Apply specific filtering if needed
     if (filter && section === 'appointments') {
-      await this.applyAppointmentFilter(filter);
-    }
-  }
-
-  async navigateToUserVerification() {
-    // Navigate to SMS management section - user verification is now the default active tab
-    await this.switchSection('sms-management');
-  }
-
-  async applyAppointmentFilter(filter) {
-    try {
-      let url = '/api/admin/appointments';
-      let params = new URLSearchParams();
-      
-      const today = new Date();
-      const formatDate = (date) => date.toISOString().split('T')[0];
-      
-      switch (filter) {
-        case 'today':
-          params.append('date', formatDate(today));
-          break;
-        case 'pending':
-          // Get appointments for the rest of the week (tomorrow onwards)
-          const tomorrow = new Date(today);
-          tomorrow.setDate(today.getDate() + 1);
-          const endOfWeek = new Date(today);
-          endOfWeek.setDate(today.getDate() + (7 - today.getDay())); // End of current week
-          
-          params.append('start_date', formatDate(tomorrow));
-          params.append('end_date', formatDate(endOfWeek));
-          params.append('status', 'pending');
-          break;
-      }
-      
-      if (params.toString()) {
-        url += '?' + params.toString();
-      }
-      
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${this.getAuthToken()}`
-        }
-      });
-      
-      if (!response.ok) throw new Error('Error loading filtered appointments');
-      
-      const appointments = await response.json();
-      this.displayAppointments(appointments.appointments || appointments);
-      
-      // Update the appointments header to show the filter
-      const filterTitles = {
-        today: 'Citas de Hoy',
-        pending: 'Citas Pendientes (Resto de la Semana)'
-      };
-      
-      if (filter && filterTitles[filter]) {
-        const cardTitle = document.querySelector('#appointments-section .card-header h5');
-        if (cardTitle) {
-          cardTitle.innerHTML = `<i class="fas fa-calendar-check me-2"></i>${filterTitles[filter]}`;
-        }
-      }
-      
-    } catch (error) {
-      console.error('Error applying appointment filter:', error);
-      this.showError('Error al filtrar las citas');
+      await this.appointments.applyFilter(filter);
     }
   }
 
   async loadSectionData(section) {
     switch (section) {
       case 'dashboard':
-        await this.loadDashboard();
+        await this.dashboard.load();
         break;
       case 'appointments':
-        await this.loadAppointments();
+        await this.appointments.load();
         break;
       case 'users':
-        await this.loadUsers();
-        break;
-      case 'schedule':
-        await this.loadScheduleSection(); // Enhanced schedule loading
+        await this.users.load();
         break;
       case 'settings':
-        // Settings data is loaded by individual tab functions when tabs are activated
-        console.log('Settings section loaded');
-        
-        // Ensure the first tab (general settings) is active
-        this.activateFirstTab('settings');
-        
-        // Load only the general settings tab data by default
-        await this.loadClinicSettings();
-        
-        // Initialize settings tab event listeners
-        this.initializeSettingsTabListeners();
+        await this.settings.load();
         break;
-      case 'sms-management':
-        // SMS management data is loaded by the individual functions
-        // when the tabs are activated
-        console.log('SMS management section loaded');
-        
-        // Ensure the first tab (user verification) is active
-        this.activateFirstTab('sms-management');
-        
-        // Load initial tab (user verification)
-        await this.loadUserVerification();
-        
-        // Initialize SMS tab listeners
-        this.initializeSMSTabListeners();
+      case 'schedule':
+        // Keep existing schedule functionality for now
+        console.log('Schedule section - keeping existing functionality');
         break;
     }
   }
@@ -458,78 +258,532 @@ class AdminPanel {
     await this.loadSectionData(this.currentSection);
   }
 
+  // Legacy methods for backward compatibility
   async loadDashboard() {
+    await this.dashboard.load();
+  }
+
+  async editAppointment(id) {
+    await this.appointments.edit(id);
+  }
+
+  async deleteAppointment(id) {
+    await this.appointments.delete(id);
+  }
+
+  async editUser(id) {
+    await this.users.edit(id);
+  }
+
+  async deleteUser(id) {
+    await this.users.delete(id);
+  }
+
+  handleSearch(inputId, query) {
+    if (inputId.includes('appointments')) {
+      this.appointments.currentPage = 1;
+      this.appointments.load();
+    } else if (inputId.includes('users')) {
+      this.users.currentPage = 1;
+      this.users.load();
+    }
+  }
+
+  // =================
+  // SCHEDULE MANAGEMENT
+  // =================
+
+  async loadScheduleSection() {
+    console.log('Loading comprehensive schedule section');
+    
+    // Ensure the first tab (business hours) is active
+    this.activateFirstTab('schedule');
+    
+    // Initialize the effective date picker
+    this.initializeEffectiveDatePicker();
+    
+    // Load business hours data with proper error handling
     try {
-      this.showLoading();
+      await this.loadBusinessHours();
+      console.log('Business hours loaded successfully');
+    } catch (error) {
+      console.error('Error loading business hours in schedule section:', error);
+    }
+
+    // Initialize event listeners for schedule features
+    this.initScheduleEventListeners();
+    
+    // Initialize tab-specific event listeners
+    this.initScheduleTabListeners();
+    
+    console.log('Schedule section loading complete');
+  }
+
+  initializeEffectiveDatePicker() {
+    const datePicker = document.getElementById('schedule-effective-date');
+    if (!datePicker) return;
+
+    // Set minimum date to today
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0];
+    datePicker.setAttribute('min', todayString);
+    
+    // Set default value to January 1, 2029
+    const defaultDate = currentday;
+    datePicker.value = defaultDate;
+    
+    // Add event listener for date changes
+    datePicker.addEventListener('change', () => {
+      this.updateScheduleStatus();
+    });
+    
+    // Update initial status
+    this.updateScheduleStatus();
+  }
+
+  updateScheduleStatus() {
+    const datePicker = document.getElementById('schedule-effective-date');
+    const statusBadge = document.getElementById('current-schedule-status');
+    const statusText = document.getElementById('schedule-status-text');
+    
+    if (!datePicker || !statusBadge || !statusText) return;
+
+    const selectedDate = new Date(datePicker.value);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
+
+    if (selectedDate.getTime() === today.getTime()) {
+      statusBadge.className = 'badge bg-warning';
+      statusBadge.innerHTML = '<i class="fas fa-clock me-1"></i>Cambios inmediatos';
+      statusText.textContent = 'Los cambios se aplicarán inmediatamente al guardar';
+    } else if (selectedDate > today) {
+      statusBadge.className = 'badge bg-info';
+      statusBadge.innerHTML = '<i class="fas fa-calendar-plus me-1"></i>Programado';
+      const diffDays = Math.ceil((selectedDate - today) / (1000 * 60 * 60 * 24));
+      statusText.textContent = `Los cambios se aplicarán en ${diffDays} día(s) - ${selectedDate.toLocaleDateString('es-ES')}`;
+    } else {
+      statusBadge.className = 'badge bg-danger';
+      statusBadge.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Fecha inválida';
+      statusText.textContent = 'No se puede programar para fechas pasadas';
+    }
+  }
+
+  initScheduleTabListeners() {
+    // Only initialize once to prevent duplicate listeners
+    if (this.initializedTabListeners.schedule) {
+      console.log('Schedule tab listeners already initialized');
+      return;
+    }
+    
+    // Business Hours Tab
+    const businessHoursTab = document.getElementById('business-hours-tab');
+    if (businessHoursTab) {
+      businessHoursTab.addEventListener('shown.bs.tab', async () => {
+        console.log('Business hours tab activated');
+        await this.loadBusinessHours();
+      });
+    }
+    
+    // Schedule Exceptions Tab
+    const scheduleExceptionsTab = document.getElementById('schedule-exceptions-tab');
+    if (scheduleExceptionsTab) {
+      scheduleExceptionsTab.addEventListener('shown.bs.tab', async () => {
+        console.log('Schedule exceptions tab activated');
+        
+        // Hide placeholder and show content
+        const placeholder = document.getElementById('schedule-exceptions-placeholder');
+        const content = document.getElementById('schedule-exceptions-content');
+        
+        if (placeholder) placeholder.classList.add('d-none');
+        if (content) content.classList.remove('d-none');
+        
+        // Load both holiday templates and manual exceptions
+        await Promise.all([
+          this.loadHolidayTemplates(),
+          this.loadScheduleExceptions()
+        ]);
+        
+        // Set up holiday template event listeners
+        this.setupHolidayTemplateListeners();
+      });
       
-      const response = await fetch('/api/admin/dashboard', {
+      scheduleExceptionsTab.addEventListener('hidden.bs.tab', () => {
+        console.log('Schedule exceptions tab deactivated');
+        
+        // Show placeholder and hide content
+        const placeholder = document.getElementById('schedule-exceptions-placeholder');
+        const content = document.getElementById('schedule-exceptions-content');
+        
+        if (placeholder) placeholder.classList.remove('d-none');
+        if (content) content.classList.add('d-none');
+      });
+    }
+
+    // Annual Holidays Tab
+    const annualHolidaysTab = document.getElementById('annual-holidays-tab');
+    if (annualHolidaysTab) {
+      annualHolidaysTab.addEventListener('shown.bs.tab', async () => {
+        console.log('Annual holidays tab activated');
+        
+        // Load holiday templates initially
+        await this.loadHolidayTemplates();
+        
+        // Initialize subtab listeners for annual holidays
+        this.initializeAnnualHolidaysSubtabListeners();
+      });
+    }
+
+    // Announcements Tab
+    const announcementsTab = document.getElementById('announcements-tab');
+    if (announcementsTab) {
+      announcementsTab.addEventListener('shown.bs.tab', async () => {
+        console.log('Announcements tab activated');
+        
+        // Hide placeholder and show content
+        const placeholder = document.getElementById('announcements-placeholder');
+        const content = document.getElementById('announcements-content');
+        
+        if (placeholder) placeholder.classList.add('d-none');
+        if (content) content.classList.remove('d-none');
+        
+        // Load data
+        await this.loadAnnouncements();
+      });
+      
+      announcementsTab.addEventListener('hidden.bs.tab', () => {
+        console.log('Announcements tab deactivated');
+        
+        // Show placeholder and hide content
+        const placeholder = document.getElementById('announcements-placeholder');
+        const content = document.getElementById('announcements-content');
+        
+        if (placeholder) placeholder.classList.remove('d-none');
+        if (content) content.classList.add('d-none');
+      });
+    }
+    
+    this.initializedTabListeners.schedule = true;
+    console.log('Schedule tab listeners initialized');
+  }
+
+  initializeAnnualHolidaysSubtabListeners() {
+    // Holiday Templates Subtab
+    const holidayTemplatesSubtab = document.getElementById('holiday-templates-subtab');
+    if (holidayTemplatesSubtab) {
+      holidayTemplatesSubtab.addEventListener('shown.bs.tab', async () => {
+        console.log('Holiday templates subtab activated');
+        await this.loadHolidayTemplates();
+      });
+    }
+    
+    // Yearly Closures Subtab
+    const yearlyClosuresSubtab = document.getElementById('yearly-closures-subtab');
+    if (yearlyClosuresSubtab) {
+      yearlyClosuresSubtab.addEventListener('shown.bs.tab', async () => {
+        console.log('Yearly closures subtab activated');
+        await this.loadYearlyClosures();
+      });
+    }
+    
+    // Set up event listeners for the new schedule-specific elements
+    this.initializeScheduleSpecificEventListeners();
+  }
+
+  initializeScheduleSpecificEventListeners() {
+    // Generate holidays button for schedule section
+    const generateBtnSchedule = document.getElementById('generate-holidays-btn-schedule');
+    if (generateBtnSchedule) {
+      generateBtnSchedule.addEventListener('click', () => this.generateHolidaysForYear('schedule'));
+    }
+    
+    // Add yearly closure button for schedule section
+    const addYearlyClosureBtnSchedule = document.getElementById('add-yearly-closure-btn-schedule');
+    if (addYearlyClosureBtnSchedule) {
+      addYearlyClosureBtnSchedule.addEventListener('click', () => this.addYearlyClosure('schedule'));
+    }
+    
+    // Closure type change event for schedule section
+    const closureTypeSelectSchedule = document.getElementById('closure-type-schedule');
+    if (closureTypeSelectSchedule) {
+      closureTypeSelectSchedule.addEventListener('change', (e) => {
+        const customHoursDiv = document.getElementById('custom-hours-schedule');
+        if (customHoursDiv) {
+          if (e.target.value === 'custom_hours') {
+            customHoursDiv.classList.remove('d-none');
+          } else {
+            customHoursDiv.classList.add('d-none');
+          }
+        }
+      });
+    }
+  }
+
+  initScheduleEventListeners() {
+    // Schedule Exceptions
+    document.getElementById('save-schedule-exception')?.addEventListener('click', () => this.saveScheduleException());
+    
+    // Exception type change handler
+    document.getElementById('exception-type-select')?.addEventListener('change', (e) => {
+      const endDateContainer = document.getElementById('end-date-container');
+      if (e.target.value === 'date_range') {
+        endDateContainer.style.display = 'block';
+      } else {
+        endDateContainer.style.display = 'none';
+      }
+    });
+
+    // Holiday Templates
+    document.getElementById('save-holiday-template')?.addEventListener('click', () => this.saveHolidayTemplate());
+    
+    // Closed toggle handler
+    document.getElementById('exception-is-closed')?.addEventListener('change', (e) => {
+      const customHoursSection = document.getElementById('custom-hours-section');
+      if (e.target.checked) {
+        customHoursSection.style.display = 'none';
+      } else {
+        customHoursSection.style.display = 'block';
+      }
+    });
+    
+    // Announcements
+    document.getElementById('save-announcement')?.addEventListener('click', () => this.saveAnnouncement());
+  }
+
+  // =================
+  // BUSINESS HOURS MANAGEMENT
+  // =================
+
+  async loadBusinessHours() {
+    try {
+      const response = await fetch('/api/admin/schedule/business-hours', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to load business hours');
+
+      const data = await response.json();
+      this.renderBusinessHours(data.business_hours || data);
+    } catch (error) {
+      console.error('Error loading business hours:', error);
+      this.showError('Error al cargar horarios de negocio');
+    }
+  }
+
+  renderBusinessHours(businessHours) {
+    const container = document.getElementById('business-hours-container');
+    if (!container) return;
+
+    const daysOfWeek = [
+      { key: 'Monday', label: 'Lunes' },
+      { key: 'Tuesday', label: 'Martes' },
+      { key: 'Wednesday', label: 'Miércoles' },
+      { key: 'Thursday', label: 'Jueves' },
+      { key: 'Friday', label: 'Viernes' },
+      { key: 'Saturday', label: 'Sábado' },
+      { key: 'Sunday', label: 'Domingo' }
+    ];
+
+    const businessHoursMap = {};
+    businessHours.forEach(day => {
+      businessHoursMap[day.day_of_week] = day;
+    });
+
+    container.innerHTML = daysOfWeek.map(day => {
+      const dayData = businessHoursMap[day.key] || {
+        day_of_week: day.key,
+        is_open: false,
+        open_time: '09:00',
+        close_time: '18:00',
+        break_start: '13:00',
+        break_end: '14:00'
+      };
+
+      return `
+        <div class="card mb-3" data-day="${day.key}">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">${day.label}</h6>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="is-open-${day.key}" 
+                     ${dayData.is_open ? 'checked' : ''} onchange="adminPanel.toggleDayHours('${day.key}')">
+              <label class="form-check-label" for="is-open-${day.key}">Abierto</label>
+            </div>
+          </div>
+          <div class="card-body ${!dayData.is_open ? 'd-none' : ''}" id="hours-${day.key}">
+            <div class="row">
+              <div class="col-md-3">
+                <label class="form-label small">Apertura</label>
+                <input type="time" class="form-control" id="open-${day.key}" value="${dayData.open_time || '09:00'}">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small">Cierre</label>
+                <input type="time" class="form-control" id="close-${day.key}" value="${dayData.close_time || '18:00'}">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small">Inicio almuerzo</label>
+                <input type="time" class="form-control" id="break-start-${day.key}" value="${dayData.break_start || '13:00'}">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small">Fin almuerzo</label>
+                <input type="time" class="form-control" id="break-end-${day.key}" value="${dayData.break_end || '14:00'}">
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async saveAppointmentChanges() {
+    try {
+      const id = document.getElementById('edit-appointment-id').value;
+      const data = {
+        name: document.getElementById('edit-appointment-name').value,
+        email: document.getElementById('edit-appointment-email').value,
+        phone: document.getElementById('edit-appointment-phone').value,
+        appointment_date: document.getElementById('edit-appointment-date').value,
+        appointment_time: document.getElementById('edit-appointment-time').value,
+        status: document.getElementById('edit-appointment-status').value,
+        note: document.getElementById('edit-appointment-note').value
+      };
+
+      const response = await fetch(`/api/admin/appointments/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) throw new Error('Error updating appointment');
+
+      // Close modal
+      const modal = bootstrap.Modal.getInstance(document.getElementById('editAppointmentModal'));
+      modal.hide();
+
+      // Reload data
+      await this.refreshCurrentSection();
+      this.showSuccess('Cita actualizada correctamente');
+
+    } catch (error) {
+      console.error('Error saving appointment:', error);
+      this.showError('Error guardando los cambios');
+    }
+  }
+
+  async deleteAppointment(id) {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta cita?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/appointments/${id}`, {
+        method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          this.showError('Sesión expirada. Por favor, inicie sesión nuevamente.');
-          window.location.href = '/login.html';
-          return;
+      if (!response.ok) throw new Error('Error deleting appointment');
+
+      await this.refreshCurrentSection();
+      this.showSuccess('Cita eliminada correctamente');
+
+    } catch (error) {
+      console.error('Error deleting appointment:', error);
+      this.showError('Error eliminando la cita');
+    }
+  }
+
+  async editUser(id) {
+    try {
+      const response = await fetch(`/api/admin/users/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      });
+
+      if (!response.ok) throw new Error('Error loading user');
       
       const data = await response.json();
-      
-      // Update stats cards with error handling
-      this.updateStatsCard('total-users', data.totalUsers);
-      this.updateStatsCard('total-appointments', data.totalAppointments);
-      this.updateStatsCard('today-appointments', data.todayAppointments);
-      this.updateStatsCard('pending-users', data.pendingAppointments);
-      
-      // Load recent appointments
-      this.displayRecentAppointments(data.recentAppointments || []);
-      
+      const user = data.user;
+
+      // Populate modal
+      document.getElementById('edit-user-id').value = user.id;
+      document.getElementById('edit-user-name').value = user.name;
+      document.getElementById('edit-user-email').value = user.email;
+      document.getElementById('edit-user-phone').value = user.phone || '';
+      document.getElementById('edit-user-role').value = user.role || 'user';
+
+      // Show modal
+      const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
+      modal.show();
+
     } catch (error) {
-      console.error('Error loading dashboard:', error);
-      this.showError('Error cargando el dashboard: ' + error.message);
-    } finally {
-      this.hideLoading();
+      console.error('Error loading user:', error);
+      this.showError('Error cargando el usuario');
     }
   }
 
-  updateStatsCard(elementId, value) {
-    const element = document.getElementById(elementId);
-    if (element) {
-      element.textContent = value || 0;
+  async saveUserChanges() {
+    try {
+      const id = document.getElementById('edit-user-id').value;
+      const data = {
+        name: document.getElementById('edit-user-name').value,
+        email: document.getElementById('edit-user-email').value,
+        phone: document.getElementById('edit-user-phone').value,
+        role: document.getElementById('edit-user-role').value
+      };
+
+      const response = await fetch(`/api/admin/users/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) throw new Error('Error updating user');
+
+      // Close modal
+      const modal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
+      modal.hide();
+
+      // Reload data
+      await this.refreshCurrentSection();
+      this.showSuccess('Usuario actualizado correctamente');
+
+    } catch (error) {
+      console.error('Error saving user:', error);
+      this.showError('Error guardando los cambios');
     }
   }
 
-  displayRecentAppointments(appointments) {
-    const tbody = document.getElementById('recent-appointments');
-    
-    if (appointments.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay citas recientes</td></tr>';
-      return;
-    }
+  async deleteUser(id) {
+    if (!confirm('¿Estás seguro de que quieres eliminar este usuario?')) return;
 
-    tbody.innerHTML = appointments.map(apt => {
-      const statusClass = this.getStatusBadgeClass(apt.status);
-      const statusText = this.getStatusText(apt.status);
-      
-      return `
-        <tr>
-          <td>${this.formatDate(apt.appointment_date)}</td>
-          <td>${this.formatTime(apt.appointment_time)}</td>
-          <td>${apt.name}</td>
-          <td><span class="badge ${statusClass}">${statusText}</span></td>
-          <td>
-            <button class="btn btn-sm btn-outline-primary" onclick="adminPanel.editAppointment(${apt.id})">
-              <i class="fas fa-edit"></i>
-            </button>
-          </td>
-        </tr>
-      `;
-    }).join('');
+    try {
+      const response = await fetch(`/api/admin/users/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error deleting user');
+
+      await this.refreshCurrentSection();
+      this.showSuccess('Usuario eliminado correctamente');
+
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      this.showError('Error eliminando el usuario');
+    }
   }
+
+  // =================
+  // APPOINTMENT MANAGEMENT
+  // =================
 
   async loadAppointments() {
     try {
@@ -578,64 +832,6 @@ class AdminPanel {
       this.showError('Error cargando las citas');
     } finally {
       this.hideLoading();
-    }
-  }
-
-  async navigateToScheduleTab(tabName) {
-    console.log('navigateToScheduleTab called with:', tabName);
-    try {
-      // First switch to schedule section
-      console.log('Switching to schedule section...');
-      await this.switchSection('schedule');
-      
-      // Then activate the specific tab
-      const tabButton = document.getElementById(`${tabName}-tab`);
-      const tabContent = document.getElementById(`${tabName}`);
-      
-      console.log('Tab button:', tabButton);
-      console.log('Tab content:', tabContent);
-      
-      if (tabButton && tabContent) {
-        // Remove active from all tabs
-        document.querySelectorAll('#schedule-tabs .nav-link').forEach(tab => {
-          tab.classList.remove('active');
-        });
-        document.querySelectorAll('#schedule-tab-content .tab-pane').forEach(pane => {
-          pane.classList.remove('show', 'active');
-        });
-        
-        // Activate target tab
-        tabButton.classList.add('active');
-        tabContent.classList.add('show', 'active');
-        
-        console.log('Tab activated, loading data...');
-        // Load specific data for the tab
-        await this.loadScheduleTabData(tabName);
-      } else {
-        console.error('Tab elements not found:', { tabButton, tabContent });
-      }
-    } catch (error) {
-      console.error('Error in navigateToScheduleTab:', error);
-    }
-  }
-
-  async loadScheduleTabData(tabName) {
-    switch (tabName) {
-      case 'business-days':
-        await this.loadBusinessDayExceptions();
-        break;
-      case 'weekly-hours':
-        await this.loadBusinessHours();
-        // Initialize temporary hours functionality
-        this.initTemporaryHoursToggle();
-        break;
-      case 'week-appointments':
-        await this.loadWeekExceptions();
-        await this.initWeekSelector();
-        break;
-      case 'pending-appointments':
-        await this.loadPendingAppointmentsManagement();
-        break;
     }
   }
 
@@ -1519,526 +1715,330 @@ class AdminPanel {
     }
   }
 
-  async saveBusinessHours() {
+  async loadDashboard() {
     try {
       this.showLoading();
-      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-      const businessHours = [];
-
-      days.forEach(day => {
-        const checkbox = document.getElementById(`is-open-${day}`);
-        const startTime = document.getElementById(`open-${day}`);
-        const endTime = document.getElementById(`close-${day}`);
-        const breakStart = document.getElementById(`break-start-${day}`);
-        const breakEnd = document.getElementById(`break-end-${day}`);
-
-        if (!checkbox || !startTime || !endTime || !breakStart || !breakEnd) {
-          console.error(`Missing elements for day: ${day}`);
-          return;
-        }
-
-        const isOpen = checkbox.checked;
-        const openTime = startTime.value;
-        const closeTime = endTime.value;
-        const breakStartTime = breakStart.value;
-        const breakEndTime = breakEnd.value;
-
-        console.log(`Saving ${day}: open=${isOpen}, times=${openTime}-${closeTime}, break=${breakStartTime}-${breakEndTime}`);
-
-        businessHours.push({
-          day_of_week: day,
-          is_open: isOpen,
-          open_time: isOpen ? openTime : null,
-          close_time: isOpen ? closeTime : null,
-          break_start: isOpen && breakStartTime ? breakStartTime : null,
-          break_end: isOpen && breakEndTime ? breakEndTime : null
-        });
-      });
-
-      console.log('Sending business hours data:', businessHours);
-
-      const response = await fetch('/api/admin/business-hours', {
-        method: 'PUT',
+      
+      const response = await fetch('/api/admin/dashboard', {
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.getAuthToken()}`
-        },
-        body: JSON.stringify({ businessHours })
+        }
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error saving business hours: ${errorText}`);
+        if (response.status === 401) {
+          this.showError('Sesión expirada. Por favor, inicie sesión nuevamente.');
+          window.location.href = '/login.html';
+          return;
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-
-      this.showSuccess('Horarios guardados correctamente');
-      // Reload to reflect changes
-      await this.loadBusinessHours();
-
+      
+      const data = await response.json();
+      
+      // Update stats cards with error handling
+      this.updateStatsCard('total-users', data.totalUsers);
+      this.updateStatsCard('total-appointments', data.totalAppointments);
+      this.updateStatsCard('today-appointments', data.todayAppointments);
+      this.updateStatsCard('pending-users', data.pendingAppointments);
+      
+      // Load recent appointments
+      this.displayRecentAppointments(data.recentAppointments || []);
+      
     } catch (error) {
-      console.error('Error saving business hours:', error);
-      this.showError('Error guardando los horarios: ' + error.message);
+      console.error('Error loading dashboard:', error);
+      this.showError('Error cargando el dashboard: ' + error.message);
     } finally {
       this.hideLoading();
     }
   }
 
-  async saveClinicSettings() {
-    try {
-      const settings = [
-        // General clinic settings
-        { key: 'clinic_name', value: document.getElementById('clinic_name').value },
-        { key: 'clinic_phone', value: document.getElementById('clinic_phone').value },
-        { key: 'clinic_address', value: document.getElementById('clinic_address').value },
-        { key: 'clinic_email', value: document.getElementById('clinic_email').value },
-        
-        // Appointment settings
-        { key: 'appointment_duration', value: document.getElementById('appointment_duration').value },
-        { key: 'advance_booking_days', value: document.getElementById('advance_booking_days').value },
-        { key: 'auto_confirm_appointments', value: document.getElementById('auto_confirm_appointments').checked },
-        
-        // Main notification toggles
-        { key: 'email_notifications', value: document.getElementById('email_notifications').checked },
-        { key: 'sms_notifications', value: document.getElementById('sms_notifications').checked },
-        
-        // Email notification options
-        { key: 'email_appointment_confirmation', value: document.getElementById('email_appointment_confirmation')?.checked || false },
-        { key: 'email_appointment_reminder', value: document.getElementById('email_appointment_reminder')?.checked || false },
-        { key: 'email_appointment_changes', value: document.getElementById('email_appointment_changes')?.checked || false },
-        
-        // SMS notification options
-        { key: 'sms_appointment_confirmation', value: document.getElementById('sms_appointment_confirmation')?.checked || false },
-        { key: 'sms_appointment_reminder', value: document.getElementById('sms_appointment_reminder')?.checked || false },
-        { key: 'sms_appointment_changes', value: document.getElementById('sms_appointment_changes')?.checked || false },
-        
-        // Timing and schedule settings
-        { key: 'reminder_hours_before', value: document.getElementById('reminder_hours_before')?.value || '24' },
-        { key: 'business_hours_only', value: document.getElementById('business_hours_only')?.checked || false }
-      ];
-
-      const response = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getAuthToken()}`
-        },
-        body: JSON.stringify({ settings })
-      });
-
-      if (!response.ok) throw new Error('Error saving settings');
-
-      this.showSuccess('Configuración de notificaciones guardada correctamente');
-
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      this.showError('Error guardando la configuración');
+  updateStatsCard(elementId, value) {
+    const element = document.getElementById(elementId);
+    if (element) {
+      element.textContent = value || 0;
     }
   }
 
-  // Utility Functions
-  handleSearch(inputId, query) {
-    this.currentPage = 1;
+  displayRecentAppointments(appointments) {
+    const tbody = document.getElementById('recent-appointments');
     
-    if (inputId.includes('appointments')) {
-      this.loadAppointments();
-    } else if (inputId.includes('users')) {
-      this.loadUsers();
-    }
-  }
-
-  updatePagination(section, pagination) {
-    const paginationContainer = document.getElementById(`${section}-pagination`);
-    
-    if (!pagination || pagination.totalPages <= 1) {
-      paginationContainer.innerHTML = '';
+    if (appointments.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay citas recientes</td></tr>';
       return;
     }
 
-    let paginationHTML = '';
-    
-    // Previous button
-    if (pagination.currentPage > 1) {
-      paginationHTML += `
-        <li class="page-item">
-          <a class="page-link" href="#" onclick="adminPanel.goToPage('${section}', ${pagination.currentPage - 1})">
-            <i class="fas fa-chevron-left"></i>
-          </a>
-        </li>
+    tbody.innerHTML = appointments.map(apt => {
+      const statusClass = this.getStatusBadgeClass(apt.status);
+      const statusText = this.getStatusText(apt.status);
+      
+      return `
+        <tr>
+          <td>${this.formatDate(apt.appointment_date)}</td>
+          <td>${this.formatTime(apt.appointment_time)}</td>
+          <td>${apt.name}</td>
+          <td><span class="badge ${statusClass}">${statusText}</span></td>
+          <td>
+            <button class="btn btn-sm btn-outline-primary" onclick="adminPanel.editAppointment(${apt.id})">
+              <i class="fas fa-edit"></i>
+            </button>
+          </td>
+        </tr>
       `;
-    }
-
-    // Page numbers
-    for (let i = Math.max(1, pagination.currentPage - 2); 
-         i <= Math.min(pagination.totalPages, pagination.currentPage + 2); 
-         i++) {
-      paginationHTML += `
-        <li class="page-item ${i === pagination.currentPage ? 'active' : ''}">
-          <a class="page-link" href="#" onclick="adminPanel.goToPage('${section}', ${i})">${i}</a>
-        </li>
-      `;
-    }
-
-    // Next button
-    if (pagination.currentPage < pagination.totalPages) {
-      paginationHTML += `
-        <li class="page-item">
-          <a class="page-link" href="#" onclick="adminPanel.goToPage('${section}', ${pagination.currentPage + 1})">
-            <i class="fas fa-chevron-right"></i>
-          </a>
-        </li>
-      `;
-    }
-
-    paginationContainer.innerHTML = paginationHTML;
+    }).join('');
   }
 
-  goToPage(section, page) {
-    this.currentPage = page;
-    
-    if (section === 'appointments') {
-      this.loadAppointments();
-    } else if (section === 'users') {
-      this.loadUsers();
-    }
-  }
-
-  formatDate(dateString) {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
-  }
-
-  formatTime(timeString) {
-    if (!timeString) return '-';
-    const [hours, minutes] = timeString.split(':').map(Number);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const hours12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
-  }
-
-  getStatusText(status) {
-    const statusMap = {
-      pending: 'Pendiente',
-      confirmed: 'Confirmada',
-      completed: 'Completada',
-      cancelled: 'Cancelada'
-    };
-    return statusMap[status] || status;
-  }
-
-  getStatusBadgeClass(status) {
-    const statusClasses = {
-      pending: 'bg-warning text-dark',
-      confirmed: 'bg-success',
-      completed: 'bg-primary',
-      cancelled: 'bg-danger'
-    };
-    return statusClasses[status] || 'bg-secondary';
-  }
-
-  showLoading() {
-    this.isLoading = true;
-    document.body.classList.add('loading');
-  }
-
-  hideLoading() {
-    this.isLoading = false;
-    document.body.classList.remove('loading');
-  }
-
-  showSuccess(message) {
-    this.showAlert(message, 'success');
-  }
-
-  showError(message) {
-    this.showAlert(message, 'danger');
-  }
-
-  showAlert(message, type) {
-    // Remove existing alerts
-    document.querySelectorAll('.alert').forEach(alert => alert.remove());
-
-    const alertHTML = `
-      <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    `;
-
-    const mainContent = document.querySelector('main');
-    mainContent.insertAdjacentHTML('afterbegin', alertHTML);
-
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-      const alert = document.querySelector('.alert');
-      if (alert) {
-        alert.remove();
+  async loadAppointments() {
+    try {
+      this.showLoading();
+      
+      // Reset header to default if no filter is active
+      if (!this.currentFilter) {
+        const cardTitle = document.querySelector('#appointments-section .card-header h5');
+        if (cardTitle) {
+          cardTitle.innerHTML = `<i class="fas fa-calendar-check me-2"></i>Gestión de Citas`;
+        }
       }
-    }, 5000);
-  }
-
-  // =================
-  // ENHANCED SCHEDULE MANAGEMENT
-  // =================
-
-  async loadScheduleSection() {
-    console.log('Loading comprehensive schedule section');
-    
-    // Ensure the first tab (business hours) is active
-    this.activateFirstTab('schedule');
-    
-    // Initialize the effective date picker
-    this.initializeEffectiveDatePicker();
-    
-    // Load business hours data with proper error handling
-    try {
-      await this.loadBusinessHours();
-      console.log('Business hours loaded successfully');
-    } catch (error) {
-      console.error('Error loading business hours in schedule section:', error);
-    }
-
-    // Initialize event listeners for schedule features
-    this.initScheduleEventListeners();
-    
-    // Initialize tab-specific event listeners
-    this.initScheduleTabListeners();
-    
-    console.log('Schedule section loading complete');
-  }
-
-  initializeEffectiveDatePicker() {
-    const datePicker = document.getElementById('schedule-effective-date');
-    if (!datePicker) return;
-
-    // Set minimum date to today
-    const today = new Date();
-    const todayString = today.toISOString().split('T')[0];
-    datePicker.setAttribute('min', todayString);
-    
-    // Set default value to January 1, 2029
-    const defaultDate = '2029-01-01';
-    datePicker.value = defaultDate;
-    
-    // Add event listener for date changes
-    datePicker.addEventListener('change', () => {
-      this.updateScheduleStatus();
-    });
-    
-    // Update initial status
-    this.updateScheduleStatus();
-  }
-
-  updateScheduleStatus() {
-    const datePicker = document.getElementById('schedule-effective-date');
-    const statusBadge = document.getElementById('current-schedule-status');
-    const statusText = document.getElementById('schedule-status-text');
-    
-    if (!datePicker || !statusBadge || !statusText) return;
-
-    const selectedDate = new Date(datePicker.value);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    selectedDate.setHours(0, 0, 0, 0);
-
-    if (selectedDate.getTime() === today.getTime()) {
-      statusBadge.className = 'badge bg-warning';
-      statusBadge.innerHTML = '<i class="fas fa-clock me-1"></i>Cambios inmediatos';
-      statusText.textContent = 'Los cambios se aplicarán inmediatamente al guardar';
-    } else if (selectedDate > today) {
-      statusBadge.className = 'badge bg-info';
-      statusBadge.innerHTML = '<i class="fas fa-calendar-plus me-1"></i>Programado';
-      const diffDays = Math.ceil((selectedDate - today) / (1000 * 60 * 60 * 24));
-      statusText.textContent = `Los cambios se aplicarán en ${diffDays} día(s) - ${selectedDate.toLocaleDateString('es-ES')}`;
-    } else {
-      statusBadge.className = 'badge bg-danger';
-      statusBadge.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Fecha inválida';
-      statusText.textContent = 'No se puede programar para fechas pasadas';
-    }
-  }
-
-  initScheduleTabListeners() {
-    // Only initialize once to prevent duplicate listeners
-    if (this.initializedTabListeners.schedule) {
-      console.log('Schedule tab listeners already initialized');
-      return;
-    }
-    
-    // Business Hours Tab
-    const businessHoursTab = document.getElementById('business-hours-tab');
-    if (businessHoursTab) {
-      businessHoursTab.addEventListener('shown.bs.tab', async () => {
-        console.log('Business hours tab activated');
-        await this.loadBusinessHours();
-      });
-    }
-    
-    // Schedule Exceptions Tab
-    const scheduleExceptionsTab = document.getElementById('schedule-exceptions-tab');
-    if (scheduleExceptionsTab) {
-      scheduleExceptionsTab.addEventListener('shown.bs.tab', async () => {
-        console.log('Schedule exceptions tab activated');
-        
-        // Hide placeholder and show content
-        const placeholder = document.getElementById('schedule-exceptions-placeholder');
-        const content = document.getElementById('schedule-exceptions-content');
-        
-        if (placeholder) placeholder.classList.add('d-none');
-        if (content) content.classList.remove('d-none');
-        
-        // Load both holiday templates and manual exceptions
-        await Promise.all([
-          this.loadHolidayTemplates(),
-          this.loadScheduleExceptions()
-        ]);
-        
-        // Set up holiday template event listeners
-        this.setupHolidayTemplateListeners();
-      });
       
-      scheduleExceptionsTab.addEventListener('hidden.bs.tab', () => {
-        console.log('Schedule exceptions tab deactivated');
-        
-        // Show placeholder and hide content
-        const placeholder = document.getElementById('schedule-exceptions-placeholder');
-        const content = document.getElementById('schedule-exceptions-content');
-        
-        if (placeholder) placeholder.classList.remove('d-none');
-        if (content) content.classList.add('d-none');
+      const params = new URLSearchParams({
+        page: this.currentPage,
+        limit: this.itemsPerPage
       });
-    }
 
-    // Annual Holidays Tab
-    const annualHolidaysTab = document.getElementById('annual-holidays-tab');
-    if (annualHolidaysTab) {
-      annualHolidaysTab.addEventListener('shown.bs.tab', async () => {
-        console.log('Annual holidays tab activated');
-        
-        // Load holiday templates initially
-        await this.loadHolidayTemplates();
-        
-        // Initialize subtab listeners for annual holidays
-        this.initializeAnnualHolidaysSubtabListeners();
-      });
-    }
+      // Add filters
+      const search = document.getElementById('appointments-search')?.value;
+      const status = document.getElementById('appointments-status-filter')?.value;
+      const date = document.getElementById('appointments-date-filter')?.value;
 
-    // Announcements Tab
-    const announcementsTab = document.getElementById('announcements-tab');
-    if (announcementsTab) {
-      announcementsTab.addEventListener('shown.bs.tab', async () => {
-        console.log('Announcements tab activated');
-        
-        // Hide placeholder and show content
-        const placeholder = document.getElementById('announcements-placeholder');
-        const content = document.getElementById('announcements-content');
-        
-        if (placeholder) placeholder.classList.add('d-none');
-        if (content) content.classList.remove('d-none');
-        
-        // Load data
-        await this.loadAnnouncements();
-      });
-      
-      announcementsTab.addEventListener('hidden.bs.tab', () => {
-        console.log('Announcements tab deactivated');
-        
-        // Show placeholder and hide content
-        const placeholder = document.getElementById('announcements-placeholder');
-        const content = document.getElementById('announcements-content');
-        
-        if (placeholder) placeholder.classList.remove('d-none');
-        if (content) content.classList.add('d-none');
-      });
-    }
-    
-    this.initializedTabListeners.schedule = true;
-    console.log('Schedule tab listeners initialized');
-  }
+      if (search) params.append('search', search);
+      if (status) params.append('status', status);
+      if (date) params.append('date', date);
 
-  initializeAnnualHolidaysSubtabListeners() {
-    // Holiday Templates Subtab
-    const holidayTemplatesSubtab = document.getElementById('holiday-templates-subtab');
-    if (holidayTemplatesSubtab) {
-      holidayTemplatesSubtab.addEventListener('shown.bs.tab', async () => {
-        console.log('Holiday templates subtab activated');
-        await this.loadHolidayTemplates();
-      });
-    }
-    
-    // Yearly Closures Subtab
-    const yearlyClosuresSubtab = document.getElementById('yearly-closures-subtab');
-    if (yearlyClosuresSubtab) {
-      yearlyClosuresSubtab.addEventListener('shown.bs.tab', async () => {
-        console.log('Yearly closures subtab activated');
-        await this.loadYearlyClosures();
-      });
-    }
-    
-    // Set up event listeners for the new schedule-specific elements
-    this.initializeScheduleSpecificEventListeners();
-  }
-
-  initializeScheduleSpecificEventListeners() {
-    // Generate holidays button for schedule section
-    const generateBtnSchedule = document.getElementById('generate-holidays-btn-schedule');
-    if (generateBtnSchedule) {
-      generateBtnSchedule.addEventListener('click', () => this.generateHolidaysForYear('schedule'));
-    }
-    
-    // Add yearly closure button for schedule section
-    const addYearlyClosureBtnSchedule = document.getElementById('add-yearly-closure-btn-schedule');
-    if (addYearlyClosureBtnSchedule) {
-      addYearlyClosureBtnSchedule.addEventListener('click', () => this.addYearlyClosure('schedule'));
-    }
-    
-    // Closure type change event for schedule section
-    const closureTypeSelectSchedule = document.getElementById('closure-type-schedule');
-    if (closureTypeSelectSchedule) {
-      closureTypeSelectSchedule.addEventListener('change', (e) => {
-        const customHoursDiv = document.getElementById('custom-hours-schedule');
-        if (customHoursDiv) {
-          if (e.target.value === 'custom_hours') {
-            customHoursDiv.classList.remove('d-none');
-          } else {
-            customHoursDiv.classList.add('d-none');
-          }
+      const response = await fetch(`/api/admin/appointments?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
+
+      if (!response.ok) throw new Error('Error loading appointments');
+      
+      const data = await response.json();
+      
+      this.displayAppointments(data.appointments);
+      this.updatePagination('appointments', data.pagination);
+      
+      // Clear the current filter after normal load
+      this.currentFilter = null;
+      
+    } catch (error) {
+      console.error('Error loading appointments:', error);
+      this.showError('Error cargando las citas');
+    } finally {
+      this.hideLoading();
     }
   }
 
-  initScheduleEventListeners() {
-    // Schedule Exceptions
-    document.getElementById('save-schedule-exception')?.addEventListener('click', () => this.saveScheduleException());
+  displayAppointments(appointments) {
+    const tbody = document.getElementById('appointments-table');
     
-    // Exception type change handler
-    document.getElementById('exception-type-select')?.addEventListener('change', (e) => {
-      const endDateContainer = document.getElementById('end-date-container');
-      if (e.target.value === 'date_range') {
-        endDateContainer.style.display = 'block';
-      } else {
-        endDateContainer.style.display = 'none';
-      }
-    });
+    if (appointments.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="empty-state">
+            <i class="fas fa-calendar-times"></i>
+            <h5>No hay citas</h5>
+            <p>No se encontraron citas que coincidan con los criterios de búsqueda.</p>
+          </td>
+        </tr>
+      `;
+      return;
+    }
 
-    // Holiday Templates
-    document.getElementById('save-holiday-template')?.addEventListener('click', () => this.saveHolidayTemplate());
+    tbody.innerHTML = appointments.map(apt => `
+      <tr>
+        <td>${apt.id}</td>
+        <td>${this.formatDate(apt.appointment_date)}</td>
+        <td>${this.formatTime(apt.appointment_time)}</td>
+        <td>${apt.name}</td>
+        <td>
+          ${apt.email ? `<div>${apt.email}</div>` : ''}
+          ${apt.phone ? `<div class="text-muted">${apt.phone}</div>` : ''}
+        </td>
+        <td><span class="badge bg-${apt.status}">${this.getStatusText(apt.status)}</span></td>
+        <td>
+          <div class="action-buttons">
+            <button class="btn btn-outline-primary btn-sm" onclick="adminPanel.editAppointment(${apt.id})" title="Editar">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteAppointment(${apt.id})" title="Eliminar">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  async loadUsers() {
+    try {
+      this.showLoading();
+      
+      const params = new URLSearchParams({
+        page: this.currentPage,
+        limit: this.itemsPerPage
+      });
+
+      const search = document.getElementById('users-search')?.value;
+      if (search) params.append('search', search);
+
+      const roleFilter = document.getElementById('users-role-filter')?.value;
+      if (roleFilter) params.append('role', roleFilter);
+
+      const response = await fetch(`/api/admin/users?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error loading users');
+      
+      const data = await response.json();
+      
+      this.displayUsers(data.users);
+      this.updatePagination('users', data.pagination);
+      this.updateUsersCount(data.pagination.total_records);
+      
+    } catch (error) {
+      console.error('Error loading users:', error);
+      this.showError('Error cargando los usuarios');
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  displayUsers(users) {
+    const tbody = document.getElementById('users-table');
     
-    // Closed toggle handler
-    document.getElementById('exception-is-closed')?.addEventListener('change', (e) => {
-      const customHoursSection = document.getElementById('custom-hours-section');
-      if (e.target.checked) {
-        customHoursSection.style.display = 'none';
+    if (users.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="empty-state">
+            <i class="fas fa-users"></i>
+            <h5>No hay usuarios</h5>
+            <p>No se encontraron usuarios que coincidan con los criterios de búsqueda.</p>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = users.map(user => `
+      <tr>
+        <td>${user.id}</td>
+        <td>${user.name}</td>
+        <td>${user.email}</td>
+        <td>${user.phone || '-'}</td>
+        <td>
+          <span class="badge ${user.role === 'admin' ? 'bg-danger' : 'bg-primary'}">
+            ${user.role === 'admin' ? 'Administrador' : 'Usuario'}
+          </span>
+          ${user.provider === 'google' ? '<small class="d-block text-muted">Google</small>' : '<small class="d-block text-muted">Local</small>'}
+        </td>
+        <td>${this.formatDate(user.created_at)}</td>
+        <td>
+          <div class="action-buttons">
+            <button class="btn btn-outline-primary btn-sm" onclick="adminPanel.editUser(${user.id})" title="Editar">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteUser(${user.id})" title="Eliminar">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  updateUsersCount(count) {
+    const countElement = document.getElementById('users-total-count');
+    if (countElement) {
+      countElement.textContent = `Total: ${count} usuarios`;
+    }
+  }
+
+  showAddUserModal() {
+    // For now, show a simple alert. You can implement a proper modal later
+    alert('Funcionalidad de agregar usuario - pendiente de implementar');
+  }
+
+  clearUsersFilters() {
+    // Clear search input
+    const searchInput = document.getElementById('users-search');
+    if (searchInput) searchInput.value = '';
+
+    // Clear role filter
+    const roleFilter = document.getElementById('users-role-filter');
+    if (roleFilter) roleFilter.value = '';
+
+    // Reset to first page and reload
+    this.currentPage = 1;
+    this.loadUsers();
+  }
+
+  async loadBusinessHours() {
+    try {
+      this.showLoading();
+      console.log('Loading business hours...');
+      
+      const response = await fetch('/api/admin/business-hours', {
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error loading business hours');
+      
+      const data = await response.json();
+      console.log('Business hours data loaded:', data);
+      
+      // Ensure we have the businessHours array
+      if (data && data.businessHours) {
+        this.displayBusinessHours(data.businessHours);
       } else {
-        customHoursSection.style.display = 'block';
+        console.error('Invalid business hours data format:', data);
+        this.showError('Formato de datos inválido');
       }
-    });
-    
-    // Announcements
+      
+    } catch (error) {
+      console.error('Error loading business hours:', error);
+      this.showError('Error cargando los horarios');
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+  displayBusinessHours(businessHours) {
+    const container = document.getElementById('business-hours-container');
+    if (!container) {
+      console.error('Business hours container not found');
+      return;
+    }
+
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+    // Get the current week's dates
+    const today = new Date();
+    const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const mondayOffset = currentDay === 0 ? 6 : currentDay - 1; // Calculate offset to get to Monday
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - mondayOffset);
+
+    console.log('Displaying business hours for days:', days);
+    console.log('Business hours data:', businessHours);
+
+    container.innerHTML = days.map((day, index) => {
+      const hours = businessHours.find(bh => bh.day_of_week === day) || {};
     document.getElementById('save-announcement')?.addEventListener('click', () => this.saveAnnouncement());
   }
 
