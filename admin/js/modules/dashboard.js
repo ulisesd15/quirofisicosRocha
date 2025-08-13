@@ -63,12 +63,19 @@ export class DashboardModule {
     tbody.innerHTML = appointments.map(apt => {
       const statusClass = this.getStatusBadgeClass?.(apt.status) || '';
       const statusText = this.getStatusText?.(apt.status) || apt.status;
+      let textColor = '';
+      switch (apt.status) {
+        case 'pending': textColor = 'text-warning'; break;
+        case 'confirmed': textColor = 'text-success'; break;
+        case 'cancelled': textColor = 'text-danger'; break;
+        default: textColor = 'text-secondary';
+      }
       return `
         <tr>
           <td>${apt.appointment_date}</td>
           <td>${apt.appointment_time}</td>
           <td>${apt.name}</td>
-          <td><span class="badge ${statusClass}">${statusText}</span></td>
+          <td><span class="badge ${statusClass} ${textColor}">${statusText}</span></td>
           <td>
             <button class="btn btn-sm btn-outline-primary" onclick="adminPanel.editAppointment(${apt.id})">
               <i class="fas fa-edit"></i>

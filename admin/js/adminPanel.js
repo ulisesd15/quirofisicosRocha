@@ -1,4 +1,11 @@
 
+import { DashboardModule } from './modules/dashboard.js';
+import { AppointmentsModule } from './modules/appointments.js';
+import { UsersModule } from './modules/users.js';
+import { ScheduleModule } from './modules/schedule.js';
+import { SettingsModule } from './modules/settings.js';
+import { UserVerificationModule } from './modules/userVerification.js';
+import { ServerStatusModule } from './modules/serverStatus.js';
 
 
 class AdminPanel {
@@ -13,25 +20,64 @@ class AdminPanel {
     this.initEventListeners();
   }
 
+
   initEventListeners() {
     // Navigation/tab switching logic here
-    const tabLinks = document.querySelectorAll('.nav-link[data-tab]');
+    const tabLinks = document.querySelectorAll('.nav-link[data-section]');
     tabLinks.forEach(link => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
-        const tab = link.getAttribute('data-tab');
-        this.showTab(tab);
+        const section = link.getAttribute('data-section');
+        this.showSection(section);
       });
     });
+    // Show dashboard by default
+    this.showSection('dashboard');
   }
 
-  showTab(tab) {
-    // Instantiate and expose globally if needed
-    window.adminPanel = new AdminPanel();
-    console.log('SMS tab listeners initialized');
-    
-    // Initialize button event listeners
-    this.initializeSMSEventListeners();
+  showSection(section) {
+    // Hide all sections
+    const allSections = document.querySelectorAll('.admin-section');
+    allSections.forEach(sec => sec.classList.add('d-none'));
+
+    // Show the selected section
+    const target = document.getElementById(`${section}-section`);
+    if (target) {
+      target.classList.remove('d-none');
+      // Optionally update page title
+      const pageTitle = document.getElementById('page-title');
+      if (pageTitle) {
+        pageTitle.textContent = target.getAttribute('data-title') || target.querySelector('h2,h3,h1')?.textContent || section;
+      }
+    }
+
+    // Update sidebar active tab
+    const tabLinks = document.querySelectorAll('.nav-link[data-section]');
+    tabLinks.forEach(link => {
+      if (link.getAttribute('data-section') === section) {
+        link.classList.add('active');
+      } else {
+        link.classList.remove('active');
+      }
+    });
+
+    // Optionally, call module-specific load logic
+    switch (section) {
+      case 'dashboard':
+        this.dashboard.load?.(); break;
+      case 'appointments':
+        this.appointments.loadAppointments?.(); break;
+      case 'users':
+        this.users.load?.(); break;
+      case 'schedule':
+        this.schedule.loadScheduleSection?.(); break;
+      case 'settings':
+        this.settings.loadClinicSettings?.(); break;
+      case 'sms-management':
+        this.userVerification.load?.(); break;
+      case 'server-status':
+        this.serverStatus.load?.(); break;
+    }
   }
 
   initializeSMSEventListeners() {

@@ -1,17 +1,28 @@
 // admin/js/modules/serverStatus.js
 export class ServerStatusModule {
-  constructor() {
-    // Future: initialize state, listeners, etc.
+  constructor() {}
+
+  
+
+ async checkServerStatus() {
+    try {
+      const response = await fetch('/api/server/status');
+      if (!response.ok) throw new Error('Failed to fetch server status');
+
+      const status = await response.json();
+      this.renderServerStatus(status);
+    } catch (error) {
+      console.error('Error checking server status:', error);
+    }
   }
 
-  // Future: implement methods like checkServerStatus, getServerStatus, updateServerStatus, renderServerStatus, etc.
-  // Example placeholder methods:
+  renderServerStatus(status) {
+    if (!this.statusElement) return;
 
-  // async checkServerStatus() {
-  //   // TODO: implement server health check
-  // }
-
-  // renderServerStatus(status) {
-  //   // TODO: update UI with server status
-  // }
+    this.statusElement.innerHTML = `
+      <div class="alert alert-${status.is_healthy ? 'success' : 'danger'}">
+        <strong>Server Status:</strong> ${status.is_healthy ? 'Online' : 'Offline'}
+      </div>
+    `;
+  }
 }

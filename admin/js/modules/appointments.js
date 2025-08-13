@@ -1,7 +1,54 @@
 // admin/js/modules/appointments.js
 export class AppointmentsModule {
-  constructor() {
+  updatePagination(section, pagination) {
+    // No-op fallback. Implement pagination UI here if needed.
+  }
+  formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    return d.toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
 
+  formatTime(timeStr) {
+    if (!timeStr) return '';
+    // If timeStr is already in HH:mm, return as is
+    if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
+    // Otherwise, try to parse
+    const d = new Date(`1970-01-01T${timeStr}`);
+    if (isNaN(d)) return timeStr;
+    return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  getStatusText(status) {
+    switch (status) {
+      case 'pending': return 'Pendiente';
+      case 'confirmed': return 'Confirmada';
+      case 'cancelled': return 'Cancelada';
+      default: return status;
+    }
+  }
+  getAuthToken() {
+    return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+  }
+
+  showError(message) {
+    // Simple fallback: show error in a visible div, alert, or console
+    alert(message);
+  }
+  constructor() {
+    // Optionally, you can pass a loading element or selector
+  }
+
+  showLoading() {
+    // Simple fallback: show a spinner if present, or do nothing
+    const spinner = document.getElementById('appointments-loading-spinner');
+    if (spinner) spinner.style.display = 'block';
+  }
+
+  hideLoading() {
+    const spinner = document.getElementById('appointments-loading-spinner');
+    if (spinner) spinner.style.display = 'none';
   }
   // Add citas/appointments logic here
 

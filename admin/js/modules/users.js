@@ -1,5 +1,32 @@
 // admin/js/modules/users.js
 export class UsersModule {
+  getAuthToken() {
+    return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+  }
+
+  showError(message) {
+    alert(message);
+  }
+
+  showLoading() {
+    const spinner = document.getElementById('users-loading-spinner');
+    if (spinner) spinner.style.display = 'block';
+  }
+
+  hideLoading() {
+    const spinner = document.getElementById('users-loading-spinner');
+    if (spinner) spinner.style.display = 'none';
+  }
+
+  updatePagination(section, pagination) {
+    // No-op fallback. Implement pagination UI here if needed.
+  }
+
+  updateUsersCount(count) {
+    // Simple fallback: update a counter element if present
+    const counter = document.getElementById('users-count');
+    if (counter) counter.textContent = count;
+  }
   constructor() {}
   // Add usuarios/users logic here
   
