@@ -22,6 +22,7 @@ CREATE TABLE users (
   password VARCHAR(255),
   auth_provider VARCHAR(50) DEFAULT 'local',
   google_id VARCHAR(255),
+  is_verified TINYINT(1) DEFAULT 0,
   role ENUM('user', 'admin') DEFAULT 'user',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -99,4 +100,21 @@ CREATE TABLE scheduled_business_hours (
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE announcements (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  announcement_type VARCHAR(50) DEFAULT 'info',
+  priority VARCHAR(50) DEFAULT 'normal',
+  start_date DATE NOT NULL,
+  end_date DATE,
+  show_on_homepage TINYINT(1) DEFAULT 1,
+  show_on_booking TINYINT(1) DEFAULT 0,
+  created_by INT,
+  is_active TINYINT(1) DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NULL DEFAULT NULL,
+  FOREIGN KEY (created_by) REFERENCES users(id)
 );

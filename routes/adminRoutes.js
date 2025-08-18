@@ -30,8 +30,8 @@ router.get('/dashboard', requireAdmin, (req, res) => {
     'SELECT COUNT(*) as totalUsers FROM users',
     'SELECT COUNT(*) as totalAppointments FROM appointments',
     'SELECT COUNT(*) as todayAppointments FROM appointments WHERE DATE(date) = CURDATE()',
-    // Count users requiring verification
-    `SELECT COUNT(*) as pendingUsers FROM users WHERE requires_verification = 1 AND is_verified = 0 AND role = 'user'`
+    // Count users not verified
+    `SELECT COUNT(*) as pendingUsers FROM users WHERE is_verified = 0 AND role = 'user'`
   ];
 
   Promise.all(queries.map(query => {
