@@ -1,6 +1,18 @@
 // admin/js/modules/schedule.js
 export class ScheduleModule {
   constructor() {}
+
+  activateFirstTab(sectionType) {
+    // Example implementation: activate the first tab in the schedule section
+    const firstTab = document.querySelector(`#${sectionType}-tabs .nav-link`);
+    const firstContent = document.querySelector(`#${sectionType}-tab-content .tab-pane`);
+    if (firstTab && firstContent) {
+      document.querySelectorAll(`#${sectionType}-tabs .nav-link`).forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll(`#${sectionType}-tab-content .tab-pane`).forEach(pane => pane.classList.remove('active', 'show'));
+      firstTab.classList.add('active');
+      firstContent.classList.add('active', 'show');
+    }
+  }
   // Add gestión de horarios logic here
   
   async loadScheduleSection() {

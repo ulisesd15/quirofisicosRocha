@@ -2,6 +2,16 @@
 export class SettingsModule {
   constructor() {}
 
+  showLoading() {
+    const spinner = document.getElementById('settings-loading-spinner');
+    if (spinner) spinner.style.display = 'block';
+  }
+
+  hideLoading() {
+    const spinner = document.getElementById('settings-loading-spinner');
+    if (spinner) spinner.style.display = 'none';
+  }
+
   
   async loadClinicSettings() {
     try {
