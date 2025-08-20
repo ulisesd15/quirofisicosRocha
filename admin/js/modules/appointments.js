@@ -101,7 +101,7 @@ export class AppointmentsModule {
       if (!this.currentFilter) {
         const cardTitle = document.querySelector('#appointments-section .card-header h5');
         if (cardTitle) {
-          cardTitle.innerHTML = `<i class="fas fa-calendar-check me-2"></i>Gestión de Citas`;
+          cardTitle.innerHTML = `<i class="fas fa-calendar-check me-2"></i>Gestión de citas`;
         }
       }
       

@@ -1,5 +1,26 @@
 // admin/js/modules/settings.js
 export class SettingsModule {
+  setupNotificationToggles() {
+    // Optionally, add code to handle notification toggle event listeners
+  }
+  getAuthToken() {
+    return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+  }
+
+  showError(message) {
+    alert(message);
+  }
+
+  showLoading() {
+    const spinner = document.getElementById('users-loading-spinner');
+    if (spinner) spinner.style.display = 'block';
+  }
+
+  hideLoading() {
+    const spinner = document.getElementById('users-loading-spinner');
+    if (spinner) spinner.style.display = 'none';
+  }
+
   constructor() {}
 
   

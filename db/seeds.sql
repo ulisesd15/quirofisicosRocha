@@ -19,9 +19,9 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- ===========================
 
 -- Admin user (password is 'Password123!' hashed with bcrypt, 10 rounds)
-INSERT INTO users (full_name, phone, email, password, auth_provider, role, created_at)
+INSERT INTO users (full_name, phone, email, password, auth_provider, is_verified, requires_verification, role, created_at)
 VALUES 
-('Dr. Rocha Admin', '664-771-0000', 'admin@quirofisicosrocha.com', '$2b$10$kYkpiM/aLk1DpF/xOn8Ww.O7Q7I16EaE6UrmI1BtNQIHhsblT0Dky', 'local', 'admin', NOW());
+('Dr. Rocha Admin', '664-771-0000', 'admin@quirofisicosrocha.com', '$2b$10$kYkpiM/aLk1DpF/xOn8Ww.O7Q7I16EaE6UrmI1BtNQIHhsblT0Dky', 'local', 1, 0, 'admin', NOW());
 
 -- Default clinic settings
 INSERT INTO clinic_settings (setting_key, setting_value, description)

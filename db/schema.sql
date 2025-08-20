@@ -23,6 +23,7 @@ CREATE TABLE users (
   auth_provider VARCHAR(50) DEFAULT 'local',
   google_id VARCHAR(255),
   is_verified TINYINT(1) DEFAULT 0,
+  requires_verification TINYINT(1) DEFAULT 1,
   role ENUM('user', 'admin') DEFAULT 'user',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

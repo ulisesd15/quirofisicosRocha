@@ -1,6 +1,23 @@
 // admin/js/modules/dashboard.js
 
 export class DashboardModule {
+  getAuthToken() {
+    return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+  }
+
+  showError(message) {
+    alert(message);
+  }
+
+  showLoading() {
+    const spinner = document.getElementById('users-loading-spinner');
+    if (spinner) spinner.style.display = 'block';
+  }
+
+  hideLoading() {
+    const spinner = document.getElementById('users-loading-spinner');
+    if (spinner) spinner.style.display = 'none';
+  }
   constructor() {}
 
   async load() {

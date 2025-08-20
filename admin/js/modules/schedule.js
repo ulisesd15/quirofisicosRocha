@@ -1,13 +1,33 @@
 // admin/js/modules/schedule.js
 export class ScheduleModule {
+  getAuthToken() {
+    return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+  }
+
+  showError(message) {
+    alert(message);
+  }
+
+  showLoading() {
+    const spinner = document.getElementById('users-loading-spinner');
+    if (spinner) spinner.style.display = 'block';
+  }
+
+  hideLoading() {
+    const spinner = document.getElementById('users-loading-spinner');
+    if (spinner) spinner.style.display = 'none';
+  }
+
+
+  
   constructor() {}
   // Add gestión de horarios logic here
   
   async loadScheduleSection() {
     console.log('Loading comprehensive schedule section');
     
-    // Ensure the first tab (business hours) is active
-    this.activateFirstTab('schedule');
+  // Ensure the first tab (business hours) is active
+  this.activateFirstTab();
     
     // Initialize the effective date picker
     this.initializeEffectiveDatePicker();
@@ -24,7 +44,7 @@ export class ScheduleModule {
     this.initScheduleEventListeners();
     
     // Initialize tab-specific event listeners
-    this.initScheduleTabListeners();
+    // this.initScheduleTabListeners();
     
     console.log('Schedule section loading complete');
   }
@@ -34,13 +54,13 @@ export class ScheduleModule {
     const datePicker = document.getElementById('schedule-effective-date');
     if (!datePicker) return;
 
-    // Set minimum date to today
+    // Set minimum date to today, in yyyy-MM-dd
     const today = new Date();
-    const todayString = today.toISOString().split('T')[0];
-    datePicker.setAttribute('min', todayString);
+    const currentDay = today.toISOString().split('T')[0];
+    datePicker.setAttribute('min', currentDay);
     
-    // Set default value to January 1, 2029
-    const defaultDate = currentday;
+    // Set default value to today (yyyy-MM-dd)
+    const defaultDate = currentDay;
     datePicker.value = defaultDate;
     
     // Add event listener for date changes
@@ -201,12 +221,13 @@ export class ScheduleModule {
         headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
       });
 
-      const result = await response.json();
+      const result = await response.json();a
 
       if (!response.ok) {
         throw new Error(result.message || 'Error al generar feriados');
       }
 
+      this.activateFirstTab();
       this.showSuccess(result.message);
       
       // Reload manual exceptions to show the generated holidays
@@ -217,6 +238,13 @@ export class ScheduleModule {
       this.showError('Error al generar feriados: ' + error.message);
     } finally {
       this.hideLoading();
+    }
+  }
+
+  activateFirstTab() {
+    const firstTab = document.querySelector('.nav-tabs .nav-item:first-child .nav-link');
+    if (firstTab) {
+      firstTab.click();
     }
   }
 
@@ -316,10 +344,12 @@ export class ScheduleModule {
 
   initScheduleTabListeners() {
     // Only initialize once to prevent duplicate listeners
-    if (this.initializedTabListeners.schedule) {
+    if (this.initScheduleEventListeners) {
       console.log('Schedule tab listeners already initialized');
       return;
     }
+    
+    this.initScheduleEventListeners = true;
     
     // Business Hours Tab
     const businessHoursTab = document.getElementById('business-hours-tab');
@@ -728,31 +758,6 @@ async loadBusinessHours() {
     }
 }
 
-  displayBusinessHours(businessHours) {
-    const container = document.getElementById('business-hours-container');
-    if (!container) {
-      console.error('Business hours container not found');
-      return;
-    }
-
-    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-    const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-
-    // Get the current week's dates
-    const today = new Date();
-    const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const mondayOffset = currentDay === 0 ? 6 : currentDay - 1; // Calculate offset to get to Monday
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - mondayOffset);
-
-    console.log('Displaying business hours for days:', days);
-    console.log('Business hours data:', businessHours);
-
-    container.innerHTML = days.map((day, index) => {
-      const hours = businessHours.find(bh => bh.day_of_week === day) || {};
-    document.getElementById('save-announcement')?.addEventListener('click', () => this.saveAnnouncement());
-  });
-}
 
   async loadScheduleExceptions() {
     try {
