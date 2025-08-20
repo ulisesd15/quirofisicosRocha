@@ -17,46 +17,46 @@ class NavigationManager {
     createNavbar() {
         return `
             <nav class="navbar navbar-expand-lg main-navbar">
-                <div class="container">
-                    <a class="navbar-brand" href="/index.html">
-                        <div class="brand-logo">
-                            <i class="fas fa-spine"></i>
-                        </div>
-                        Quiroprácticos Rocha
-                    </a>
-                    
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-                    
-                    <div class="collapse navbar-collapse" id="mainNavbar">
-                        <ul class="navbar-nav ms-auto">
-                            <li class="nav-item">
-                                <a class="nav-link main-nav-link ${this.currentPage === 'home' ? 'active' : ''}" href="/index.html">
-                                    <i class="fas fa-home me-1"></i>Inicio
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link main-nav-link ${this.currentPage === 'appointment' ? 'active' : ''}" href="/appointment.html">
-                                    <i class="fas fa-calendar-plus me-1"></i>Agendar Cita
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link main-nav-link" href="#servicios" data-scroll="servicios">
-                                    <i class="fas fa-hand-holding-medical me-1"></i>Servicios
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link main-nav-link" href="#contacto-section" data-scroll="contacto-section">
-                                    <i class="fas fa-phone me-1"></i>Contacto
-                                </a>
-                            </li>
-                            <li class="nav-item" id="authNavItem">
-                                ${this.getAuthNavItem()}
-                            </li>
-                        </ul>
-                    </div>
+            <div class="container">
+                <a class="navbar-brand" href="/index.html">
+                <div class="brand-logo">
+                    <i class="fas fa-spine"></i>
                 </div>
+                Quiroprácticos Rocha
+                </a>
+                
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+                <span class="navbar-toggler-icon"></span>
+                </button>
+                
+                <div class="collapse navbar-collapse" id="mainNavbar">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                    <a class="nav-link main-nav-link ${this.currentPage !== 'home' ? 'active' : ''}" href="/index.html">
+                        <i class="fas fa-home me-1"></i>Inicio
+                    </a>
+                    </li>
+                    <li class="nav-item">
+                    <a class="nav-link main-nav-link ${this.currentPage === 'appointment' ? 'active' : ''}" href="/appointment.html">
+                        <i class="fas fa-calendar-plus me-1"></i>Agendar Cita
+                    </a>
+                    </li>
+                    <li class="nav-item">
+                    <a class="nav-link main-nav-link" href="#contacto-section" data-scroll="contacto-section">
+                        <i class="fas fa-map-marker-alt me-1"></i>Ubicación
+                    </a>
+                    </li>
+                    <li class="nav-item">
+                    <a class="nav-link main-nav-link" href="#contacto-section" data-scroll="contacto-section">
+                        <i class="fas fa-phone me-1"></i>Contacto
+                    </a>
+                    </li>
+                    <li class="nav-item" id="authNavItem">
+                    ${this.getAuthNavItem()}
+                    </li>
+                </ul>
+                </div>
+            </div>
             </nav>
 
             <!-- Mobile Sidebar Overlay -->
@@ -64,29 +64,29 @@ class NavigationManager {
             
             <!-- Mobile Sidebar -->
             <div class="mobile-sidebar" id="mobileSidebar">
-                <div class="sidebar-header">
-                    <i class="fas fa-spine me-2"></i>Navegación
+            <div class="sidebar-header">
+                <i class="fas fa-spine me-2"></i>Navegación
+            </div>
+            <div class="sidebar-nav">
+                <a href="/index.html" class="sidebar-nav-item ${this.currentPage === 'home' ? 'active' : ''}">
+                <i class="fas fa-home"></i>Página Principal
+                </a>
+                <a href="/appointment.html" class="sidebar-nav-item ${this.currentPage === 'appointment' ? 'active' : ''}">
+                <i class="fas fa-calendar-plus"></i>Agendar Cita
+                </a>
+                <a href="/index.html#ubicacion-section" class="sidebar-nav-item" data-scroll="ubicacion-section">
+                <i class="fas fa-map-marker-alt"></i>Ubicación
+                </a>
+                <a href="/index.html#about" class="sidebar-nav-item">
+                <i class="fas fa-info-circle"></i>Acerca de Nosotros
+                </a>
+                <a href="/index.html#contacto-section" class="sidebar-nav-item" data-scroll="contacto-section">
+                <i class="fas fa-phone"></i>Contacto
+                </a>
+                <div class="sidebar-nav" style="border-top: 1px solid #e9ecef; margin-top: 1rem; padding-top: 1rem;">
+                ${this.getMobileAuthItems()}
                 </div>
-                <div class="sidebar-nav">
-                    <a href="/index.html" class="sidebar-nav-item ${this.currentPage === 'home' ? 'active' : ''}">
-                        <i class="fas fa-home"></i>Página Principal
-                    </a>
-                    <a href="/appointment.html" class="sidebar-nav-item ${this.currentPage === 'appointment' ? 'active' : ''}">
-                        <i class="fas fa-calendar-plus"></i>Agendar Cita
-                    </a>
-                    <a href="/index.html#servicios" class="sidebar-nav-item" data-scroll="servicios">
-                        <i class="fas fa-hand-holding-medical"></i>Nuestros Servicios
-                    </a>
-                    <a href="/index.html#about" class="sidebar-nav-item">
-                        <i class="fas fa-info-circle"></i>Acerca de Nosotros
-                    </a>
-                    <a href="/index.html#contacto-section" class="sidebar-nav-item" data-scroll="contacto-section">
-                        <i class="fas fa-phone"></i>Contacto
-                    </a>
-                    <div class="sidebar-nav" style="border-top: 1px solid #e9ecef; margin-top: 1rem; padding-top: 1rem;">
-                        ${this.getMobileAuthItems()}
-                    </div>
-                </div>
+            </div>
             </div>
         `;
     }
