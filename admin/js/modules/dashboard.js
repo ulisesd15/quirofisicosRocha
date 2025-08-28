@@ -53,17 +53,7 @@ export class DashboardModule {
    async loadDashboard() {
     await this.dashboard.load();
   }
-
-  showLoading() {
-    document.getElementById('dashboard-loading')?.classList.remove('d-none');
-  }
-  hideLoading() {
-    document.getElementById('dashboard-loading')?.classList.add('d-none');
-  }
-  showError(msg) {
-    // You may want to use a notification service here
-    alert(msg);
-  }
+  
   updateStatsCard(elementId, value) {
     const element = document.getElementById(elementId);
     if (element) {
@@ -77,6 +67,17 @@ export class DashboardModule {
       tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay citas recientes</td></tr>';
       return;
     }
+
+    // Helper to format time to AM/PM
+    function formatTimeToAMPM(timeStr) {
+      // Assumes timeStr is "HH:mm" or "HH:mm:ss"
+      const [hour, minute] = timeStr.split(':');
+      let h = parseInt(hour, 10);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      return `${h}:${minute} ${ampm}`;
+    }
+
     tbody.innerHTML = appointments.map(apt => {
       const statusClass = this.getStatusBadgeClass?.(apt.status) || '';
       const statusText = this.getStatusText?.(apt.status) || apt.status;
@@ -90,11 +91,11 @@ export class DashboardModule {
       return `
         <tr>
           <td>${apt.appointment_date}</td>
-          <td>${apt.appointment_time}</td>
+          <td>${formatTimeToAMPM(apt.appointment_time)}</td>
           <td>${apt.name}</td>
           <td><span class="badge ${statusClass} ${textColor}">${statusText}</span></td>
           <td>
-            <button class="btn btn-sm btn-outline-primary" onclick="adminPanel.editAppointment(${apt.id})">
+            <button class="btn btn-sm btn-outline-primary" onclick="adminPanel.appointments.editAppointment(${apt.id})">
               <i class="fas fa-edit"></i>
             </button>
           </td>

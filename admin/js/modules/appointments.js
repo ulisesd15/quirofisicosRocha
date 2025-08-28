@@ -81,10 +81,10 @@ export class AppointmentsModule {
         <td><span class="badge bg-${apt.status}">${this.getStatusText(apt.status)}</span></td>
         <td>
           <div class="action-buttons">
-            <button class="btn btn-outline-primary btn-sm" onclick="adminPanel.editAppointment(${apt.id})" title="Editar">
+            <button class="btn btn-outline-primary btn-sm" onclick="adminPanel.appointments.editAppointment(${apt.id})" title="Editar">
               <i class="fas fa-edit"></i>
             </button>
-            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteAppointment(${apt.id})" title="Eliminar">
+            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.appointments.deleteAppointment(${apt.id})" title="Eliminar">
               <i class="fas fa-trash"></i>
             </button>
           </div>
@@ -316,10 +316,10 @@ export class AppointmentsModule {
         <td><span class="badge bg-${apt.status}">${this.getStatusText(apt.status)}</span></td>
         <td>
           <div class="action-buttons">
-            <button class="btn btn-outline-primary btn-sm" onclick="adminPanel.editAppointment(${apt.id})" title="Editar">
+            <button class="btn btn-outline-primary btn-sm" onclick="adminPanel.appointments.editAppointment(${apt.id})" title="Editar">
               <i class="fas fa-edit"></i>
             </button>
-            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteAppointment(${apt.id})" title="Eliminar">
+            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.appointments.deleteAppointment(${apt.id})" title="Eliminar">
               <i class="fas fa-trash"></i>
             </button>
           </div>
