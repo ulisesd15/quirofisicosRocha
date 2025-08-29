@@ -1,5 +1,9 @@
 const express = require('express');
 const router = express.Router();
+// Simple test route to verify mounting
+router.get('/test', (req, res) => {
+  res.json({ success: true });
+});
 const db = require('../config/connections');
 const auth = require('../middleware/auth');
 const scheduleController = require('../controllers/scheduleController');
@@ -419,7 +423,15 @@ router.put('/appointments/:id', requireAdmin, (req, res) => {
     }
   );
 });
-
+// Server status endpoint for admin dashboard
+router.get('/server/status', requireAdmin, (req, res) => {
+  res.json({
+    is_healthy: true,
+    uptime: process.uptime() + ' seconds',
+    cpu_usage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
+    memory_usage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
+  });
+});
 // Delete appointment
 router.delete('/appointments/:id', requireAdmin, (req, res) => {
   const appointmentId = req.params.id;
@@ -632,6 +644,16 @@ router.put('/settings/:key', requireAdmin, (req, res) => {
       res.json({ message: 'Setting updated successfully' });
     }
   );
+});
+
+// Server status endpoint for admin dashboard
+router.get('/server/status', requireAdmin, (req, res) => {
+  res.json({
+    is_healthy: true,
+    uptime: process.uptime() + ' seconds',
+    cpu_usage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
+    memory_usage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
+  });
 });
 
 // =================

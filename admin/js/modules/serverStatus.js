@@ -1,12 +1,25 @@
 // admin/js/modules/serverStatus.js
 export class ServerStatusModule {
+  load() {
+    this.checkServerStatus();
+  }
   constructor() {}
 
   
 
  async checkServerStatus() {
     try {
-      const response = await fetch('/api/server/status');
+      // Wait for section to be visible (DOM update)
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const section = document.getElementById('server-status-section');
+      if (!section || section.classList.contains('d-none')) return;
+
+      const token = localStorage.getItem('token') || localStorage.getItem('user_token');
+      const response = await fetch('http://localhost:3001/api/admin/server/status', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) throw new Error('Failed to fetch server status');
 
       const status = await response.json();
@@ -17,11 +30,43 @@ export class ServerStatusModule {
   }
 
   renderServerStatus(status) {
-    if (!this.statusElement) return;
+    const container = document.getElementById('server-header-cards');
+    if (!container) return;
 
-    this.statusElement.innerHTML = `
-      <div class="alert alert-${status.is_healthy ? 'success' : 'danger'}">
-        <strong>Server Status:</strong> ${status.is_healthy ? 'Online' : 'Offline'}
+    container.innerHTML = `
+      <div class="row g-3">
+        <div class="col-md-3">
+          <div class="card text-white bg-${status.is_healthy ? 'success' : 'danger'} mb-3">
+            <div class="card-body">
+              <h5 class="card-title">Estado</h5>
+              <p class="card-text">${status.is_healthy ? 'Online' : 'Offline'}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title">Uptime</h5>
+              <p class="card-text">${status.uptime || 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title">CPU</h5>
+              <p class="card-text">${status.cpu_usage !== undefined ? status.cpu_usage + '%' : 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title">Memoria</h5>
+              <p class="card-text">${status.memory_usage !== undefined ? status.memory_usage + '%' : 'N/A'}</p>
+            </div>
+          </div>
+        </div>
       </div>
     `;
   }

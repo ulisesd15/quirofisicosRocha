@@ -259,6 +259,11 @@ export class UserVerificationModule {
     } catch (error) {
       console.error('Error loading pending users:', error);
       this.showError('Error al cargar usuarios pendientes');
+      // Show error in the pending users container
+      const container = document.getElementById('pending-users');
+      if (container) {
+        container.innerHTML = '<p style="color:red;">Error del servidor: no se pudieron cargar los usuarios pendientes. Intente más tarde.</p>';
+      }
     } finally {
       this.hideLoading();
     }

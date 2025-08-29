@@ -181,8 +181,14 @@ export class UsersModule {
         <td>${user.role}</td>
         <td>${user.created_at ? new Date(user.created_at).toLocaleDateString('es-MX') : 'N/A'}</td>
         <td>
-          <button class="btn btn-primary btn-sm" onclick="usersModule.editUser(${user.id})">Editar</button>
-          <button class="btn btn-danger btn-sm" onclick="usersModule.deleteUser(${user.id})">Eliminar</button>
+          <div class="action-buttons">
+            <button class="btn btn-outline-primary btn-sm" onclick="usersModule.editUser(${user.id})" title="Editar">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="usersModule.deleteUser(${user.id})" title="Eliminar">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
         </td>
       `;
       usersTableBody.appendChild(row);

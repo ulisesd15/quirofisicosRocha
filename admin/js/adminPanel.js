@@ -16,7 +16,31 @@ class AdminPanel {
     this.userVerification = new UserVerificationModule();
     this.serverStatus = new ServerStatusModule();
     window.usersModule = this.users;
+    this.isMobile = window.innerWidth < 780;
+    window.addEventListener('resize', () => {
+      this.isMobile = window.innerWidth < 780;
+      document.body.classList.toggle('mobile-admin', this.isMobile);
+    });
+    document.body.classList.toggle('mobile-admin', this.isMobile);
     this.initEventListeners();
+    // Sidebar hamburger toggle
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebar = document.getElementById('admin-sidebar');
+    if (sidebarToggle && sidebar && !sidebarToggle.hasAttribute('data-listener-added')) {
+      sidebarToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sidebar.classList.toggle('show');
+      });
+      sidebarToggle.setAttribute('data-listener-added', 'true');
+      // Hide sidebar when clicking outside (mobile only)
+      document.addEventListener('click', (e) => {
+        if (window.innerWidth < 992 && sidebar.classList.contains('show')) {
+          if (!sidebar.contains(e.target) && e.target !== sidebarToggle) {
+            sidebar.classList.remove('show');
+          }
+        }
+      });
+    }
   }
   async loadUserVerification() {
     console.log('Loading user verification data');
@@ -541,6 +565,11 @@ class AdminPanel {
         e.preventDefault();
         const section = link.getAttribute('data-section');
         this.showSection(section);
+          // Hide sidebar on mobile after tab click
+          const sidebar = document.getElementById('admin-sidebar');
+          if (window.innerWidth < 992 && sidebar && sidebar.classList.contains('show')) {
+            sidebar.classList.remove('show');
+          }
       });
     });
 
@@ -568,6 +597,14 @@ class AdminPanel {
   }
 
   showSection(section) {
+    // Force hide page title unless dashboard is selected
+    const pageTitle = document.getElementById('page-title');
+    if (pageTitle) {
+      pageTitle.classList.add('d-none');
+      if (section === 'dashboard') {
+        pageTitle.classList.remove('d-none');
+      }
+    }
     // Hide all sections
     const allSections = document.querySelectorAll('.admin-section');
     allSections.forEach(sec => sec.classList.add('d-none'));
@@ -582,11 +619,11 @@ class AdminPanel {
         citasPendientes.classList.add('d-none');
       }
     }
+    // Force hide dashboard header unless dashboard is selected
     if (dashboardHeader) {
+      dashboardHeader.classList.add('d-none');
       if (section === 'dashboard') {
         dashboardHeader.classList.remove('d-none');
-      } else {
-        dashboardHeader.classList.add('d-none');
       }
     }
 

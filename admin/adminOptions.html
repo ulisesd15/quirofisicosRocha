@@ -32,37 +32,43 @@
 <body>
   <!-- Navigation -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <div class="container-fluid">
+    <div class="container-fluid position-relative">
+      <!-- Hamburger for mobile -->
+      <button class="btn btn-outline-light d-lg-none position-absolute" id="sidebar-toggle" style="top: 12px; left: 12px; z-index: 1051;">
+        <i class="fas fa-bars"></i>
+      </button>
       <a class="navbar-brand" href="../index.html">
         <i class="fas fa-spine me-2"></i>
         Quirofísicos Rocha
       </a>
-      <div class="d-flex align-items-center">
-        <span class="badge bg-warning text-dark me-3">Admin Panel</span>
-        <span class="navbar-text me-3" id="admin-name">Cargando...</span>
-        <a href="../index.html" class="btn btn-outline-light btn-sm me-2">
-          <i class="fas fa-home"></i> Sitio Principal
-        </a>
-        
-        <!-- Admin Account Dropdown -->
-        <div class="dropdown me-2">
-          <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-            <i class="fas fa-user-cog"></i> Cuenta
-          </button>
-          <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="#" onclick="adminPanel.showPasswordChangeModal()">
-              <i class="fas fa-key me-2"></i>Cambiar Contraseña
-            </a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="#" id="logout-btn-dropdown">
-              <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
-            </a></li>
-          </ul>
+      <div class="d-flex justify-content-between align-items-center w-100">
+        <div class="d-flex align-items-center">
+          <span class="badge bg-warning text-dark me-3">Admin Panel</span>
+          <span class="navbar-text me-3" id="admin-name">Cargando...</span>
         </div>
-        
-        <button class="btn btn-outline-light btn-sm" id="logout-btn">
-          <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
-        </button>
+        <div class="d-flex align-items-center">
+          <a href="../index.html" class="btn btn-outline-light btn-sm me-2">
+            <i class="fas fa-home"></i> Sitio Principal
+          </a>
+          <!-- Admin Account Dropdown -->
+          <div class="dropdown me-2">
+            <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+              <i class="fas fa-user-cog"></i> Cuenta
+            </button>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="#" onclick="adminPanel.showPasswordChangeModal()">
+                <i class="fas fa-key me-2"></i>Cambiar Contraseña
+              </a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="#" id="logout-btn-dropdown">
+                <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
+              </a></li>
+            </ul>
+          </div>
+          <button class="btn btn-outline-light btn-sm" id="logout-btn">
+            <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+          </button>
+        </div>
       </div>
     </div>
   </nav>
@@ -70,7 +76,7 @@
   <!-- Sidebar -->
   <div class="container-fluid">
     <div class="row">
-      <nav class="col-md-3 col-lg-2 d-md-block bg-light sidebar">
+      <nav class="col-md-3 col-lg-2 d-md-block bg-light sidebar" id="admin-sidebar">
         <div class="position-sticky pt-3">
           <ul class="nav flex-column">
             <li class="nav-item">
@@ -392,20 +398,14 @@
                   <option value="admin">Administrador</option>
                 </select>
               </div>
-              <div class="col-md-1">
-                <label class="form-label fw-bold text-white">.</label>
+              <div class="col-md-3 users-action-btns-row">
+                <label class="form-label fw-bold text-white d-none">.</label>
                 <button type="button" class="btn btn-outline-secondary w-100" id="clear-users-filters-btn" title="Limpiar filtros">
                   <i class="fas fa-times"></i>
                 </button>
-              </div>
-              <div class="col-md-1">
-                <label class="form-label fw-bold text-white">.</label>
                 <button type="button" class="btn btn-success w-100" id="add-user-btn">
                   <i class="fas fa-plus"></i> Nuevo
                 </button>
-              </div>
-              <div class="col-md-1">
-                <label class="form-label fw-bold text-white">.</label>
                 <button type="button" class="btn btn-primary w-100" id="refresh-users-btn">
                   <i class="fas fa-sync-alt"></i>
                 </button>
@@ -830,70 +830,8 @@
               <i class="fas fa-server me-2 text-danger"></i>Estado del Servidor
             </h2>
           </div>
-          
-          <!-- Server Health Dashboard -->
-          <div class="row mb-4">
-            <div class="col-md-3 mb-3">
-              <div class="card text-white bg-danger">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between">
-                    <div>
-                      <h6 class="card-title">Errores 500</h6>
-                      <h2 id="server-errors-count">-</h2>
-                    </div>
-                    <div class="align-self-center">
-                      <i class="fas fa-exclamation-triangle fa-2x"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3 mb-3">
-              <div class="card text-white bg-warning">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between">
-                    <div>
-                      <h6 class="card-title">Estado API</h6>
-                      <h5 id="api-status">Verificando...</h5>
-                    </div>
-                    <div class="align-self-center">
-                      <i class="fas fa-wifi fa-2x"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3 mb-3">
-              <div class="card text-white bg-info">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between">
-                    <div>
-                      <h6 class="card-title">Base de Datos</h6>
-                      <h5 id="db-status">Verificando...</h5>
-                    </div>
-                    <div class="align-self-center">
-                      <i class="fas fa-database fa-2x"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3 mb-3">
-              <div class="card text-white bg-success">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between">
-                    <div>
-                      <h6 class="card-title">Última Verificación</h6>
-                      <h6 id="last-check-time">-</h6>
-                    </div>
-                    <div class="align-self-center">
-                      <i class="fas fa-clock fa-2x"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <!-- Server Header Cards Container -->
+          <div id="server-header-cards"></div>
 
           <!-- API Endpoints Health Check -->
           <div class="content-card mb-4">
@@ -2202,5 +2140,6 @@
       </div>
     </div>
   </div>
+  <script type="module" src="./js/serverStatusInit.js"></script>
 </body>
 </html>
