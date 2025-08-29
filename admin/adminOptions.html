@@ -127,80 +127,124 @@
 
         <!-- Dashboard Section -->
   <div id="dashboard-section" class="admin-section" data-title="Dashboard">
-          <div class="row">
-            <div class="col-md-3 mb-4">
-              <div class="card text-white bg-primary dashboard-card" data-navigate="users" style="cursor: pointer;">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between">
-                    <div>
-                      <h6 class="card-title">Total Usuarios</h6>
-                      <h2 id="total-users">0</h2>
-                    </div>
-                    <div class="align-self-center">
-                      <i class="fas fa-users fa-2x"></i>
-                    </div>
-                  </div>
-                </div>
+    <div id="dashboard-header">
+    <div class="row">
+      <div class="col-6 col-lg-3 mb-4">
+        <div class="card dashboard-card" data-navigate="users" style="cursor: pointer;">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h6 class="card-title">Total Usuarios</h6>
+                <h2 id="total-users">0</h2>
               </div>
-            </div>
-            <div class="col-md-3 mb-4">
-              <div class="card text-white bg-success dashboard-card" data-navigate="appointments" style="cursor: pointer;">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between">
-                    <div>
-                      <h6 class="card-title">Total Citas</h6>
-                      <h2 id="total-appointments">0</h2>
-                    </div>
-                    <div class="align-self-center">
-                      <i class="fas fa-calendar-check fa-2x"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3 mb-4">
-              <div class="card text-white bg-warning dashboard-card" data-navigate="appointments" data-filter="today" style="cursor: pointer;">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between">
-                    <div>
-                      <h6 class="card-title">Citas Hoy</h6>
-                      <h2 id="today-appointments">0</h2>
-                    </div>
-                    <div class="align-self-center">
-                      <i class="fas fa-calendar-day fa-2x"></i>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3 mb-4">
-              <div class="card text-white bg-info dashboard-card" data-navigate="user-verification" style="cursor: pointer;">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between">
-                    <div>
-                      <h6 class="card-title">Usuarios Pendientes</h6>
-                      <h2 id="pending-users">0</h2>
-                    </div>
-                    <div class="align-self-center">
-                      <i class="fas fa-user-check fa-2x"></i>
-                    </div>
-                  </div>
-                </div>
+              <div class="align-self-center">
+                <i class="fas fa-users fa-2x"></i>
               </div>
             </div>
           </div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3 mb-4">
+        <div class="card dashboard-card" data-navigate="appointments" style="cursor: pointer;">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h6 class="card-title">Total Citas</h6>
+                <h2 id="total-appointments">0</h2>
+              </div>
+              <div class="align-self-center">
+                <i class="fas fa-calendar-check fa-2x"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3 mb-4">
+        <div class="card dashboard-card" data-navigate="appointments" data-filter="today" style="cursor: pointer;">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h6 class="card-title">Citas Hoy</h6>
+                <h2 id="today-appointments">0</h2>
+              </div>
+              <div class="align-self-center">
+                <i class="fas fa-calendar-day fa-2x"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3 mb-4">
+        <div class="card dashboard-card" data-navigate="sms-management" style="cursor: pointer;">
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div>
+                <h6 class="card-title">Usuarios Pendientes</h6>
+                <h2 id="pending-users">0</h2>
+              </div>
+              <div class="align-self-center">
+                <i class="fas fa-user-check fa-2x"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <style>
+  .dashboard-grid {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: 1fr 1fr;
+  }
+  .dashboard-card {
+    aspect-ratio: 1 / 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  @media (max-width: 414px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+    .dashboard-card {
+      aspect-ratio: 1 / 1;
+    }
+  }
+  @media (min-width: 415px) and (max-width: 767px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 1024px) and (max-width: 1399px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+  }
+  @media (min-width: 1400px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+    }
+  }
+  </style>
 
           <!-- Recent Appointments -->
-          <div class="row">
+          <div class="row" id="citas-pendientes-card">
             <div class="col-12">
               <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                   <h5 class="mb-0">
                     <a href="#" class="text-decoration-none text-dark" data-section="appointments">
-                      <i class="fas fa-calendar-check me-2"></i>Citas Recientes
+                      <i class="fas fa-calendar-check me-2"></i>Citas Pendientes
                     </a>
                   </h5>
-                  <a href="#" class="btn btn-sm btn-outline-primary" data-section="appointments">
+                  <a data-navigate="users" class="btn btn-sm btn-outline-primary" data-section="users">
                     Ver todas <i class="fas fa-arrow-right ms-1"></i>
                   </a>
                 </div>
@@ -1105,7 +1149,9 @@
           </div>
         </div>
 
-        <!-- Loading Modal -->
+  <!-- Alert Container for Users Table -->
+  <div id="users-alert-container" style="min-height: 40px;"></div>
+  <!-- Loading Modal -->
         <div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static">
           <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">

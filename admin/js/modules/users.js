@@ -4,8 +4,33 @@ export class UsersModule {
     return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
   }
 
+
   showError(message) {
-    alert(message);
+    this.showAlert(message, 'danger');
+  }
+
+  showSuccess(message) {
+    this.showAlert(message, 'success');
+  }
+
+  showAlert(message, type = 'info') {
+    let alertContainer = document.getElementById('users-alert-container');
+    if (!alertContainer) {
+      alertContainer = document.createElement('div');
+      alertContainer.id = 'users-alert-container';
+      alertContainer.style.position = 'fixed';
+      alertContainer.style.top = '70px';
+      alertContainer.style.right = '30px';
+      alertContainer.style.zIndex = '9999';
+      document.body.appendChild(alertContainer);
+    }
+    alertContainer.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+      ${message}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>`;
+    setTimeout(() => {
+      alertContainer.innerHTML = '';
+    }, 3000);
   }
 
   showLoading() {
@@ -39,8 +64,8 @@ export class UsersModule {
 
       if (!response.ok) throw new Error('Error deleting user');
 
-      await this.refreshCurrentSection();
       this.showSuccess('Usuario eliminado correctamente');
+      await this.loadUsers();
 
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -128,8 +153,9 @@ export class UsersModule {
       if (!response.ok) throw new Error('Error loading users');
 
       const data = await response.json();
-      this.displayUsers(data.users);
-      this.updateUsersCount(data.totalCount);
+  console.log('Users API response:', data);
+  this.displayUsers(data.users);
+  this.updateUsersCount(data.pagination.total_records);
 
     } catch (error) {
       console.error('Error loading users:', error);
@@ -140,7 +166,7 @@ export class UsersModule {
   }
 
   displayUsers(users) {
-    const usersTableBody = document.getElementById('users-table-body');
+  const usersTableBody = document.getElementById('users-table');
     if (!usersTableBody) return;
 
     usersTableBody.innerHTML = ''; // Clear existing rows
@@ -148,10 +174,12 @@ export class UsersModule {
     users.forEach(user => {
       const row = document.createElement('tr');
       row.innerHTML = `
+        <td>${user.id}</td>
         <td>${user.name}</td>
         <td>${user.email}</td>
         <td>${user.phone || 'N/A'}</td>
         <td>${user.role}</td>
+        <td>${user.created_at ? new Date(user.created_at).toLocaleDateString('es-MX') : 'N/A'}</td>
         <td>
           <button class="btn btn-primary btn-sm" onclick="usersModule.editUser(${user.id})">Editar</button>
           <button class="btn btn-danger btn-sm" onclick="usersModule.deleteUser(${user.id})">Eliminar</button>

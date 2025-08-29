@@ -15,6 +15,7 @@ class AdminPanel {
     this.settings = new SettingsModule();
     this.userVerification = new UserVerificationModule();
     this.serverStatus = new ServerStatusModule();
+    window.usersModule = this.users;
     this.initEventListeners();
   }
   async loadUserVerification() {
@@ -542,6 +543,26 @@ class AdminPanel {
         this.showSection(section);
       });
     });
+
+
+    // Dashboard card navigation
+    document.querySelectorAll('.dashboard-card[data-navigate]').forEach(card => {
+      card.addEventListener('click', () => {
+        const section = card.getAttribute('data-navigate');
+        if (section) {
+          this.showSection(section);
+        }
+      });
+    });
+
+    // Wire up 'Ver todas' button to navigate to users tab
+    document.querySelectorAll('[data-navigate="users"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.showSection('users');
+      });
+    });
+
     // Show dashboard by default
     this.showSection('dashboard');
   }
@@ -551,11 +572,28 @@ class AdminPanel {
     const allSections = document.querySelectorAll('.admin-section');
     allSections.forEach(sec => sec.classList.add('d-none'));
 
+    // Hide Citas Pendientes card and dashboard header unless dashboard is shown
+    const citasPendientes = document.getElementById('citas-pendientes-card');
+    const dashboardHeader = document.getElementById('dashboard-header');
+    if (citasPendientes) {
+      if (section === 'dashboard') {
+        citasPendientes.classList.remove('d-none');
+      } else {
+        citasPendientes.classList.add('d-none');
+      }
+    }
+    if (dashboardHeader) {
+      if (section === 'dashboard') {
+        dashboardHeader.classList.remove('d-none');
+      } else {
+        dashboardHeader.classList.add('d-none');
+      }
+    }
+
     // Show the selected section
     const target = document.getElementById(`${section}-section`);
     if (target) {
       target.classList.remove('d-none');
-      
     }
 
     // Update sidebar active tab
@@ -575,7 +613,7 @@ class AdminPanel {
       case 'appointments':
         this.appointments.loadAppointments?.(); break;
       case 'users':
-        this.users.load?.(); break;
+        this.users.loadUsers?.(); break;
       case 'schedule':
         this.schedule.loadScheduleSection?.(); break;
       case 'settings':
@@ -615,6 +653,37 @@ class AdminPanel {
 
 // Initialize admin panel when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+  // Load upcoming appointments in dashboard
+  try {
+    if (window.adminPanel && window.adminPanel.appointments && typeof window.adminPanel.appointments.loadUpcomingAppointments === 'function') {
+      window.adminPanel.appointments.loadUpcomingAppointments();
+    }
+  } catch (e) {
+    console.error('Error loading upcoming appointments:', e);
+  }
+  // Make logout button functional
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      localStorage.removeItem('user_token');
+      localStorage.removeItem('token');
+      window.location.href = '/admin/adminOptions.html';
+    });
+  }
+  // Set admin name in navbar
+  try {
+    const adminNameSpan = document.getElementById('admin-name');
+    const token = localStorage.getItem('user_token') || localStorage.getItem('token');
+    if (adminNameSpan && token) {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      adminNameSpan.textContent = payload.email || payload.name || 'Administrador';
+    }
+  } catch (e) {
+    // fallback
+    const adminNameSpan = document.getElementById('admin-name');
+    if (adminNameSpan) adminNameSpan.textContent = 'Administrador';
+  }
   try {
     console.log('Initializing AdminPanel...');
     window.adminPanel = new AdminPanel();

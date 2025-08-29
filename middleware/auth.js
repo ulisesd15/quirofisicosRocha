@@ -3,6 +3,7 @@ const secretKey = process.env.SECRET_KEY;
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
+  console.log('Authorization header received:', authHeader);
 
   if (!authHeader) {
     console.warn('No Authorization header provided');

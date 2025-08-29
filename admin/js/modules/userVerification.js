@@ -246,216 +246,153 @@ export class UserVerificationModule {
   }
 
   async loadPendingUsers() {
-      try {
-          const response = await fetch('/api/admin/approval/pending-users', {
-              headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
-          });
-
-          if (!response.ok) throw new Error('Failed to load pending users');
-
-          const users = await response.json();
-          this.renderPendingUsers(users);
-      } catch (error) {
-          console.error('Error loading pending users:', error);
-          this.showError('Error al cargar usuarios pendientes');
-      }
-  }
-
-  async loadUnverifiedUsers() {
+    this.showLoading();
     try {
-      const response = await fetch('/api/admin/users-unverified', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await fetch('/api/admin/approval/pending-users', {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
       });
-      
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-      
+
+      if (!response.ok) throw new Error('Failed to load pending users');
+
       const users = await response.json();
-      
-      const container = document.getElementById('unverified-users');
-      if (!container) {
-        console.error('Unverified users container not found');
-        return;
-      }
-      
-      container.innerHTML = '';
-      
-      if (users.length === 0) {
-        container.innerHTML = '<p>No hay usuarios pendientes de verificación.</p>';
-        return;
-      }
-      
-      users.forEach(user => {
-        const userDiv = document.createElement('div');
-        userDiv.className = 'user-item';
-        userDiv.innerHTML = `
-          <div class="user-details">
-            <h4>${user.name}</h4>
-            <p><strong>Email:</strong> ${user.email}</p>
-            <p><strong>Teléfono:</strong> ${user.phone || 'No especificado'}</p>
-            <p><strong>Fecha de registro:</strong> ${new Date(user.created_at).toLocaleString()}</p>
-            <p><strong>Citas pendientes:</strong> ${user.pending_appointments || 0}</p>
-          </div>
-          <div class="user-actions">
-            <button class="btn-verify" onclick="adminPanel.verifyUser(${user.id})">
-              Verificar Usuario
-            </button>
-          </div>
-        `;
-        
-        container.appendChild(userDiv);
-      });
-      
+      this.renderPendingUsers(users);
     } catch (error) {
-      console.error('Error loading unverified users:', error);
-      const container = document.getElementById('unverified-users');
-      if (container) {
-        container.innerHTML = '<p>Error al cargar usuarios no verificados.</p>';
-      }
+      console.error('Error loading pending users:', error);
+      this.showError('Error al cargar usuarios pendientes');
+    } finally {
+      this.hideLoading();
     }
   }
 
-  async verifyUser(userId) {
+  async loadUnverifiedUsers() {
+    this.showLoading();
     try {
-      const response = await fetch(`/api/admin/users/${userId}/verify`, {
-        method: 'POST',
+      const response = await fetch('/api/admin/users-unverified', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
-      
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-      
-      // No need to use the result variable if not used
-      await response.json();
-      
-      // Show success message
-      showNotification('Usuario verificado y SMS enviado exitosamente', 'success');
-      
-      // Refresh the unverified users list
-      this.loadUnverifiedUsers();
-      
-      // Also refresh pending appointments as this user's appointments may now be auto-approved
-      if (typeof displayPendingAppointments === 'function') {
-        displayPendingAppointments();
-      }
-      
+
+      if (!response.ok) throw new Error('Failed to load unverified users');
+
+      const users = await response.json();
+      this.renderUnverifiedUsers(users);
+    } catch (error) {
+      console.error('Error loading unverified users:', error);
+      this.showError('Error al cargar usuarios no verificados');
+    } finally {
+      this.hideLoading();
+    }
+  }
+
+
+  async verifyUser(userId) {
+    this.showLoading();
+    try {
+      const response = await fetch(`/api/admin/approval/users/${userId}/verify`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Failed to verify user');
+
+      this.showSuccess('Usuario verificado exitosamente');
+      await this.loadUnverifiedUsers();
     } catch (error) {
       console.error('Error verifying user:', error);
-      showNotification('Error al verificar el usuario', 'error');
+      this.showError('Error al verificar usuario');
+    } finally {
+      this.hideLoading();
     }
   }
 
   renderPendingUsers(users) {
-    const container = document.getElementById('pending-users-list');
-    if (!container) return;
-
-    if (users.length === 0) {
-      container.innerHTML = '<div class="text-center text-muted py-3">No hay usuarios pendientes de aprobación</div>';
+    const container = document.getElementById('pending-users');
+    if (!container) {
+      console.error('Pending users container not found');
       return;
     }
-    container.innerHTML = users.map(user => `
-      <div class="card mb-2">
-        <div class="card-body py-2">
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <strong>${user.full_name}</strong>
-              <br><small class="text-muted">${user.email}</small>
-              ${user.phone ? `<br><small class="text-muted">${user.phone}</small>` : ''}
-              <br><small class="text-muted">Solicitado: ${this.formatDate(user.requested_at)}</small>
-            </div>
-            <div class="btn-group">
-              <button class="btn btn-success btn-sm" onclick="adminPanel.approveUser(${user.id})">
-                <i class="fas fa-check"></i> Aprobar
-              </button>
-              <button class="btn btn-danger btn-sm" onclick="adminPanel.rejectUser(${user.id})">
-                <i class="fas fa-times"></i> Rechazar
-              </button>
-            </div>
-          </div>
+
+    container.innerHTML = '';
+
+    if (users.length === 0) {
+      container.innerHTML = '<p>No hay usuarios pendientes de aprobación.</p>';
+      return;
+    }
+
+    users.forEach(user => {
+      const userDiv = document.createElement('div');
+      userDiv.className = 'user-item';
+      userDiv.innerHTML = `
+        <div class="user-details">
+          <h4>${user.name}</h4>
+          <p><strong>Email:</strong> ${user.email}</p>
+          <p><strong>Teléfono:</strong> ${user.phone || 'No especificado'}</p>
+          <p><strong>Fecha de registro:</strong> ${new Date(user.created_at).toLocaleString()}</p>
         </div>
-      </div>
-    `).join('');
+        <button class="btn btn-success btn-sm" onclick="adminPanel.userVerification.approveUser(${user.id})">Aprobar</button>
+        <button class="btn btn-danger btn-sm" onclick="adminPanel.userVerification.rejectUser(${user.id})">Rechazar</button>
+      `;
+      container.appendChild(userDiv);
+    });
   }
 
   renderScheduledClosures(closures) {
-    const container = document.getElementById('closures-list');
-    if (!container) return;
-
-    if (closures.length === 0) {
-      container.innerHTML = '<div class="text-center text-muted py-4">No hay cierres programados</div>';
+    const container = document.getElementById('scheduled-closures');
+    if (!container) {
+      console.error('Scheduled closures container not found');
       return;
     }
 
-    container.innerHTML = closures.map(closure => `
-      <div class="card mb-3">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <h6 class="card-title">${closure.title}</h6>
-              <p class="card-text text-muted">${closure.description || 'Sin descripción'}</p>
-              <div class="d-flex gap-3 text-sm">
-                <span><i class="fas fa-calendar"></i> ${this.formatDateRange(closure.start_date, closure.end_date)}</span>
-                ${closure.start_time ? `<span><i class="fas fa-clock"></i> ${closure.start_time} - ${closure.end_time}</span>` : '<span><i class="fas fa-calendar-day"></i> Todo el día</span>'}
-                <span class="badge bg-${this.getClosureTypeColor(closure.closure_type)}">${this.getClosureTypeLabel(closure.closure_type)}</span>
-                ${closure.is_recurring ? '<span class="badge bg-info">Anual</span>' : ''}
-              </div>
-            </div>
-            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteScheduledClosure(${closure.id})">
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>
+    container.innerHTML = '';
+
+    if (closures.length === 0) {
+      container.innerHTML = '<p>No hay cierres programados.</p>';
+      return;
+    }
+
+    closures.forEach(closure => {
+      const closureDiv = document.createElement('div');
+      closureDiv.className = 'closure-item';
+      closureDiv.innerHTML = `
+        <div class="closure-details">
+          <h4>${closure.title}</h4>
+          <p><strong>Fecha:</strong> ${new Date(closure.date).toLocaleString()}</p>
+          <p><strong>Descripción:</strong> ${closure.description}</p>
         </div>
-      </div>
-    `).join('');
+      `;
+      container.appendChild(closureDiv);
+    });
   }
 
   renderScheduleOverrides(overrides) {
-    const container = document.getElementById('overrides-list');
-    if (!container) return;
-
-    if (overrides.length === 0) {
-      container.innerHTML = '<div class="text-center text-muted py-4">No hay horarios especiales configurados</div>';
+    const container = document.getElementById('schedule-overrides');
+    if (!container) {
+      console.error('Schedule overrides container not found');
       return;
     }
 
-    container.innerHTML = overrides.map(override => `
-      <div class="card mb-3">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <h6 class="card-title">${this.formatDate(override.date)} - ${override.day_of_week}</h6>
-              <p class="card-text text-muted">${override.reason || 'Sin motivo especificado'}</p>
-              <div class="d-flex gap-3 text-sm">
-                ${override.is_open ? 
-                  `<span><i class="fas fa-clock"></i> ${override.open_time} - ${override.close_time}</span>
-                   ${override.break_start ? `<span><i class="fas fa-coffee"></i> Descanso: ${override.break_start} - ${override.break_end}</span>` : ''}` 
-                  : '<span class="badge bg-danger">Cerrado</span>'}
-              </div>
-            </div>
-            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.deleteScheduleOverride(${override.id})">
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>
+    container.innerHTML = '';
+
+    if (overrides.length === 0) {
+      container.innerHTML = '<p>No hay modificaciones de horario programadas.</p>';
+      return;
+    }
+
+    overrides.forEach(override => {
+      const overrideDiv = document.createElement('div');
+      overrideDiv.className = 'override-item';
+      overrideDiv.innerHTML = `
+        <div class="override-details">
+          <h4>${override.title}</h4>
+          <p><strong>Fecha:</strong> ${new Date(override.date).toLocaleString()}</p>
+          <p><strong>Descripción:</strong> ${override.description}</p>
         </div>
-      </div>
-    `).join('');
+      `;
+      container.appendChild(overrideDiv);
+    });
   }
 
-  
-
-  resetHolidayTemplateForm() {
-    document.getElementById('holidayTemplateForm').reset();
-    document.getElementById('holiday-template-id').value = '';
-    document.getElementById('custom-hours-section').classList.add('d-none');
-    document.getElementById('addHolidayTemplateModalLabel').innerHTML = 
-      '<i class="fas fa-star me-2"></i>Nueva Plantilla de Feriado';
-  }
 }

@@ -1,5 +1,34 @@
 // admin/js/modules/appointments.js
 export class AppointmentsModule {
+  async loadUpcomingAppointments() {
+    try {
+      const response = await fetch('/api/admin/appointments?limit=10&sort=upcoming', {
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+      if (!response.ok) throw new Error('Error loading upcoming appointments');
+      const data = await response.json();
+      const appointments = data.appointments || data;
+      const tbody = document.getElementById('recent-appointments');
+      if (!tbody) return;
+      tbody.innerHTML = appointments.map(apt => `
+        <tr>
+          <td>${apt.id}</td>
+          <td>${this.formatDate(apt.appointment_date)}</td>
+          <td>${this.formatTime(apt.appointment_time)}</td>
+          <td>${apt.name}</td>
+          <td>${apt.email || ''}</td>
+          <td>${apt.phone || ''}</td>
+          <td><span class="badge bg-${apt.status}">${this.getStatusText(apt.status)}</span></td>
+        </tr>
+      `).join('');
+    } catch (error) {
+      console.error('Error loading upcoming appointments:', error);
+      const tbody = document.getElementById('recent-appointments');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="7">Error al cargar citas pendientes.</td></tr>';
+    }
+  }
   updatePagination(section, pagination) {
     // No-op fallback. Implement pagination UI here if needed.
   }
@@ -257,7 +286,34 @@ export class AppointmentsModule {
   }
 
    async editAppointment(id) {
-    await this.appointments.edit(id);
+    try {
+      const response = await fetch(`/api/admin/appointments/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error loading appointment');
+      const data = await response.json();
+      const appointment = data.appointment;
+
+      // Populate modal
+      document.getElementById('edit-appointment-id').value = appointment.id;
+      document.getElementById('edit-appointment-name').value = appointment.name;
+      document.getElementById('edit-appointment-email').value = appointment.email || '';
+      document.getElementById('edit-appointment-phone').value = appointment.phone || '';
+      document.getElementById('edit-appointment-date').value = appointment.appointment_date;
+      document.getElementById('edit-appointment-time').value = appointment.appointment_time;
+      document.getElementById('edit-appointment-status').value = appointment.status;
+      document.getElementById('edit-appointment-note').value = appointment.note || '';
+
+      // Show modal
+      const modal = new bootstrap.Modal(document.getElementById('editAppointmentModal'));
+      modal.show();
+    } catch (error) {
+      console.error('Error loading appointment:', error);
+      this.showError('Error cargando la cita para editar');
+    }
   }
 
   async deleteAppointment(id) {
