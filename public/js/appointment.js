@@ -1,15 +1,4 @@
-/**
- * Quirofísicos Rocha - Appointment Booking System
- * Main appointment calendar with dual view support (week/month)
- * 
- * Features:
- * - Responsive 7-day week view calendar
- * - Business hours integration with admin panel
- * - AM/PM time format for user-friendly display
- * - Timezone-safe date handling
- * - Guest and registered user booking support
- * - Real-time availability checking
- */
+// appointment.js
 
 // ───────── DOM REFERENCES ─────────
 let calendarEl, timeCardsEl, bookingForm, guestFields, menuToggle, navItems, selectedDateInput, selectedTimeInput;

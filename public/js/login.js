@@ -1,4 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // Redirect if already logged in
+  const token = localStorage.getItem('token') || localStorage.getItem('user_token');
+  if (token) {
+    window.location.href = '/appointment.html'; // or your dashboard page
+    return;
+  }
   // Handle login form submission
   const loginForm = document.getElementById('loginForm');
   

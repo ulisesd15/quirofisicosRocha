@@ -5,89 +5,59 @@ class NavigationManager {
         this.initializeNavigation();
     }
 
+    // Get the current page based on the URL
     getCurrentPage() {
         const path = window.location.pathname;
-        if (path === '/' || path === '/index.html') return 'home';
+        if (path === '/' || path.endsWith('/index.html')) return 'home';
         if (path.includes('login')) return 'login';
         if (path.includes('register')) return 'register';
         if (path.includes('appointment')) return 'appointment';
         return 'other';
     }
 
+    // Create the navigation bar
     createNavbar() {
         return `
-            <nav class="navbar navbar-expand-lg main-navbar">
-            <div class="container">
-                <a class="navbar-brand" href="/index.html">
-                <div class="brand-logo">
-                    <i class="fas fa-spine"></i>
+            <nav class="navbar navbar-expand-lg main-navbar shadow-sm bg-white py-3 custom-navbar">
+                <div class="container">
+                    <a class="navbar-brand d-flex align-items-center gap-2 fw-bold fs-3 text-primary" href="/index.html">
+                        <span class="brand-logo bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width:48px;height:48px;">
+                            <i class="fas fa-spine fa-lg"></i>
+                        </span>
+                        <span class="brand-title">Quiroprácticos Rocha</span>
+                    </a>
+                    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="mainNavbar">
+                        <ul class="navbar-nav ms-auto align-items-center gap-3">
+                            <li class="nav-item">
+                                <a class="nav-link main-nav-link ${this.currentPage !== 'home' ? 'active' : ''}" href="/index.html">
+                                    <i class="fas fa-home me-1"></i>Inicio
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link main-nav-link ${this.currentPage === 'appointment' ? 'active' : ''}" href="/appointment.html">
+                                    <i class="fas fa-calendar-plus me-1"></i>Agendar Cita
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link main-nav-link" href="#ubicacion-section" data-scroll="ubicacion-section">
+                                    <i class="fas fa-map-marker-alt me-1"></i>Ubicación
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link main-nav-link" href="#contacto-section" data-scroll="contacto-section">
+                                    <i class="fas fa-phone me-1"></i>Contacto
+                                </a>
+                            </li>
+                            <li class="nav-item" id="authNavItem">
+                                ${this.getAuthNavItem()}
+                            </li>
+                        </ul>
+                    </div>
                 </div>
-                Quiroprácticos Rocha
-                </a>
-                
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
-                <span class="navbar-toggler-icon"></span>
-                </button>
-                
-                <div class="collapse navbar-collapse" id="mainNavbar">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                    <a class="nav-link main-nav-link ${this.currentPage !== 'home' ? 'active' : ''}" href="/index.html">
-                        <i class="fas fa-home me-1"></i>Inicio
-                    </a>
-                    </li>
-                    <li class="nav-item">
-                    <a class="nav-link main-nav-link ${this.currentPage === 'appointment' ? 'active' : ''}" href="/appointment.html">
-                        <i class="fas fa-calendar-plus me-1"></i>Agendar Cita
-                    </a>
-                    </li>
-                    <li class="nav-item">
-                    <a class="nav-link main-nav-link" href="#contacto-section" data-scroll="contacto-section">
-                        <i class="fas fa-map-marker-alt me-1"></i>Ubicación
-                    </a>
-                    </li>
-                    <li class="nav-item">
-                    <a class="nav-link main-nav-link" href="#contacto-section" data-scroll="contacto-section">
-                        <i class="fas fa-phone me-1"></i>Contacto
-                    </a>
-                    </li>
-                    <li class="nav-item" id="authNavItem">
-                    ${this.getAuthNavItem()}
-                    </li>
-                </ul>
-                </div>
-            </div>
             </nav>
-
-            <!-- Mobile Sidebar Overlay -->
-            <div class="mobile-sidebar-overlay" id="sidebarOverlay" onclick="this.closeMobileSidebar()"></div>
-            
-            <!-- Mobile Sidebar -->
-            <div class="mobile-sidebar" id="mobileSidebar">
-            <div class="sidebar-header">
-                <i class="fas fa-spine me-2"></i>Navegación
-            </div>
-            <div class="sidebar-nav">
-                <a href="/index.html" class="sidebar-nav-item ${this.currentPage === 'home' ? 'active' : ''}">
-                <i class="fas fa-home"></i>Página Principal
-                </a>
-                <a href="/appointment.html" class="sidebar-nav-item ${this.currentPage === 'appointment' ? 'active' : ''}">
-                <i class="fas fa-calendar-plus"></i>Agendar Cita
-                </a>
-                <a href="/index.html#ubicacion-section" class="sidebar-nav-item" data-scroll="ubicacion-section">
-                <i class="fas fa-map-marker-alt"></i>Ubicación
-                </a>
-                <a href="/index.html#about" class="sidebar-nav-item">
-                <i class="fas fa-info-circle"></i>Acerca de Nosotros
-                </a>
-                <a href="/index.html#contacto-section" class="sidebar-nav-item" data-scroll="contacto-section">
-                <i class="fas fa-phone"></i>Contacto
-                </a>
-                <div class="sidebar-nav" style="border-top: 1px solid #e9ecef; margin-top: 1rem; padding-top: 1rem;">
-                ${this.getMobileAuthItems()}
-                </div>
-            </div>
-            </div>
         `;
     }
 
@@ -136,19 +106,26 @@ class NavigationManager {
             const isAdmin = window.authManager.isAdmin();
             
             return `
+                <div class="sidebar-user-info d-flex align-items-center gap-2 mb-3 px-2 py-2 rounded bg-light">
+                    <span class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width:32px;height:32px;">
+                        <i class="fas fa-user"></i>
+                    </span>
+                    <span class="fw-semibold">${user?.full_name || 'Usuario'}</span>
+                </div>
                 <a href="/mis-citas.html" class="sidebar-nav-item">
-                    <i class="fas fa-calendar-check"></i>Mis Citas
+                    <i class="fas fa-calendar-check me-2"></i>Mis Citas
                 </a>
                 <a href="/user-settings.html" class="sidebar-nav-item">
-                    <i class="fas fa-user-cog"></i>Configuración
+                    <i class="fas fa-user-cog me-2"></i>Configuración
                 </a>
                 ${isAdmin ? `
                     <a href="/admin/adminOptions.html" class="sidebar-nav-item">
-                        <i class="fas fa-cog"></i>Panel Admin
+                        <i class="fas fa-cog me-2"></i>Panel Admin
                     </a>
                 ` : ''}
-                <a href="#" class="sidebar-nav-item" onclick="window.authManager.logout(); window.location.reload();">
-                    <i class="fas fa-sign-out-alt"></i>Cerrar Sesión
+                <hr class="my-2">
+                <a href="#" class="sidebar-nav-item text-danger" onclick="window.authManager.logout(); window.location.reload();">
+                    <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
                 </a>
             `;
         } else {
@@ -220,14 +197,36 @@ class NavigationManager {
     initializeNavigation() {
         // Wait for DOM to be ready
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => this.renderNavigation());
+            document.addEventListener('DOMContentLoaded', () => this.setupNavigationVisibility());
         } else {
-            this.renderNavigation();
+            this.setupNavigationVisibility();
         }
     }
 
-    init() {
+    setupNavigationVisibility() {
         this.renderNavigation();
+        // Hide navbar initially (remove .visible)
+        const navContainer = document.getElementById('main-navigation');
+        if (navContainer) {
+            navContainer.classList.remove('visible');
+        }
+        // Get hero section
+        const heroSection = document.querySelector('header.hero');
+        if (!heroSection) {
+            if (navContainer) navContainer.classList.add('visible');
+            return;
+        }
+        // Show navbar after scrolling past hero with animation
+        window.addEventListener('scroll', () => {
+            const heroBottom = heroSection.getBoundingClientRect().bottom;
+            if (navContainer) {
+                if (heroBottom <= 0) {
+                    navContainer.classList.add('visible');
+                } else {
+                    navContainer.classList.remove('visible');
+                }
+            }
+        });
     }
 
     renderNavigation() {
@@ -236,9 +235,11 @@ class NavigationManager {
         if (!navContainer) {
             navContainer = document.createElement('div');
             navContainer.id = 'main-navigation';
+            navContainer.classList.add('custom-navbar-slide');
             document.body.insertBefore(navContainer, document.body.firstChild);
+        } else {
+            navContainer.classList.add('custom-navbar-slide');
         }
-        
         navContainer.innerHTML = this.createNavbar();
         
         // Add mobile sidebar toggle functionality
@@ -251,7 +252,7 @@ class NavigationManager {
         this.handleScrollLinks();
         
         // Update auth nav item periodically
-        setInterval(() => this.updateAuthNavigation(), 5000);
+        this.authNavInterval = setInterval(() => this.updateAuthNavigation(), 5000);
     }
 
     updateAuthNavigation() {

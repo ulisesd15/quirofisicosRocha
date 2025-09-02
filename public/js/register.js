@@ -87,6 +87,12 @@ document.getElementById('google-login').addEventListener('click', () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Redirect if already logged in
+  const token = localStorage.getItem('token') || localStorage.getItem('user_token');
+  if (token) {
+    window.location.href = '/appointment.html'; // or your dashboard page
+    return;
+  }
   const menuToggle = document.querySelector('#menu_toggle');
   const offcanvas = document.getElementById('sideNav');
 

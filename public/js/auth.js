@@ -144,41 +144,6 @@ class AuthManager {
 
     return response;
   }
-
-  // Update navigation based on auth state
-  updateNavigation() {
-    const navItems = document.getElementById('nav-items');
-    if (!navItems) return;
-
-    if (this.isLoggedIn()) {
-      const adminButton = this.isAdmin() ? 
-        `<li><a href="/admin/adminOptions.html" class="btn btn-warning w-100 mb-2">
-          <i class="fas fa-user-shield"></i> Panel Admin
-        </a></li>` : '';
-      
-      navItems.innerHTML = `
-        <li><a href="/appointment.html" class="btn btn-outline-primary w-100 mb-2">Agendar Cita</a></li>
-        ${adminButton}
-        <li><a href="#" id="logoutBtn" class="btn btn-danger w-100 mb-2">Cerrar Sesión</a></li>
-        <li><span class="text-muted small">Hola, ${this.userName || 'Usuario'}</span></li>
-      `;
-
-      // Add logout event listener
-      document.addEventListener('click', (e) => {
-        if (e.target.id === 'logoutBtn') {
-          this.logout();
-          // alert('Sesión cerrada exitosamente.');
-          window.location.href = '/index.html';
-        }
-      });
-    } else {
-      navItems.innerHTML = `
-        <li><a href="/login.html" class="btn btn-outline-success w-100 mb-2">Iniciar Sesión</a></li>
-        <li><a href="/appointment.html?guest=true" class="btn btn-outline-primary w-100 mb-2">Agendar como Invitado</a></li>
-        <li><a href="/register.html" class="btn btn-outline-secondary w-100 mb-2">Crear Cuenta</a></li>
-      `;
-    }
-  }
 }
 
 // Create global auth manager instance
@@ -189,5 +154,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (window.authManager.isLoggedIn()) {
     await window.authManager.validateToken();
   }
-  window.authManager.updateNavigation();
+  // window.authManager.updateNavigation(); // Removed, not needed
 });
