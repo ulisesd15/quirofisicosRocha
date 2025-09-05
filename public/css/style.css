@@ -42,6 +42,7 @@ body {
 .hero .container {
   position: relative;
   z-index: 2;
+  top: -95px;
 }
 
 .hero h1 {

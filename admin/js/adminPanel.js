@@ -7,6 +7,26 @@ import { UserVerificationModule } from './modules/userVerification.js';
 import { ServerStatusModule } from './modules/serverStatus.js';
 
 class AdminPanel {
+  initializeSMSTabListeners() {
+    // Only initialize once to prevent duplicate listeners
+    if (this.initializedTabListeners && this.initializedTabListeners.sms) {
+      console.log('SMS tab listeners already initialized');
+      return;
+    }
+    this.initializedTabListeners = this.initializedTabListeners || {};
+    // Add event listener for Send Reminders tab
+    const sendRemindersTab = document.getElementById('send-reminders-tab');
+    if (sendRemindersTab) {
+      sendRemindersTab.addEventListener('shown.bs.tab', () => {
+        // Render notification settings when the tab is shown
+        if (window.adminPanel && window.adminPanel.userVerification && typeof window.adminPanel.userVerification.renderNotificationSettings === 'function') {
+          window.adminPanel.userVerification.renderNotificationSettings();
+        }
+      });
+    }
+    this.initializedTabListeners.sms = true;
+    console.log('SMS tab listeners initialized');
+  }
   constructor() {
     this.dashboard = new DashboardModule();
     this.appointments = new AppointmentsModule();
@@ -572,6 +592,9 @@ class AdminPanel {
           }
       });
     });
+
+  // Initialize SMS tab listeners for notification settings
+  this.initializeSMSTabListeners();
 
 
     // Dashboard card navigation

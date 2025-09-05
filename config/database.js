@@ -11,7 +11,8 @@ function parseDbUrl(url) {
       database: match[5],
       port: match[4],
       ssl: { rejectUnauthorized: false }, // Required for JawsDB
-      timezone: 'UTC'
+    timezone: 'UTC',
+    charset: 'utf8mb4'
     };
   }
   return null;
@@ -31,13 +32,15 @@ if (process.env.NODE_ENV === 'production' && process.env.JAWSDB_URL) {
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || 'kimpembe',
     database: process.env.DB_NAME || 'appointments_db',
-    timezone: '-07:00'
+    timezone: '-07:00',
+    charset: 'utf8mb4'
   };
 }
 
 // Add connection pooling for better performance
 const poolConfig = {
   ...dbConfig,
+  charset: 'utf8mb4',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,

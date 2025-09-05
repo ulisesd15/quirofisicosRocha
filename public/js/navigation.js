@@ -1,3 +1,10 @@
+// DEBUG: Log if navbar disappears
+setInterval(() => {
+    const nav = document.getElementById('main-navigation');
+    if (nav && (nav.offsetHeight === 0 || nav.offsetParent === null || window.getComputedStyle(nav).display === 'none')) {
+        console.warn('DEBUG: #main-navigation is hidden or removed!');
+    }
+}, 1000);
 // Navigation Component for all public pages
 class NavigationManager {
     constructor() {
@@ -65,7 +72,6 @@ class NavigationManager {
         if (window.authManager && typeof window.authManager.isLoggedIn === 'function' && window.authManager.isLoggedIn()) {
             const user = window.authManager.getCurrentUser();
             const isAdmin = window.authManager.isAdmin();
-            
             return `
                 <div class="dropdown">
                     <a class="nav-link main-nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -78,13 +84,7 @@ class NavigationManager {
                         <li><a class="dropdown-item" href="/user-settings.html">
                             <i class="fas fa-user-cog me-2"></i>Configuración
                         </a></li>
-                        ${isAdmin ? `
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/admin/adminOptions.html">
-                                <i class="fas fa-cog me-2"></i>Panel Admin
-                            </a></li>
-                        ` : ''}
-                        <li><hr class="dropdown-divider"></li>
+                        ${isAdmin ? `<li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="/admin/adminOptions.html"><i class="fas fa-cog me-2"></i>Panel Admin</a></li>` : ''}
                         <li><a class="dropdown-item" href="#" onclick="window.authManager.logout(); window.location.reload();">
                             <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
                         </a></li>
@@ -205,52 +205,80 @@ class NavigationManager {
 
     setupNavigationVisibility() {
         this.renderNavigation();
-        // Hide navbar initially (remove .visible)
         const navContainer = document.getElementById('main-navigation');
         if (navContainer) {
-            navContainer.classList.remove('visible');
+            navContainer.classList.add('visible');
+            navContainer.classList.remove('pop-in');
         }
-        // Get hero section
-        const heroSection = document.querySelector('header.hero');
-        if (!heroSection) {
-            if (navContainer) navContainer.classList.add('visible');
-            return;
-        }
-        // Show navbar after scrolling past hero with animation
-        window.addEventListener('scroll', () => {
-            const heroBottom = heroSection.getBoundingClientRect().bottom;
-            if (navContainer) {
-                if (heroBottom <= 0) {
-                    navContainer.classList.add('visible');
-                } else {
-                    navContainer.classList.remove('visible');
-                }
-            }
-        });
     }
 
     renderNavigation() {
-        // Create navbar container if it doesn't exist
-        let navContainer = document.getElementById('main-navigation');
-        if (!navContainer) {
-            navContainer = document.createElement('div');
-            navContainer.id = 'main-navigation';
-            navContainer.classList.add('custom-navbar-slide');
-            document.body.insertBefore(navContainer, document.body.firstChild);
-        } else {
-            navContainer.classList.add('custom-navbar-slide');
+        // Render the main navbar as before
+        const navContainer = document.getElementById('main-navigation');
+        if (navContainer) {
+            navContainer.innerHTML = this.createNavbar();
         }
-        navContainer.innerHTML = this.createNavbar();
-        
-        // Add mobile sidebar toggle functionality
-        const toggler = document.querySelector('.navbar-toggler');
-        if (toggler) {
-            toggler.addEventListener('click', () => this.toggleMobileSidebar());
+
+        // Add sidebar markup if not present
+        if (!document.getElementById('sidebarOverlay')) {
+            const overlay = document.createElement('div');
+            overlay.id = 'sidebarOverlay';
+            overlay.className = 'sidebar-overlay';
+            document.body.appendChild(overlay);
         }
-        
+        if (!document.getElementById('mobileSidebar')) {
+            const sidebar = document.createElement('nav');
+            sidebar.id = 'mobileSidebar';
+            sidebar.className = 'mobile-sidebar';
+            sidebar.innerHTML = `
+                <div class="sidebar-header">
+                    <button id="closeSidebarBtn" class="btn btn-link text-dark p-0 ms-auto" aria-label="Cerrar menú">
+                        <i class="fas fa-times fa-lg"></i>
+                    </button>
+                </div>
+                <ul class="sidebar-nav list-unstyled mt-4">
+                    <li><a href="/index.html"><i class="fas fa-home me-2"></i>Inicio</a></li>
+                    <li><a href="/appointment.html"><i class="fas fa-calendar-plus me-2"></i>Agendar Cita</a></li>
+                    <li><a href="#ubicacion-section"><i class="fas fa-map-marker-alt me-2"></i>Ubicación</a></li>
+                    <li><a href="#contacto-section"><i class="fas fa-phone me-2"></i>Contacto</a></li>
+                </ul>
+            `;
+            document.body.appendChild(sidebar);
+        }
+
+        // Add hamburger button to body if not present (always accessible)
+        if (!document.getElementById('sidebarHamburger')) {
+            const hamburger = document.createElement('button');
+            hamburger.id = 'sidebarHamburger';
+            hamburger.setAttribute('aria-label', 'Abrir menú');
+            hamburger.innerHTML = `
+                <span class="hamburger-lines">
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                    <span class="hamburger-line"></span>
+                </span>
+            `;
+            document.body.appendChild(hamburger);
+        }
+
+        // Hamburger click opens sidebar
+        const hamburgerBtn = document.getElementById('sidebarHamburger');
+        hamburgerBtn.onclick = () => {
+            document.getElementById('mobileSidebar').classList.add('show');
+            document.getElementById('sidebarOverlay').classList.add('show');
+            hamburgerBtn.classList.add('hide-when-open');
+        };
+        // Overlay click closes sidebar
+        document.getElementById('sidebarOverlay').onclick = closeSidebar;
+        document.getElementById('closeSidebarBtn').onclick = closeSidebar;
+        function closeSidebar() {
+            document.getElementById('mobileSidebar').classList.remove('show');
+            document.getElementById('sidebarOverlay').classList.remove('show');
+            hamburgerBtn.classList.remove('hide-when-open');
+        }
+
         // Initialize scroll link handlers
         this.handleScrollLinks();
-        
         // Update auth nav item periodically
         this.authNavInterval = setInterval(() => this.updateAuthNavigation(), 5000);
     }

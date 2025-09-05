@@ -1,3 +1,40 @@
+/* Ensure users-action-btns-row is always horizontal, both desktop and mobile */
+/* Users action buttons row: right-aligned and horizontal on desktop/tablet, stacked below on mobile */
+.users-action-btns-row {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 0.5rem !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  /* Remove width and margin-left so it sits inline with search/role */
+}
+.users-action-btns-row > button {
+  flex: 0 1 auto !important;
+  min-width: 36px !important;
+  width: auto !important;
+  margin-right: 0 !important;
+}
+.users-action-btns-row > button:last-child {
+  margin-right: 0 !important;
+}
+.users-action-btns-row > .form-label {
+  display: none !important;
+}
+@media (max-width: 767.98px) {
+  .users-action-btns-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    width: 100%;
+    margin-left: 0;
+    margin-top: 0.5rem;
+    gap: 0.5rem !important;
+  }
+  .users-action-btns-row > button {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
 @media (max-width: 991.98px) {
   .navbar .container-fluid {
     display: flex !important;
@@ -6,26 +43,6 @@
     justify-content: space-between;
     position: relative;
     gap: 0.5rem;
-  }
-  .users-action-btns-row {
-    display: flex !important;
-    flex-direction: row !important;
-    gap: 0.5rem !important;
-    justify-content: stretch !important;
-    align-items: center !important;
-    width: 100%;
-  }
-  .users-action-btns-row > button {
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
-    width: auto !important;
-    margin-right: 0 !important;
-  }
-  .users-action-btns-row > button:last-child {
-    margin-right: 0 !important;
-  }
-  .users-action-btns-row > .form-label {
-    display: none !important;
   }
   .navbar-brand {
     margin-left: auto !important;
@@ -477,6 +494,7 @@ body {
 #users-total-count {
   font-weight: 600;
   color: #6c757d;
+  text-align: right;
 }
 
 /* Responsive table scrollbar styling */

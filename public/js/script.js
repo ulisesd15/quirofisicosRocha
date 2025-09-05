@@ -11,6 +11,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load business hours
   loadBusinessHours();
 
+  // Remove guestBtn, loginBtn, and registerBtn if user is logged in
+  const isLoggedIn = localStorage.getItem('token') || localStorage.getItem('user_token');
+  if (isLoggedIn) {
+    const guestBtn = document.getElementById('guestBtn');
+    if (guestBtn) guestBtn.remove();
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) loginBtn.remove();
+    const registerBtn = document.getElementById('registerBtn');
+    if (registerBtn) registerBtn.remove();
+  }
+
   // Add event listeners for landing page buttons
   document.getElementById('registerBtn')?.addEventListener('click', () => {
     window.location.href = '/register.html';
