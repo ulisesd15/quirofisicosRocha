@@ -518,7 +518,6 @@ router.put('/business-hours', requireAdmin, (req, res) => {
         [hours.day_of_week],
         (err, results) => {
           if (err) return reject(err);
-          
           if (results.length === 0) {
             // Insert new record if day doesn't exist
             db.query(

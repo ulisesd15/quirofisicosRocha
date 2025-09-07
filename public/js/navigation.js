@@ -49,7 +49,7 @@ class NavigationManager {
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link main-nav-link" href="#ubicacion-section" data-scroll="ubicacion-section">
+                                <a class="nav-link main-nav-link" href="#ubicacion-section" data-scroll="contacto-section">
                                     <i class="fas fa-map-marker-alt me-1"></i>Ubicación
                                 </a>
                             </li>
@@ -219,63 +219,7 @@ class NavigationManager {
             navContainer.innerHTML = this.createNavbar();
         }
 
-        // Add sidebar markup if not present
-        if (!document.getElementById('sidebarOverlay')) {
-            const overlay = document.createElement('div');
-            overlay.id = 'sidebarOverlay';
-            overlay.className = 'sidebar-overlay';
-            document.body.appendChild(overlay);
-        }
-        if (!document.getElementById('mobileSidebar')) {
-            const sidebar = document.createElement('nav');
-            sidebar.id = 'mobileSidebar';
-            sidebar.className = 'mobile-sidebar';
-            sidebar.innerHTML = `
-                <div class="sidebar-header">
-                    <button id="closeSidebarBtn" class="btn btn-link text-dark p-0 ms-auto" aria-label="Cerrar menú">
-                        <i class="fas fa-times fa-lg"></i>
-                    </button>
-                </div>
-                <ul class="sidebar-nav list-unstyled mt-4">
-                    <li><a href="/index.html"><i class="fas fa-home me-2"></i>Inicio</a></li>
-                    <li><a href="/appointment.html"><i class="fas fa-calendar-plus me-2"></i>Agendar Cita</a></li>
-                    <li><a href="#ubicacion-section"><i class="fas fa-map-marker-alt me-2"></i>Ubicación</a></li>
-                    <li><a href="#contacto-section"><i class="fas fa-phone me-2"></i>Contacto</a></li>
-                </ul>
-            `;
-            document.body.appendChild(sidebar);
-        }
-
-        // Add hamburger button to body if not present (always accessible)
-        if (!document.getElementById('sidebarHamburger')) {
-            const hamburger = document.createElement('button');
-            hamburger.id = 'sidebarHamburger';
-            hamburger.setAttribute('aria-label', 'Abrir menú');
-            hamburger.innerHTML = `
-                <span class="hamburger-lines">
-                    <span class="hamburger-line"></span>
-                    <span class="hamburger-line"></span>
-                    <span class="hamburger-line"></span>
-                </span>
-            `;
-            document.body.appendChild(hamburger);
-        }
-
-        // Hamburger click opens sidebar
-        const hamburgerBtn = document.getElementById('sidebarHamburger');
-        hamburgerBtn.onclick = () => {
-            document.getElementById('mobileSidebar').classList.add('show');
-            document.getElementById('sidebarOverlay').classList.add('show');
-            hamburgerBtn.classList.add('hide-when-open');
-        };
-        // Overlay click closes sidebar
-        document.getElementById('sidebarOverlay').onclick = closeSidebar;
-        document.getElementById('closeSidebarBtn').onclick = closeSidebar;
-        function closeSidebar() {
-            document.getElementById('mobileSidebar').classList.remove('show');
-            document.getElementById('sidebarOverlay').classList.remove('show');
-            hamburgerBtn.classList.remove('hide-when-open');
-        }
+    // ...existing code...
 
         // Initialize scroll link handlers
         this.handleScrollLinks();

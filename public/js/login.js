@@ -55,40 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Quick Admin Login Button
-  const quickAdminBtn = document.getElementById('quickAdminLogin');
-  
-  if (quickAdminBtn) {
-    quickAdminBtn.addEventListener('click', async () => {
-      try {
-        const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            email: 'admin@quirofisicosrocha.com', 
-            password: 'admin123' 
-          })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-          // Use AuthManager to handle login
-          if (window.authManager) {
-            window.authManager.login(data.token, data.user);
-          }
-          
-          // alert('Admin login successful! Redirecting to admin panel...');
-          window.location.href = '/admin/adminOptions.html';
-        } else {
-          alert('Admin login failed: ' + data.error);
-        }
-      } catch (error) {
-        console.error('Admin login error:', error);
-        alert('Error during admin login');
-      }
-    });
-  }
+
 
   // Google login handler
   const googleLoginBtn = document.getElementById('google-login');
