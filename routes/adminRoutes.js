@@ -1,28 +1,33 @@
 const express = require('express');
 const router = express.Router();
-// Simple test route to verify mounting
-router.get('/test', (req, res) => {
-  res.json({ success: true });
-});
 const db = require('../config/connections');
 const auth = require('../middleware/auth');
 // const scheduleController = require('../controllers/scheduleController');
+const userVerificationController = require('../controllers/userVerificationController');
 
 // Middleware to check if user is admin
 const requireAdmin = (req, res, next) => {
-  // First check if user is authenticated
   auth(req, res, (authErr) => {
     if (authErr) return authErr;
-    
-    // Check if user has admin role from JWT token
     if (req.user.role !== 'admin') {
       console.warn('Non-admin user tried to access admin endpoint:', req.user.email);
       return res.status(403).json({ message: 'Acceso denegado. Se requieren privilegios de administrador.' });
     }
-    
     next();
   });
 };
+
+// =================
+// USER VERIFICATION
+// =================
+
+// List users pending verification
+router.get('/pending-verifications', requireAdmin, userVerificationController.listPendingVerifications);
+
+// Accept or deny user verification
+router.post('/verify-user/:userId', requireAdmin, userVerificationController.verifyUser);
+
+// ...rest of your routes...
 
 // =================
 // DASHBOARD STATS
@@ -33,7 +38,7 @@ router.get('/dashboard', requireAdmin, (req, res) => {
   const queries = [
     'SELECT COUNT(*) as totalUsers FROM users',
     'SELECT COUNT(*) as totalAppointments FROM appointments',
-    'SELECT COUNT(*) as todayAppointments FROM appointments WHERE DATE(date) = CURDATE()',
+    'SELECT COUNT(*) as totalAppointmentsToday FROM appointments WHERE DATE(date) = CURDATE()',
     // Count users not verified
     `SELECT COUNT(*) as pendingUsers FROM users WHERE is_verified = 0 AND role = 'user'`
   ];
@@ -65,8 +70,8 @@ router.get('/dashboard', requireAdmin, (req, res) => {
       res.json({
         totalUsers: results[0].totalUsers || 0,
         totalAppointments: results[1].totalAppointments || 0,
-        todayAppointments: results[2].todayAppointments || 0,
-        pendingAppointments: results[3].pendingUsers || 0,
+        totalAppointmentsToday: results[2].totalAppointmentsToday || 0,
+        pendingUsers: results[3].pendingUsers || 0,
         recentAppointments: recentAppointments || []
       });
     });
@@ -454,14 +459,7 @@ router.post('/appointments/:id/approve', requireAdmin, appointmentController.app
 // USER VERIFICATION WITH SMS
 // =================
 
-// Get unverified users (using different path to avoid conflict)
-router.get('/users-unverified', requireAdmin, appointmentController.getUnverifiedUsers);
 
-// Verify user
-router.post('/users/:id/verify', requireAdmin, appointmentController.verifyUser);
-
-// Update pending users endpoint to use the new unverified users
-router.get('/approval/pending-users', requireAdmin, appointmentController.getUnverifiedUsers);
 
 // =================
 // BUSINESS HOURS MANAGEMENT
@@ -654,58 +652,6 @@ router.get('/server/status', requireAdmin, (req, res) => {
     memory_usage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
   });
 });
-
-// =================
-// SCHEDULE MANAGEMENT
-// =================
-
-// Get business hours
-// router.get('/schedule/business-hours', requireAdmin, scheduleController.getBusinessHours);
-
-
-// Update business hours for a specific day
-// router.put('/schedule/business-hours/:day_of_week', requireAdmin, scheduleController.updateBusinessHours);
-
-// =================
-// ENHANCED SCHEDULE MANAGEMENT
-// =================
-
-
-// Scheduled Closures
-// router.get('/schedule/closures', requireAdmin, scheduleController.getScheduledClosures);
-// router.post('/schedule/closures', requireAdmin, scheduleController.addScheduledClosure);
-// router.delete('/schedule/closures/:id', requireAdmin, scheduleController.deleteScheduledClosure);
-
-// Schedule Overrides
-// router.get('/schedule/overrides', requireAdmin, scheduleController.getScheduleOverrides);
-// router.post('/schedule/overrides', requireAdmin, scheduleController.addScheduleOverride);
-// router.delete('/schedule/overrides/:id', requireAdmin, scheduleController.deleteScheduleOverride);
-
-// Blocked Time Slots
-// router.get('/schedule/blocked-slots', requireAdmin, scheduleController.getBlockedTimeSlots);
-// router.post('/schedule/blocked-slots', requireAdmin, scheduleController.addBlockedTimeSlot);
-// router.delete('/schedule/blocked-slots/:id', requireAdmin, scheduleController.deleteBlockedTimeSlot);
-
-// =================
-// BUSINESS DAYS MANAGEMENT
-// =================
-// router.get('/schedule/business-days', requireAdmin, scheduleController.getBusinessDaysConfig);
-// router.put('/schedule/business-days', requireAdmin, scheduleController.updateBusinessDaysConfig);
-
-// Week Exceptions
-// router.get('/schedule/week-exceptions', requireAdmin, scheduleController.getWeekExceptions);
-// router.post('/schedule/week-exceptions', requireAdmin, scheduleController.addWeekException);
-// router.delete('/schedule/week-exceptions/:id', requireAdmin, scheduleController.deleteWeekException);
-
-// =================
-
-// USER APPROVAL SYSTEM
-// =================
-// router.get('/approval/settings', requireAdmin, scheduleController.getApprovalSettings);
-// router.put('/approval/settings', requireAdmin, scheduleController.updateApprovalSettings);
-// router.get('/approval/pending-users', requireAdmin, scheduleController.getPendingUsers);
-// router.post('/approval/users/:id/approve', requireAdmin, scheduleController.approveUser);
-// router.post('/approval/users/:id/reject', requireAdmin, scheduleController.rejectUser);
 
 // Get recent approvals for admin dashboard
 router.get('/approval/recent', requireAdmin, (req, res) => {
@@ -1141,57 +1087,4 @@ router.post('/test-sms-notification', requireAdmin, async (req, res) => {
     res.status(500).json({ error: 'Error sending test SMS' });
   }
 });
-
-// Manually set user as admin (temporary endpoint for development)
-router.post('/set-admin/:id', requireAdmin, (req, res) => {
-  const userId = req.params.id;
-  
-  db.query(
-    'UPDATE users SET role = "admin" WHERE id = ?',
-    [userId],
-    (err, result) => {
-      if (err) {
-        console.error('Error setting admin role:', err);
-        return res.status(500).json({ error: 'Database error' });
-      }
-      
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-      
-      res.json({ message: 'User role updated to admin successfully' });
-    }
-  );
-});
-
-// Reset user password (temporary endpoint for development)
-router.post('/reset-password/:id', requireAdmin, (req, res) => {
-  const userId = req.params.id;
-  const { newPassword } = req.body;
-  
-  if (!newPassword) {
-    return res.status(400).json({ error: 'New password is required' });
-  }
-  
-  const bcrypt = require('bcrypt');
-  const hashedPassword = bcrypt.hashSync(newPassword, 10);
-  
-  db.query(
-    'UPDATE users SET password = ? WHERE id = ?',
-    [hashedPassword, userId],
-    (err, result) => {
-      if (err) {
-        console.error('Error resetting password:', err);
-        return res.status(500).json({ error: 'Database error' });
-      }
-      
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-      
-      res.json({ message: 'Password reset successfully' });
-    }
-  );
-});
-
 module.exports = router;

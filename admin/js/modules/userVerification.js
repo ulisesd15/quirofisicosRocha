@@ -6,7 +6,200 @@
       container.innerHTML = html;
     }
   }
-    // ...existing methods...
+  // Render the notification settings form
+      displayAppointments(appointments) {
+    const tbody = document.getElementById('appointments-table');
+    
+    if (appointments.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="empty-state">
+            <i class="fas fa-calendar-times"></i>
+            <h5>No hay citas</h5>
+            <p>No se encontraron citas que coincidan con los criterios de búsqueda.</p>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = appointments.map(apt => `
+      <tr>
+        <td>${apt.id}</td>
+        <td>${this.formatDate(apt.appointment_date)}</td>
+        <td>${this.formatTime(apt.appointment_time)}</td>
+        <td>${apt.name}</td>
+        <td>
+          ${apt.email ? `<div>${apt.email}</div>` : ''}
+          ${apt.phone ? `<div class="text-muted">${apt.phone}</div>` : ''}
+        </td>
+        <td><span class="badge bg-${apt.status}">${this.getStatusText(apt.status)}</span></td>
+        <td>
+          <div class="action-buttons">
+            <button class="btn btn-outline-primary btn-sm" onclick="adminPanel.appointments.editAppointment(${apt.id})" title="Editar">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.appointments.deleteAppointment(${apt.id})" title="Eliminar">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  async deleteAppointment(id) {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta cita?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/appointments/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+
+      if (!response.ok) throw new Error('Error deleting appointment');
+
+      await this.refreshCurrentSection();
+      this.showSuccess('Cita eliminada correctamente');
+
+    } catch (error) {
+      console.error('Error deleting appointment:', error);
+      this.showError('Error eliminando la cita');
+    }
+  }
+
+async displayPendingAppointments() {
+  try {
+    const response = await fetch('/api/admin/appointments/pending', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    
+    const appointments = await response.json();
+    
+    const container = document.getElementById('pending-appointments');
+    if (!container) {
+      console.error('Pending appointments container not found');
+      return;
+    }
+    
+    container.innerHTML = '';
+    
+    if (appointments.length === 0) {
+      container.innerHTML = '<p>No hay citas pendientes de aprobación.</p>';
+      return;
+    }
+    
+    appointments.forEach(appointment => {
+      const appointmentDiv = document.createElement('div');
+      appointmentDiv.className = 'appointment-item';
+      appointmentDiv.innerHTML = `
+        <div class="appointment-details">
+          <h4>Cita #${appointment.id}</h4>
+          <p><strong>Cliente:</strong> ${appointment.user_name}</p>
+          <p><strong>Email:</strong> ${appointment.email}</p>
+          <p><strong>Teléfono:</strong> ${appointment.phone || 'No especificado'}</p>
+          <p><strong>Fecha:</strong> ${appointment.appointment_date}</p>
+          <p><strong>Hora:</strong> ${formatTimeToAMPM(appointment.appointment_time)}</p>
+          <p><strong>Servicio:</strong> ${appointment.service}</p>
+          <p><strong>Notas:</strong> ${appointment.notes || 'Sin notas'}</p>
+          <p><strong>Fecha de solicitud:</strong> ${new Date(appointment.created_at).toLocaleString()}</p>
+        </div>
+        <div class="appointment-actions">
+          <button class="btn-approve" onclick="approveAppointment(${appointment.id})">
+            Aprobar y Enviar SMS
+          </button>
+          <button class="btn-reject" onclick="rejectAppointment(${appointment.id})">
+            Rechazar
+          </button>
+        </div>
+      `;
+      
+      container.appendChild(appointmentDiv);
+    });
+    
+  } catch (error) {
+    console.error('Error loading pending appointments:', error);
+    const container = document.getElementById('pending-appointments');
+    if (container) {
+      container.innerHTML = '<p>Error al cargar las citas pendientes.</p>';
+    }
+  }
+}
+
+async approveAppointment(appointmentId) {
+    try {
+        const response = await fetch(`/api/admin/appointments/${appointmentId}/approve`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+        }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        // Show success message
+        this.showNotification('Cita aprobada y SMS enviado exitosamente', 'success');
+        
+        // Refresh the pending appointments list
+        this.displayPendingAppointments();
+        
+        } catch (error) {
+            console.error('Error approving appointment:', error);
+            this.showNotification('Error al aprobar la cita', 'error');
+        }
+}
+
+// Function to reject an appointment (placeholder for future implementation)
+async rejectAppointment(appointmentId) {
+  if (!confirm('¿Está seguro de que desea rechazar esta cita?')) {
+    return;
+  }
+
+  async function sendAppointmentReminders() {
+  try {
+    const confirmSend = confirm('¿Desea enviar recordatorios SMS a todos los pacientes con citas para mañana?');
+    if (!confirmSend) return;
+    
+    const response = await fetch('/api/admin/appointments/send-reminders', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    showNotification(`Recordatorios enviados: ${result.sent} SMS enviados exitosamente`, 'success');
+    
+  } catch (error) {
+    console.error('Error sending reminders:', error);
+    showNotification('Error al enviar recordatorios', 'error');
+  }
+}
+
+  
+  // TODO: Implement appointment rejection endpoint
+  this.showNotification('Función de rechazo en desarrollo', 'warning');
+}
 
     renderNotificationSettings(settingsMap = {}) {
       const html = `

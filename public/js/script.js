@@ -106,13 +106,7 @@ function getAnnouncementIcon(type) {
   return icons[type] || 'fa-info-circle';
 }
 
-function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString('es-ES', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-}
+
 
 function dismissAnnouncement(id) {
   const banner = document.querySelector(`[data-id="${id}"]`);

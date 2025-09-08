@@ -24,8 +24,8 @@ const register = async (req, res) => {
 
       // Insert new user
       const insertSql = `
-        INSERT INTO users (full_name, email, phone, password, auth_provider)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO users (full_name, email, phone, password, auth_provider, is_verified, requires_verification)
+        VALUES (?, ?, ?, ?, ?, 0, 1)
       `;
 
       db.query(insertSql, [full_name, email, phone, hashedPassword, 'local'], (insertErr, result) => {

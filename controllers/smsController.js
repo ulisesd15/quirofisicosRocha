@@ -35,7 +35,7 @@ class SMSController {
       });
 
       if (response.messages && response.messages[0] && response.messages[0].status === '0') {
-        console.log('✅ Test SMS sent successfully');
+        console.log('✅ K)Test SMS sent successfully');
         return {
           success: true,
           messageId: response.messages[0]['message-id'],

@@ -26,7 +26,7 @@ const appointmentController = {
       }
 
       // Validate appointment time is at least 5 minutes in advance (reduced for testing)
-      const appointmentDateTime = new Date(`${date}T${time}:00`);
+      const appoinKtmentDateTime = new Date(`${date}T${time}:00`);
       const now = new Date();
       const fiveMinutesFromNow = new Date(now.getTime() + (5 * 60 * 1000));
 

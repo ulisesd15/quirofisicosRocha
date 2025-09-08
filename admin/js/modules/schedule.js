@@ -163,21 +163,29 @@ export class ScheduleModule {
       };
     });
 
+    // Get effective date from date picker
+    const datePicker = document.getElementById('schedule-effective-date');
+    const effective_date = datePicker ? datePicker.value : null;
+
     // Optional: validate data here
     if (!businessHours.some(day => day.is_open)) {
       this.showError('Debe abrir al menos un día de la semana');
       return;
     }
+    if (!effective_date) {
+      this.showError('Debe seleccionar una fecha de inicio');
+      return;
+    }
 
     try {
       this.showLoading();
-      const response = await fetch('/api/admin/business-hours', {
-        method: 'PUT',
+      const response = await fetch('/api/admin/scheduled-business-hours', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.getAuthToken()}`
         },
-        body: JSON.stringify({ businessHours })
+        body: JSON.stringify({ businessHours, effective_date })
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Error al guardar horarios');
@@ -1270,5 +1278,8 @@ async loadBusinessHours() {
     document.getElementById('addHolidayTemplateModalLabel').innerHTML = 
       '<i class="fas fa-star me-2"></i>Nueva Plantilla de Feriado';
   }
-
 }
+
+
+
+// Only export ScheduleModule for admin panel usage

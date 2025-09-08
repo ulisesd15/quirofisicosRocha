@@ -1,3 +1,536 @@
+
+// Move these variables outside the class definition
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
+let selectedDate = null;
+let businessHours = [];
+let scheduleExceptions = [];
+let availabilityCache = new Map();
+
+// Helper functions
+const monthNames = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
+const dayNames = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'];
+const fullDayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+const formatDate = (date) => {
+  return date.toISOString().split('T')[0];
+};
+
+// Convert 24-hour time to 12-hour AM/PM format
+const formatTimeToAMPM = (time24) => {
+  const [hours, minutes] = time24.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hours12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+};
+
+// Determine time period for grouping (using same logic as weekly calendar)
+const periodOf = (time) => {
+  const [h] = time.split(':').map(Number);
+  return h < 12 ? 'manana' : h < 17 ? 'tarde' : 'noche';
+};
+
+const isToday = (date) => {
+  const today = new Date();
+  return date.toDateString() === today.toDateString();
+};
+
+const isPastDate = (date) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const compareDate = new Date(date);
+  compareDate.setHours(0, 0, 0, 0);
+  
+  return compareDate < today;
+};
+
+// Fetch business hours for a specific date (supports effective date logic)
+async function fetchBusinessHours(date = null) {
+  try {
+    const dateParam = date ? `?date=${formatDate(date)}` : '';
+    const response = await fetch(`/api/business-hours${dateParam}`);
+    if (!response.ok) throw new Error('Failed to fetch business hours');
+    const data = await response.json();
+    const processedBusinessHours = (data.business_hours || data).map(bh => ({
+      ...bh,
+      day_of_week: bh.day_of_week.toLowerCase()
+    }));
+    businessHours = processedBusinessHours || getDefaultBusinessHours();
+    return businessHours;
+  } catch (error) {
+    businessHours = getDefaultBusinessHours();
+    return businessHours;
+  }
+}
+
+// Fetch schedule exceptions
+async function fetchScheduleExceptions() {
+  try {
+    console.log('📞 Monthly calendar fetching schedule exceptions...');
+    const response = await fetch('/api/schedule-exceptions');
+    if (!response.ok) throw new Error('Failed to fetch schedule exceptions');
+    
+    const data = await response.json();
+    console.log('📊 Monthly calendar schedule exceptions data:', data);
+    
+    // Update the global scheduleExceptions variable
+    scheduleExceptions = data || [];
+    console.log('✅ Monthly calendar processed schedule exceptions:', scheduleExceptions);
+    return scheduleExceptions;
+  } catch (error) {
+    console.error('❌ Error fetching schedule exceptions:', error);
+    scheduleExceptions = [];
+    return scheduleExceptions;
+  }
+}
+
+function getDefaultBusinessHours() {
+  return [
+    { day_of_week: 'monday', is_open: true },
+    { day_of_week: 'tuesday', is_open: true },
+    { day_of_week: 'wednesday', is_open: true },
+    { day_of_week: 'thursday', is_open: true },
+    { day_of_week: 'friday', is_open: true },
+    { day_of_week: 'saturday', is_open: false },
+    { day_of_week: 'sunday', is_open: false }
+  ];
+}
+
+// Check if a day is open for business, considering exceptions and holidays first
+function isDayOpen(date) {
+  const dateStr = formatDate(date);
+  const exception = getScheduleException(dateStr);
+  if (exception) {
+    if (exception.is_closed) return false;
+    if (exception.custom_open_time && exception.custom_close_time) return true;
+  }
+  if (!businessHours || businessHours.length === 0) return false;
+  const dayOfWeek = fullDayNames[date.getDay()];
+  const businessDay = businessHours.find(bh => bh.day_of_week === dayOfWeek);
+  if (!businessDay) return false;
+  if (!businessDay.is_open || businessDay.is_open === 0) return false;
+  return true;
+}
+
+// Get schedule exception for a specific date
+function getScheduleException(dateStr) {
+  if (!scheduleExceptions || scheduleExceptions.length === 0) {
+    return null;
+  }
+  
+  const date = new Date(dateStr);
+  
+  for (const exception of scheduleExceptions) {
+    // Check if this exception applies to the given date
+    if (exception.exception_type === 'single_day') {
+      if (exception.start_date === dateStr) {
+        return exception;
+      }
+      // Check yearly recurrence
+      if (exception.recurring_type === 'yearly') {
+        const exceptionDate = new Date(exception.start_date);
+        if (exceptionDate.getMonth() === date.getMonth() && 
+            exceptionDate.getDate() === date.getDate()) {
+          return exception;
+        }
+      }
+    } else if (exception.exception_type === 'date_range') {
+      if (dateStr >= exception.start_date && dateStr <= exception.end_date) {
+        return exception;
+      }
+      // Check yearly recurrence for date ranges
+      if (exception.recurring_type === 'yearly') {
+        const startDate = new Date(exception.start_date);
+        const endDate = new Date(exception.end_date);
+        const currentYear = date.getFullYear();
+        
+        const yearlyStart = new Date(currentYear, startDate.getMonth(), startDate.getDate());
+        const yearlyEnd = new Date(currentYear, endDate.getMonth(), endDate.getDate());
+        
+        if (date >= yearlyStart && date <= yearlyEnd) {
+          return exception;
+        }
+      }
+    }
+  }
+  
+  return null;
+  return true;
+}
+
+// Check availability for a specific date
+async function checkDateAvailability(date) {
+  const dateStr = formatDate(date);
+  
+  // Check cache first
+  if (availabilityCache.has(dateStr)) {
+    return availabilityCache.get(dateStr);
+  }
+  
+  try {
+    console.log(`🔍 Checking availability for ${dateStr}...`);
+    const response = await fetch(`/api/available-slots/${dateStr}`);
+    console.log(`📡 API response for ${dateStr}:`, response.status, response.ok);
+    
+    if (!response.ok) throw new Error('Failed to fetch availability');
+    
+    const data = await response.json();
+    console.log(`📊 Data received for ${dateStr}:`, data);
+    const hasSlots = data.availableSlots && data.availableSlots.length > 0;
+    console.log(`✅ Has slots for ${dateStr}:`, hasSlots, `(${data.availableSlots?.length || 0} slots)`);
+    
+    // Cache the result
+    availabilityCache.set(dateStr, hasSlots);
+    return hasSlots;
+  } catch (error) {
+    console.error(`❌ Error checking availability for ${dateStr}:`, error);
+    return false;
+  }
+}
+
+// Find next available date
+async function findNextAvailableDate(fromDate = new Date()) {
+  const maxDaysToCheck = 90; // Check up to 3 months ahead
+  let checkDate = new Date(fromDate);
+  
+  for (let i = 0; i < maxDaysToCheck; i++) {
+    if (!isPastDate(checkDate) && isDayOpen(checkDate)) {
+      const hasAvailability = await checkDateAvailability(checkDate);
+      if (hasAvailability) {
+        return new Date(checkDate);
+      }
+    }
+    checkDate.setDate(checkDate.getDate() + 1);
+  }
+  
+  return null; // No availability found in the next 90 days
+}
+
+// Render the monthly calendar with auto-advance if no available slots
+async function renderMonthlyCalendar() {
+  const calendarContainer = document.getElementById('monthlyCalendar');
+  if (!calendarContainer) return;
+  // Always fetch business hours for the first day of the month (to support effective date logic)
+  const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+  await fetchBusinessHours(firstDayOfMonth);
+  // Also fetch schedule exceptions for the month
+  await fetchScheduleExceptions();
+  // Clear previous content
+  calendarContainer.innerHTML = '';
+  const calendar = document.createElement('div');
+  calendar.className = 'calendar-container';
+  const header = document.createElement('div');
+  header.className = 'calendar-header';
+  header.innerHTML = `
+    <button type="button" class="calendar-nav-btn" id="prevMonth">
+      <i class="fas fa-chevron-left"></i>
+    </button>
+    <div class="calendar-month-year">
+      ${monthNames[currentMonth]} ${currentYear}
+    </div>
+    <button type="button" class="calendar-nav-btn" id="nextMonth">
+      <i class="fas fa-chevron-right"></i>
+    </button>
+  `;
+  const grid = document.createElement('div');
+  grid.className = 'calendar-grid';
+  dayNames.forEach(day => {
+    const dayHeader = document.createElement('div');
+    dayHeader.className = 'calendar-day-header';
+    dayHeader.textContent = day;
+    grid.appendChild(dayHeader);
+  });
+  const firstDay = new Date(currentYear, currentMonth, 1);
+  const lastDay = new Date(currentYear, currentMonth + 1, 0);
+  const startDate = new Date(firstDay);
+  startDate.setDate(startDate.getDate() - firstDay.getDay());
+  let currentCalendarDate = new Date(startDate);
+  for (let week = 0; week < 6; week++) {
+    for (let day = 0; day < 7; day++) {
+      const dayElement = document.createElement('button');
+      dayElement.type = 'button';
+      dayElement.className = 'calendar-day';
+      dayElement.textContent = currentCalendarDate.getDate();
+      const isCurrentMonth = currentCalendarDate.getMonth() === currentMonth;
+      const isCurrentYear = currentCalendarDate.getFullYear() === currentYear;
+      const isPast = isPastDate(currentCalendarDate);
+      const isOpenDay = isDayOpen(currentCalendarDate);
+      const isTodayDate = isToday(currentCalendarDate);
+      const isSelectedDate = selectedDate && currentCalendarDate.toDateString() === selectedDate.toDateString();
+      if (isTodayDate && !isSelectedDate) dayElement.classList.add('today');
+      if (isSelectedDate) dayElement.classList.add('selected');
+      if (!isCurrentMonth || !isCurrentYear) {
+        dayElement.classList.add('other-month');
+      } else if (isPast) {
+        dayElement.classList.add('disabled');
+      } else if (!isOpenDay) {
+        dayElement.classList.add('unavailable');
+      } else {
+        dayElement.classList.add('available');
+        // Check availability asynchronously
+        const dateToCheck = new Date(currentCalendarDate);
+        checkDateAvailability(dateToCheck).then(hasSlots => {
+          if (!hasSlots) {
+            dayElement.classList.remove('available');
+            dayElement.classList.add('unavailable');
+          }
+        });
+      }
+      const dateValue = new Date(currentCalendarDate);
+      dayElement.addEventListener('click', () => {
+        if (selectedDate && dateValue.toDateString() === selectedDate.toDateString()) {
+          loadTimeSlots(dateValue);
+          return;
+        }
+        selectCalendarDate(dateValue, dayElement);
+      });
+      grid.appendChild(dayElement);
+      currentCalendarDate.setDate(currentCalendarDate.getDate() + 1);
+    }
+  }
+  const statusSection = document.createElement('div');
+  statusSection.id = 'calendarStatus';
+  statusSection.className = 'calendar-status';
+  calendar.appendChild(header);
+  calendar.appendChild(grid);
+  calendar.appendChild(statusSection);
+  calendarContainer.appendChild(calendar);
+  document.getElementById('prevMonth').addEventListener('click', () => {
+    currentMonth--;
+    if (currentMonth < 0) {
+      currentMonth = 11;
+      currentYear--;
+    }
+    renderMonthlyCalendar();
+  });
+  document.getElementById('nextMonth').addEventListener('click', () => {
+    currentMonth++;
+    if (currentMonth > 11) {
+      currentMonth = 0;
+      currentYear++;
+    }
+    renderMonthlyCalendar();
+  });
+  // Auto-advance if no available slots in this month
+  await checkMonthAvailability();
+}
+
+// Check if the current month has any available dates
+async function checkMonthAvailability() {
+  const statusSection = document.getElementById('calendarStatus');
+  if (!statusSection) return;
+  
+  const firstDay = new Date(currentYear, currentMonth, 1);
+  const lastDay = new Date(currentYear, currentMonth + 1, 0);
+  const today = new Date();
+  
+  let hasAvailability = false;
+  let checkDate = new Date(Math.max(firstDay.getTime(), today.getTime()));
+  
+  // Check each day in the current month
+  while (checkDate <= lastDay) {
+    if (isDayOpen(checkDate)) {
+      const hasSlots = await checkDateAvailability(checkDate);
+      if (hasSlots) {
+        hasAvailability = true;
+        break;
+      }
+    }
+    checkDate.setDate(checkDate.getDate() + 1);
+  }
+  
+  if (!hasAvailability) {
+    const nextAvailable = await findNextAvailableDate(new Date(lastDay.getTime() + 24 * 60 * 60 * 1000));
+    
+    if (nextAvailable) {
+      statusSection.innerHTML = `
+        <div class="no-availability">
+          <p><strong>No availability until ${nextAvailable.toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          })}.</strong></p>
+          <button class="next-available-btn" onclick="goToNextAvailable('${formatDate(nextAvailable)}')">
+            Go to next available
+          </button>
+        </div>
+      `;
+    } else {
+      statusSection.innerHTML = `
+        <div class="no-availability">
+          <p><strong>No availability in the next 90 days.</strong></p>
+          <p>Please contact us directly to schedule an appointment.</p>
+        </div>
+      `;
+    }
+  } else {
+    statusSection.innerHTML = '';
+  }
+}
+
+// Go to next available date
+window.goToNextAvailable = function(dateStr) {
+  const date = new Date(dateStr);
+  currentMonth = date.getMonth();
+  currentYear = date.getFullYear();
+  renderMonthlyCalendar().then(() => {
+    // Select the date after calendar renders
+    setTimeout(() => {
+      const dayElement = document.querySelector(`.calendar-day.available[data-date="${dateStr}"]`);
+      if (dayElement) {
+        selectCalendarDate(date, dayElement);
+      }
+    }, 100);
+  });
+};
+
+// Select a calendar date
+async function selectCalendarDate(date, dayElement) {
+  if (dayElement.classList.contains('disabled') || 
+      dayElement.classList.contains('other-month') || 
+      dayElement.classList.contains('unavailable')) {
+    return;
+  }
+  
+  // Remove previous selection but preserve other classes like 'today'
+  document.querySelectorAll('.calendar-day.selected').forEach(day => {
+    day.classList.remove('selected');
+  });
+  
+  // Add selection
+  dayElement.classList.add('selected');
+  selectedDate = date;
+  
+  // Update selected date
+  
+  // Update hidden input if it exists
+  const selectedDateInput = document.getElementById('selectedDate');
+  if (selectedDateInput) {
+    selectedDateInput.value = formatDate(date);
+  }
+  
+  // Load time slots immediately for the selected date
+  loadTimeSlots(date);
+}
+
+// Load time slots for selected date
+async function loadTimeSlots(date) {
+  const timeSlotsContainer = document.getElementById('timeCards');
+  if (!timeSlotsContainer) return;
+  
+  try {
+    // Fetch available time slots
+    
+    const response = await fetch(`/api/available-slots/${formatDate(date)}`);
+    if (!response.ok) throw new Error('Failed to fetch time slots');
+    
+    const data = await response.json();
+    const slots = data.availableSlots || [];
+    
+    timeSlotsContainer.innerHTML = '';
+    
+    if (slots.length === 0) {
+      timeSlotsContainer.innerHTML = `
+        <div class="col-12">
+          <div class="alert alert-warning text-center">
+            Sin horarios disponibles para ${date.toLocaleDateString('es-ES')}
+          </div>
+        </div>
+      `;
+      return;
+    }
+    
+    // Group slots by period (using same logic as weekly calendar)
+    const sections = { manana: [], tarde: [], noche: [] };
+    
+    slots.forEach(time => {
+      sections[periodOf(time)].push(time);
+    });
+
+    // Spanish period labels (matching weekly calendar)
+    const periodLabels = {
+      'manana': 'Mañana',
+      'tarde': 'Tarde', 
+      'noche': 'Noche'
+    };
+
+    // Render time periods (using same structure as weekly calendar)
+    Object.entries(sections).forEach(([period, times]) => {
+      if (times.length === 0) return;
+      
+      const periodHeader = document.createElement('h6');
+      periodHeader.className = 'time-period-header mt-3 mb-2';
+      periodHeader.textContent = periodLabels[period];
+      timeSlotsContainer.appendChild(periodHeader);
+      
+      const row = document.createElement('div');
+      row.className = 'row g-2';
+      timeSlotsContainer.appendChild(row);
+      
+      times.forEach(time => {
+        const col = document.createElement('div');
+        col.className = 'col-6 col-md-4 col-lg-3 mb-2';
+        
+        const btn = document.createElement('button');
+        btn.type = 'button'; // Prevent form submission
+        btn.className = 'btn btn-outline-primary time-slot-btn';
+        btn.textContent = window.formatTimeToAMPM ? window.formatTimeToAMPM(time) : time; // Display in AM/PM format
+        
+        // Store the 24-hour format as data attribute for form submission
+        btn.dataset.time24 = time;
+        
+        btn.addEventListener('click', () => selectTimeSlot(time, btn));
+        
+        col.appendChild(btn);
+        row.appendChild(col);
+      });
+    });
+    
+    // Show booking form
+    const bookingForm = document.getElementById('bookingForm');
+    if (bookingForm) {
+      bookingForm.style.display = 'block';
+    }
+    
+  } catch (error) {
+    console.error('❌ Error loading time slots:', error);
+    timeSlotsContainer.innerHTML = `
+      <div class="col-12">
+        <div class="alert alert-danger text-center">
+          Error cargando horarios disponibles
+        </div>
+      </div>
+    `;
+  }
+}
+
+// Select time slot
+function selectTimeSlot(time, btnElement) {
+  // Remove previous selection
+  document.querySelectorAll('.time-slot-btn.active').forEach(btn => {
+    btn.classList.remove('active', 'btn-primary');
+    btn.classList.add('btn-outline-primary');
+  });
+  
+  // Add selection
+  btnElement.classList.remove('btn-outline-primary');
+  btnElement.classList.add('btn-primary', 'active');
+  
+  // Update hidden input
+  const selectedTimeInput = document.getElementById('selectedTime');
+  if (selectedTimeInput) {
+    selectedTimeInput.value = time;
+  }
+  
+  // Store selected time
+}
+
 // appointment.js
 
 // ───────── DOM REFERENCES ─────────
@@ -26,7 +559,7 @@ const startOfWeek = (offset = 0) => {
   d.setDate(d.getDate() + mondayOffset + (offset * 7));
   return d;
 };
-// Note: periodOf function is defined in enhanced-calendar.js
+// periodOf function should be defined locally if needed
 
 // ───────── USER LOGIC ─────────
 // Legacy variables - keeping for compatibility
@@ -90,29 +623,24 @@ async function fetchBasicAvailability(dayISO) {
   return available;
 }
 
-// ───────── BUSINESS HOURS FETCH ─────────
-async function fetchBusinessHours() {
+
+// Fetch business hours for a specific date (returns the week containing that date)
+async function fetchBusinessHoursForDate(dayISO) {
   try {
-    // Fetch business hours from API
-    const response = await fetch('/api/business-hours');
+    const response = await fetch(`/api/business-hours/${dayISO}`);
     if (!response.ok) {
-      console.error('Error fetching business hours, using defaults');
+      console.error('Error fetching business hours for date, using defaults');
       return getDefaultBusinessHours();
     }
-    
     const data = await response.json();
-    // Process business hours data
-    
     // Convert day_of_week to lowercase for consistency
     const businessHours = data.business_hours.map(bh => ({
       ...bh,
       day_of_week: bh.day_of_week.toLowerCase()
     }));
-    
-    // Business hours loaded successfully
     return businessHours || getDefaultBusinessHours();
   } catch (error) {
-    console.error('Error fetching business hours:', error);
+    console.error('Error fetching business hours for date:', error);
     return getDefaultBusinessHours();
   }
 }
@@ -158,7 +686,7 @@ function getDayOfWeekString(date) {
   return days[date.getDay()];
 }
 
-// Note: formatTimeToAMPM function is defined in enhanced-calendar.js
+// formatTimeToAMPM function should be defined locally if needed
 
 // ───────── APPOINTMENTS FETCH ─────────
 async function fetchAppointments(dayISO) {
@@ -576,19 +1104,15 @@ async function initializeAppointmentSystem() {
     }
     
     // Load business hours from admin panel
-    BUSINESS_HOURS = await fetchBusinessHours();
-    
-    // Make business hours available globally for other calendar components
+
+    // Use today as the default date for initial load
+    const todayISO = iso(new Date());
+    BUSINESS_HOURS = await fetchBusinessHoursForDate(todayISO);
     window.BUSINESS_HOURS = BUSINESS_HOURS;
-    
     BUSINESS_HOURS.forEach(bh => {
       console.log(`  ${bh.day_of_week}: ${bh.is_open ? 'OPEN' : 'CLOSED'} (${bh.open_time} - ${bh.close_time})`);
     });
-    
-    // Initialize calendar only after business hours are loaded
     renderWeek();
-    
-    // Set up UI
     setupUI();
     
   } catch (error) {

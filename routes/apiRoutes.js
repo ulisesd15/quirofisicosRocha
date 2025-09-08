@@ -1,3 +1,4 @@
+
 const express = require('express');
 const db = require('../config/connections');
 const router = express.Router();
@@ -7,6 +8,38 @@ const authenticateToken = require('../middleware/auth');
 // const scheduleController = require('../controllers/scheduleController');
 const appointmentController = require('../controllers/appointmentController');
 const secretKey = process.env.SECRET_KEY;
+
+// Save new scheduled business hours (admin only)
+router.post('/admin/scheduled-business-hours', (req, res) => {
+  const { businessHours, effective_date } = req.body;
+  if (!businessHours || !Array.isArray(businessHours) || !effective_date) {
+    return res.status(400).json({ error: 'Missing businessHours array or effective_date' });
+  }
+  // Insert each day's business hours for the effective date
+  const values = businessHours.map(bh => [
+    bh.day_of_week,
+    bh.is_open ? 1 : 0,
+    bh.open_time || null,
+    bh.close_time || null,
+    bh.break_start || null,
+    bh.break_end || null,
+    effective_date,
+    1 // is_active
+  ]);
+  const sql = `
+    INSERT INTO scheduled_business_hours
+      (day_of_week, is_open, open_time, close_time, break_start, break_end, effective_date, is_active)
+    VALUES ?
+  `;
+  req.db = req.db || require('../config/connections');
+  req.db.query(sql, [values], (err, result) => {
+    if (err) {
+      console.error('Error saving scheduled business hours:', err);
+      return res.status(500).json({ error: 'Error saving scheduled business hours' });
+    }
+    res.json({ message: 'Scheduled business hours saved', inserted: result.affectedRows });
+  });
+});
 
 // --- Available Slots Endpoint ---
 // Returns available slots for a given date using business hours and appointments
@@ -35,8 +68,16 @@ router.get('/available-slots/:date', async (req, res) => {
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const dayOfWeek = days[dateObj.getDay()];
   try {
-    // Get business hours for the day
-    db.query('SELECT * FROM business_hours WHERE LOWER(day_of_week) = ?', [dayOfWeek], (err, results) => {
+    // Get the most recent scheduled business hours for this day_of_week and date
+    const bhQuery = `
+      SELECT * FROM scheduled_business_hours
+      WHERE LOWER(day_of_week) = ?
+        AND effective_date <= ?
+        AND is_active = 1
+      ORDER BY effective_date DESC
+      LIMIT 1
+    `;
+    db.query(bhQuery, [dayOfWeek, dayISO], (err, results) => {
       if (err || !results || results.length === 0) return res.json({ availableSlots: [] });
       const bh = results[0];
       if (!bh.is_open) return res.json({ availableSlots: [] });
@@ -74,25 +115,39 @@ router.get('/config/maps-key', (req, res) => {
   });
 });
 
-// Get current business hours for public display
-router.get('/business-hours', (req, res) => {
-  const query = `
-    SELECT day_of_week, is_open, 
-           TIME_FORMAT(open_time, '%H:%i') as open_time,
-           TIME_FORMAT(close_time, '%H:%i') as close_time,
-           TIME_FORMAT(break_start, '%H:%i') as break_start,
-           TIME_FORMAT(break_end, '%H:%i') as break_end
-    FROM business_hours 
-    ORDER BY FIELD(day_of_week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
-  `;
-  
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error getting business hours:', err);
-      return res.status(500).json({ error: 'Error getting business hours' });
-    }
-    
-    res.json({ business_hours: results });
+
+// Get business hours for a specific date (using scheduled_business_hours)
+router.get('/business-hours/:date', (req, res) => {
+  const dayISO = req.params.date;
+  const dateObj = new Date(dayISO);
+  if (isNaN(dateObj)) return res.status(400).json({ business_hours: [] });
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const dayOfWeek = days[dateObj.getDay()];
+  // Query for all days of week for this date (for full week display)
+  const promises = days.map(dow => {
+    return new Promise((resolve, reject) => {
+      const bhQuery = `
+        SELECT * FROM scheduled_business_hours
+        WHERE LOWER(day_of_week) = ?
+          AND effective_date <= ?
+          AND is_active = 1
+        ORDER BY effective_date DESC
+        LIMIT 1
+      `;
+      db.query(bhQuery, [dow, dayISO], (err, results) => {
+        if (err || !results || results.length === 0) {
+          // If not found, return closed for that day
+          resolve({ day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null });
+        } else {
+          resolve(results[0]);
+        }
+      });
+    });
+  });
+  Promise.all(promises).then(weekHours => {
+    res.json({ business_hours: weekHours });
+  }).catch(() => {
+    res.status(500).json({ business_hours: [] });
   });
 });
 

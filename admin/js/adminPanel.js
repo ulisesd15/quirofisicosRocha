@@ -31,7 +31,7 @@ class AdminPanel {
     this.dashboard = new DashboardModule();
     this.appointments = new AppointmentsModule();
     this.users = new UsersModule();
-    this.schedule = new ScheduleModule();
+  this.schedule = new ScheduleModule();
     this.settings = new SettingsModule();
     this.userVerification = new UserVerificationModule();
     this.serverStatus = new ServerStatusModule();
@@ -675,7 +675,10 @@ class AdminPanel {
       case 'users':
         this.users.loadUsers?.(); break;
       case 'schedule':
-        this.schedule.loadScheduleSection?.(); break;
+        if (this.schedule && typeof this.schedule.loadScheduleSection === 'function') {
+          this.schedule.loadScheduleSection();
+        }
+        break;
       case 'settings':
         this.settings.loadClinicSettings?.(); break;
       case 'sms-management':
@@ -752,3 +755,4 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('Failed to initialize AdminPanel:', error);
   }
 });
+module.exports = router;
