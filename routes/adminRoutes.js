@@ -6,7 +6,7 @@ router.get('/test', (req, res) => {
 });
 const db = require('../config/connections');
 const auth = require('../middleware/auth');
-const scheduleController = require('../controllers/scheduleController');
+// const scheduleController = require('../controllers/scheduleController');
 
 // Middleware to check if user is admin
 const requireAdmin = (req, res, next) => {
@@ -660,77 +660,52 @@ router.get('/server/status', requireAdmin, (req, res) => {
 // =================
 
 // Get business hours
-router.get('/schedule/business-hours', requireAdmin, scheduleController.getBusinessHours);
+// router.get('/schedule/business-hours', requireAdmin, scheduleController.getBusinessHours);
+
 
 // Update business hours for a specific day
-router.put('/schedule/business-hours/:day_of_week', requireAdmin, scheduleController.updateBusinessHours);
-
-// Save scheduled business hours changes
-router.post('/schedule/business-hours', requireAdmin, scheduleController.saveScheduledBusinessHours);
-
-// Get available time slots for a date
-router.get('/schedule/available-slots/:date', requireAdmin, scheduleController.getAvailableSlots);
-
-// Get clinic statistics (including schedule stats)
-router.get('/schedule/stats', requireAdmin, scheduleController.getClinicStats);
-
-// =================
-// HOLIDAY TEMPLATES MANAGEMENT
-// =================
-
-// Holiday templates CRUD
-router.get('/schedule/holiday-templates', requireAdmin, scheduleController.getHolidayTemplates);
-router.post('/schedule/holiday-templates', requireAdmin, scheduleController.createHolidayTemplate);
-router.put('/schedule/holiday-templates/:id', requireAdmin, scheduleController.updateHolidayTemplate);
-router.delete('/schedule/holiday-templates/:id', requireAdmin, scheduleController.deleteHolidayTemplate);
-
-// Generate yearly holidays from templates
-router.post('/schedule/generate-holidays/:year', requireAdmin, scheduleController.generateYearlyHolidays);
-
-// Annual closures CRUD
-router.get('/schedule/annual-closures', requireAdmin, scheduleController.getAnnualClosures);
-router.post('/schedule/annual-closures', requireAdmin, scheduleController.createAnnualClosure);
-router.put('/schedule/annual-closures/:id', requireAdmin, scheduleController.updateAnnualClosure);
-router.delete('/schedule/annual-closures/:id', requireAdmin, scheduleController.deleteAnnualClosure);
+// router.put('/schedule/business-hours/:day_of_week', requireAdmin, scheduleController.updateBusinessHours);
 
 // =================
 // ENHANCED SCHEDULE MANAGEMENT
 // =================
 
+
 // Scheduled Closures
-router.get('/schedule/closures', requireAdmin, scheduleController.getScheduledClosures);
-router.post('/schedule/closures', requireAdmin, scheduleController.addScheduledClosure);
-router.delete('/schedule/closures/:id', requireAdmin, scheduleController.deleteScheduledClosure);
+// router.get('/schedule/closures', requireAdmin, scheduleController.getScheduledClosures);
+// router.post('/schedule/closures', requireAdmin, scheduleController.addScheduledClosure);
+// router.delete('/schedule/closures/:id', requireAdmin, scheduleController.deleteScheduledClosure);
 
 // Schedule Overrides
-router.get('/schedule/overrides', requireAdmin, scheduleController.getScheduleOverrides);
-router.post('/schedule/overrides', requireAdmin, scheduleController.addScheduleOverride);
-router.delete('/schedule/overrides/:id', requireAdmin, scheduleController.deleteScheduleOverride);
+// router.get('/schedule/overrides', requireAdmin, scheduleController.getScheduleOverrides);
+// router.post('/schedule/overrides', requireAdmin, scheduleController.addScheduleOverride);
+// router.delete('/schedule/overrides/:id', requireAdmin, scheduleController.deleteScheduleOverride);
 
 // Blocked Time Slots
-router.get('/schedule/blocked-slots', requireAdmin, scheduleController.getBlockedTimeSlots);
-router.post('/schedule/blocked-slots', requireAdmin, scheduleController.addBlockedTimeSlot);
-router.delete('/schedule/blocked-slots/:id', requireAdmin, scheduleController.deleteBlockedTimeSlot);
+// router.get('/schedule/blocked-slots', requireAdmin, scheduleController.getBlockedTimeSlots);
+// router.post('/schedule/blocked-slots', requireAdmin, scheduleController.addBlockedTimeSlot);
+// router.delete('/schedule/blocked-slots/:id', requireAdmin, scheduleController.deleteBlockedTimeSlot);
 
 // =================
 // BUSINESS DAYS MANAGEMENT
 // =================
-router.get('/schedule/business-days', requireAdmin, scheduleController.getBusinessDaysConfig);
-router.put('/schedule/business-days', requireAdmin, scheduleController.updateBusinessDaysConfig);
+// router.get('/schedule/business-days', requireAdmin, scheduleController.getBusinessDaysConfig);
+// router.put('/schedule/business-days', requireAdmin, scheduleController.updateBusinessDaysConfig);
 
 // Week Exceptions
-router.get('/schedule/week-exceptions', requireAdmin, scheduleController.getWeekExceptions);
-router.post('/schedule/week-exceptions', requireAdmin, scheduleController.addWeekException);
-router.delete('/schedule/week-exceptions/:id', requireAdmin, scheduleController.deleteWeekException);
+// router.get('/schedule/week-exceptions', requireAdmin, scheduleController.getWeekExceptions);
+// router.post('/schedule/week-exceptions', requireAdmin, scheduleController.addWeekException);
+// router.delete('/schedule/week-exceptions/:id', requireAdmin, scheduleController.deleteWeekException);
 
 // =================
+
 // USER APPROVAL SYSTEM
 // =================
-router.get('/approval/settings', requireAdmin, scheduleController.getApprovalSettings);
-router.put('/approval/settings', requireAdmin, scheduleController.updateApprovalSettings);
-router.get('/approval/pending-users', requireAdmin, scheduleController.getPendingUsers);
-router.post('/approval/users/:id/approve', requireAdmin, scheduleController.approveUser);
-router.post('/approval/users/:id/reject', requireAdmin, scheduleController.rejectUser);
+// router.get('/approval/settings', requireAdmin, scheduleController.getApprovalSettings);
+// router.put('/approval/settings', requireAdmin, scheduleController.updateApprovalSettings);
+// router.get('/approval/pending-users', requireAdmin, scheduleController.getPendingUsers);
+// router.post('/approval/users/:id/approve', requireAdmin, scheduleController.approveUser);
+// router.post('/approval/users/:id/reject', requireAdmin, scheduleController.rejectUser);
 
 // Get recent approvals for admin dashboard
 router.get('/approval/recent', requireAdmin, (req, res) => {

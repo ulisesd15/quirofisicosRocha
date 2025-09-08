@@ -1,10 +1,85 @@
 // admin/js/modules/schedule.js
 export class ScheduleModule {
+  // --- WEEKLY VIEW AUTO-ADVANCE FEATURE ---
+  /**
+   * Checks if the current week has any available (future and unfilled) slots.
+   * If not, advances to the next week with available slots.
+   * Should be called after rendering the weekly view.
+   * @param {Array} weekSlots - Array of slot objects for the current week
+   * @param {Function} renderWeekFn - Function to render a given week (accepts a Date object for Monday)
+   * @param {Date} currentMonday - The Monday date of the current week
+   */
+  async autoAdvanceIfNoAvailableSlots(weekSlots, renderWeekFn, currentMonday) {
+    const now = new Date();
+    // Filter for available slots: not filled and in the future
+    const available = weekSlots.filter(slot => {
+      const slotDate = new Date(slot.date + 'T' + slot.time);
+      return !slot.filled && slotDate > now;
+    });
+    if (available.length > 0) return; // There are available slots this week
+
+    // Try next week (up to 12 weeks ahead for safety)
+    let weeksAhead = 1;
+    let found = false;
+    let nextMonday = new Date(currentMonday);
+    while (weeksAhead <= 12 && !found) {
+      nextMonday.setDate(currentMonday.getDate() + 7 * weeksAhead);
+      // Fetch slots for nextMonday's week (assume API or local function)
+      let nextWeekSlots = await this.fetchSlotsForWeek(nextMonday);
+      const nextAvailable = nextWeekSlots.filter(slot => {
+        const slotDate = new Date(slot.date + 'T' + slot.time);
+        return !slot.filled && slotDate > now;
+      });
+      if (nextAvailable.length > 0) {
+        found = true;
+        renderWeekFn(nextMonday); // Render the next available week
+        this.showSuccess('No hay horarios disponibles esta semana. Mostrando la siguiente semana con disponibilidad.');
+        break;
+      }
+      weeksAhead++;
+    }
+    if (!found) {
+      this.showError('No se encontraron horarios disponibles en las próximas semanas.');
+    }
+  }
+
+  /**
+   * Example stub for fetching slots for a week. Replace with your real API call.
+   * @param {Date} mondayDate
+   * @returns {Promise<Array>} Array of slot objects for the week
+   */
+  async fetchSlotsForWeek(mondayDate) {
+    // Format mondayDate as yyyy-mm-dd
+    const yyyy = mondayDate.getFullYear();
+    const mm = String(mondayDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(mondayDate.getDate()).padStart(2, '0');
+    const weekStart = `${yyyy}-${mm}-${dd}`;
+    // Example API endpoint: /api/slots?week_start=yyyy-mm-dd
+    try {
+      const resp = await fetch(`/api/slots?week_start=${weekStart}`, {
+        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      });
+      if (!resp.ok) throw new Error('Error fetching slots');
+      const data = await resp.json();
+      return data.slots || [];
+    } catch (e) {
+      console.error('Error fetching slots for week:', e);
+      return [];
+    }
+  }
+
+  // --- END WEEKLY VIEW AUTO-ADVANCE FEATURE ---
   getAuthToken() {
     return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
   }
 
+
   showError(message) {
+    alert(message);
+  }
+
+  showSuccess(message) {
+    // Simple implementation using alert, can be replaced with a toast/notification
     alert(message);
   }
 
@@ -18,6 +93,10 @@ export class ScheduleModule {
     if (spinner) spinner.style.display = 'none';
   }
 
+  showSuccess(message) {
+    // Simple implementation using alert, can be replaced with a toast/notification
+    alert(message);
+  }
 
   
   constructor() {}
@@ -35,15 +114,16 @@ export class ScheduleModule {
   }
   // Add gestión de horarios logic here
   
+
   async loadScheduleSection() {
     console.log('Loading comprehensive schedule section');
-    
-  // Ensure the first tab (business hours) is active
-  this.activateFirstTab();
-    
+
+    // Ensure the first tab (business hours) is active
+    this.activateFirstTab();
+
     // Initialize the effective date picker
     this.initializeEffectiveDatePicker();
-    
+
     // Load business hours data with proper error handling
     try {
       await this.loadBusinessHours();
@@ -54,11 +134,61 @@ export class ScheduleModule {
 
     // Initialize event listeners for schedule features
     this.initScheduleEventListeners();
-    
+
+    // Add event listener for save-business-hours button
+    const saveBtn = document.getElementById('save-business-hours');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => this.saveBusinessHours());
+    }
+
     // Initialize tab-specific event listeners
     // this.initScheduleTabListeners();
-    
+
     console.log('Schedule section loading complete');
+  }
+
+  async saveBusinessHours() {
+    // Collect business hours data from the form
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const businessHours = days.map(day => {
+      const dayLower = day.toLowerCase();
+      const isOpen = document.getElementById(`open-${dayLower}`)?.checked || false;
+      return {
+        day_of_week: day,
+        is_open: isOpen ? 1 : 0,
+        open_time: isOpen ? document.getElementById(`start-${dayLower}`)?.value || null : null,
+        close_time: isOpen ? document.getElementById(`end-${dayLower}`)?.value || null : null,
+        break_start: isOpen ? document.getElementById(`break-start-${dayLower}`)?.value || null : null,
+        break_end: isOpen ? document.getElementById(`break-end-${dayLower}`)?.value || null : null
+      };
+    });
+
+    // Optional: validate data here
+    if (!businessHours.some(day => day.is_open)) {
+      this.showError('Debe abrir al menos un día de la semana');
+      return;
+    }
+
+    try {
+      this.showLoading();
+      const response = await fetch('/api/admin/business-hours', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify({ businessHours })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || 'Error al guardar horarios');
+      this.showSuccess('Horarios guardados exitosamente');
+      await this.loadBusinessHours();
+    } catch (error) {
+      console.error('Error saving business hours:', error);
+      this.showError('Error al guardar horarios: ' + error.message);
+    } finally {
+      this.hideLoading();
+    }
   }
 
   
@@ -1140,98 +1270,5 @@ async loadBusinessHours() {
     document.getElementById('addHolidayTemplateModalLabel').innerHTML = 
       '<i class="fas fa-star me-2"></i>Nueva Plantilla de Feriado';
   }
-
-  initScheduledBusinessHoursEventListeners() {
-    // Preview button handler
-    const previewBtn = document.getElementById('preview-schedule-btn');
-    if (previewBtn) {
-      previewBtn.addEventListener('click', () => this.showSchedulePreview());
-    }
-
-    // Note: save-business-hours button should remain bound to saveBusinessHours() 
-    // for regular business hours functionality. Scheduled changes should use a different button.
-  }
-
-  async showSchedulePreview() {
-    const effectiveDate = document.getElementById('schedule-effective-date')?.value;
-    if (!effectiveDate) {
-      this.showNotification('Por favor selecciona una fecha efectiva', 'error');
-      return;
-    }
-
-    // Collect current form data
-    const scheduleData = this.collectBusinessHoursData();
-    
-    // Show preview modal or section
-    this.displaySchedulePreview(scheduleData, effectiveDate);
-  }
-
-  collectBusinessHoursData() {
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const scheduleData = [];
-
-    days.forEach(day => {
-      const dayLower = day.toLowerCase();
-      const toggle = document.getElementById(`${dayLower}-toggle`);
-      const openTime = document.getElementById(`${dayLower}-open`);
-      const closeTime = document.getElementById(`${dayLower}-close`);
-      const breakStart = document.getElementById(`${dayLower}-break-start`);
-      const breakEnd = document.getElementById(`${dayLower}-break-end`);
-
-      const isOpen = toggle?.checked || false;
-      
-      scheduleData.push({
-        day_of_week: day,
-        is_open: isOpen,
-        open_time: isOpen ? (openTime?.value || '') : null,
-        close_time: isOpen ? (closeTime?.value || '') : null,
-        break_start: isOpen ? (breakStart?.value || null) : null,
-        break_end: isOpen ? (breakEnd?.value || null) : null
-      });
-    });
-
-    return scheduleData;
-  }
-
-  
-  displaySchedulePreview(scheduleData, effectiveDate) {
-    // Create preview content
-    const previewContent = this.generatePreviewHTML(scheduleData, effectiveDate);
-    
-    // Show in a modal or alert
-    const previewModal = document.createElement('div');
-    previewModal.className = 'modal fade';
-    previewModal.innerHTML = `
-      <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Vista Previa del Horario</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            ${previewContent}
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-            <button type="button" class="btn btn-success" onclick="window.adminPanel.saveScheduledBusinessHours()" data-bs-dismiss="modal">
-              Confirmar y Guardar
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    document.body.appendChild(previewModal);
-    const modal = new bootstrap.Modal(previewModal);
-    modal.show();
-    
-    // Remove modal from DOM when hidden
-    previewModal.addEventListener('hidden.bs.modal', () => {
-      document.body.removeChild(previewModal);
-    });
-  }
-
-   
-
 
 }

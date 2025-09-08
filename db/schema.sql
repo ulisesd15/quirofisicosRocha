@@ -45,35 +45,7 @@ CREATE TABLE appointments (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Business Hours (weekly schedule configuration)
-CREATE TABLE business_hours (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  day_of_week ENUM('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') NOT NULL,
-  is_open BOOLEAN DEFAULT TRUE,
-  open_time TIME,
-  close_time TIME,
-  break_start TIME,
-  break_end TIME,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
 
--- Schedule Exceptions (holidays, closures, special dates)
-CREATE TABLE schedule_exceptions (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  exception_type ENUM('single_day', 'date_range', 'recurring') NOT NULL DEFAULT 'single_day',
-  start_date DATE NOT NULL,
-  end_date DATE,
-  is_closed BOOLEAN DEFAULT FALSE,
-  custom_open_time TIME,
-  custom_close_time TIME,
-  custom_break_start TIME,
-  custom_break_end TIME,  
-  reason VARCHAR(255),
-  description TEXT,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
 
 -- Clinic Settings (admin configuration)
 CREATE TABLE clinic_settings (
@@ -98,6 +70,52 @@ CREATE TABLE scheduled_business_hours (
   break_start TIME,
   break_end TIME,
   effective_date DATE NOT NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+
+-- Business Hours (weekly schedule configuration)
+CREATE TABLE business_hours (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  day_of_week ENUM('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') NOT NULL,
+  is_open BOOLEAN DEFAULT TRUE,
+  open_time TIME,
+  close_time TIME,
+  break_start TIME,
+  break_end TIME,
+  is_active BOOLEAN DEFAULT TRUE,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+-- Blocked Time Slots (admin can block specific times)
+CREATE TABLE blocked_time_slots (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  block_date DATE,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  reason VARCHAR(255),
+  description TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  is_recurring BOOLEAN DEFAULT FALSE,
+  recurring_type ENUM('weekly', 'monthly', 'none') DEFAULT 'none',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Schedule Exceptions (holidays, closures, special dates)
+CREATE TABLE schedule_exceptions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  exception_type ENUM('single_day', 'date_range', 'recurring') NOT NULL DEFAULT 'single_day',
+  start_date DATE NOT NULL,
+  end_date DATE,
+  is_closed BOOLEAN DEFAULT FALSE,
+  custom_open_time TIME,
+  custom_close_time TIME,
+  custom_break_start TIME,
+  custom_break_end TIME,  
+  reason VARCHAR(255),
+  description TEXT,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

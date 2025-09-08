@@ -1,12 +1,71 @@
 const express = require('express');
-const db = require('../config/connections'); // Adjust the path as necessary
+const db = require('../config/connections');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const authenticateToken = require('../middleware/auth'); // Adjust the path as necessary
-const scheduleController = require('../controllers/scheduleController');
+const authenticateToken = require('../middleware/auth');
+// const scheduleController = require('../controllers/scheduleController');
 const appointmentController = require('../controllers/appointmentController');
 const secretKey = process.env.SECRET_KEY;
+
+// --- Available Slots Endpoint ---
+// Returns available slots for a given date using business hours and appointments
+function generateTimeSlots(openTime, closeTime) {
+  const slots = [];
+  const [openHour, openMin] = openTime.split(':').map(Number);
+  const [closeHour, closeMin] = closeTime.split(':').map(Number);
+  let currentHour = openHour;
+  let currentMin = openMin;
+  while (currentHour < closeHour || (currentHour === closeHour && currentMin < closeMin)) {
+    const timeStr = `${String(currentHour).padStart(2, '0')}:${String(currentMin).padStart(2, '0')}`;
+    slots.push(timeStr);
+    currentMin += 30;
+    if (currentMin >= 60) {
+      currentMin = 0;
+      currentHour++;
+    }
+  }
+  return slots;
+}
+
+router.get('/available-slots/:date', async (req, res) => {
+  const dayISO = req.params.date;
+  const dateObj = new Date(dayISO);
+  if (isNaN(dateObj)) return res.status(400).json({ availableSlots: [] });
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const dayOfWeek = days[dateObj.getDay()];
+  try {
+    // Get business hours for the day
+    db.query('SELECT * FROM business_hours WHERE LOWER(day_of_week) = ?', [dayOfWeek], (err, results) => {
+      if (err || !results || results.length === 0) return res.json({ availableSlots: [] });
+      const bh = results[0];
+      if (!bh.is_open) return res.json({ availableSlots: [] });
+      const allSlots = generateTimeSlots(bh.open_time, bh.close_time);
+      // Get taken appointments
+      db.query('SELECT time FROM appointments WHERE date = ? AND status IN ("pending", "confirmed")', [dayISO], (err2, takenRows) => {
+        if (err2) return res.json({ availableSlots: [] });
+        const taken = takenRows.map(r => r.time);
+        // Filter out taken slots
+        let available = allSlots.filter(t => !taken.includes(t));
+        // Filter out slots less than 30 min from now (if today)
+        const now = new Date();
+        const todayISO = now.toISOString().split('T')[0];
+        if (dayISO === todayISO) {
+          const thirtyMinFromNow = new Date(now.getTime() + 30 * 60 * 1000);
+          available = available.filter(timeSlot => {
+            const slotDateTime = new Date(`${dayISO}T${timeSlot}:00`);
+            return slotDateTime >= thirtyMinFromNow;
+          });
+        }
+        res.json({ availableSlots: available });
+      });
+    });
+  } catch (e) {
+    res.json({ availableSlots: [] });
+  }
+});
+
+// --- ROUTES ---
 
 // Get Google Maps API key for frontend
 router.get('/config/maps-key', (req, res) => {
@@ -36,6 +95,27 @@ router.get('/business-hours', (req, res) => {
     res.json({ business_hours: results });
   });
 });
+
+// --- Business Hours Management ---
+// router.put('/business-hours/:day_of_week', authenticateToken, scheduleController.updateBusinessHours);
+
+// --- Scheduled Business Hours Management ---
+// router.get('/scheduled-business-hours', authenticateToken, scheduleController.getScheduledBusinessHours);
+// router.post('/scheduled-business-hours', authenticateToken, scheduleController.addScheduledBusinessHours);
+// router.put('/scheduled-business-hours/:id', authenticateToken, scheduleController.updateScheduledBusinessHours);
+// router.delete('/scheduled-business-hours/:id', authenticateToken, scheduleController.deleteScheduledBusinessHours);
+
+// --- Schedule Exceptions Management ---
+// router.get('/schedule-exceptions', scheduleController.getScheduleOverrides);
+// router.post('/schedule-exceptions', authenticateToken, scheduleController.addScheduleOverride);
+// router.put('/schedule-exceptions/:id', authenticateToken, scheduleController.updateScheduleOverride);
+// router.delete('/schedule-exceptions/:id', authenticateToken, scheduleController.deleteScheduleOverride);
+
+// --- Blocked Time Slots Management ---
+// router.get('/blocked-time-slots', authenticateToken, scheduleController.getBlockedTimeSlots);
+// router.post('/blocked-time-slots', authenticateToken, scheduleController.addBlockedTimeSlot);
+// router.delete('/blocked-time-slots/:id', authenticateToken, scheduleController.deleteBlockedTimeSlot);
+
 
 //get all appointments
 router.get('/appointments', authenticateToken, (req, res) => {
@@ -546,7 +626,7 @@ router.get('/business-hours', (req, res) => {
 });
 
 // Get available slots for appointment booking (public endpoint with admin restrictions)
-router.get('/available-slots/:date', scheduleController.getAvailableSlots);
+// router.get('/available-slots/:date', scheduleController.getAvailableSlots);
 
 // Get schedule exceptions for calendar display (public endpoint)
 router.get('/schedule-exceptions', (req, res) => {

@@ -179,120 +179,139 @@ function renderWeek() {
     console.error('❌ Calendar element not found!');
     return;
   }
-  
   if (!BUSINESS_HOURS || BUSINESS_HOURS.length === 0) {
     console.warn('⚠️ Business hours not loaded yet, using defaults');
     BUSINESS_HOURS = getDefaultBusinessHours();
   }
-  
-  try {
-    // Create enhanced week calendar with improved navigation and styling
-    calendarEl.innerHTML = `
-      <div class="calendar-row-wrapper mb-4">
-        <button type="button" class="btn" id="prevWeek" ${weekOffset <= 0 ? 'disabled' : ''} title="Semana anterior">
-          <i class="fas fa-chevron-left"></i>
-        </button>
-        <div class="calendar-scroll">
-          <div class="calendar-week" id="weekDays">
-            <!-- Days will be inserted here -->
-          </div>
-        </div>
-        <button type="button" class="btn" id="nextWeek" title="Siguiente semana">
-          <i class="fas fa-chevron-right"></i>
-        </button>
-      </div>
-    `;
+  // --- Week navigation state ---
+  if (typeof window._WEEK_VIEW_OFFSET === 'undefined') window._WEEK_VIEW_OFFSET = 0;
+  let weekViewOffset = window._WEEK_VIEW_OFFSET;
 
-    const weekDaysContainer = document.getElementById('weekDays');
-    const startDate = startOfWeek(weekOffset);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    
-    // Generate 7 days with enhanced styling
-    for (let i = 0; i < 7; i++) {
-      const day = new Date(startDate);
-      day.setDate(startDate.getDate() + i);
+  // Helper: get Monday of week, offset by weekViewOffset
+  const getMondayOfWeek = (date, offset = 0) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = (day === 0 ? -6 : 1 - day); // Monday as start
+    d.setDate(d.getDate() + diff + offset * 7);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+  // Helper: check if a day is fully booked
+  async function isFullyBooked(dayISO) {
+    const available = await fetchAvailableSlots(dayISO);
+    return available.length === 0;
+  }
+  // Helper: find if week has any available day
+  async function weekHasAvailable(monday) {
+    for (let d = 0; d < 7; d++) {
+      const day = new Date(monday);
+      day.setDate(monday.getDate() + d);
       const dayISO = iso(day);
-      
-      // Get day of week name (0=Sunday, 1=Monday, etc.)
-      const dayIndex = day.getDay();
-      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-      const dayOfWeek = dayNames[dayIndex];
-      
-      // Check if this day is open for business
+      const dayOfWeek = getDayOfWeekString(day);
       const businessDay = BUSINESS_HOURS.find(bh => bh.day_of_week === dayOfWeek);
-      const isOpen = businessDay && businessDay.is_open;
-      
-      // Create enhanced day button
-      const btn = document.createElement('button');
-      btn.type = 'button'; // Prevent form submission
-      btn.className = 'btn calendar-day-btn';
-      btn.dataset.date = dayISO;
-      
-      // Enhanced content with day name and date
-      const dayNameShort = day.toLocaleDateString('es-ES', { weekday: 'short' });
-      const dayNumber = day.getDate();
-      
-      btn.innerHTML = `
-        <div class="day-name">${dayNameShort}</div>
-        <div class="day-number">${dayNumber}</div>
-      `;
+      if (!businessDay || !businessDay.is_open) continue;
+      if (!(await isFullyBooked(dayISO))) return true;
+    }
+    return false;
+  }
+  // --- Main rendering logic ---
+  (async () => {
+    let weekStart = getMondayOfWeek(new Date(), weekViewOffset);
+    // If this week is fully closed/booked, skip to next available week
+    let maxWeeks = 12, checked = 0;
+    while (!(await weekHasAvailable(weekStart)) && checked < maxWeeks) {
+      weekViewOffset++;
+      weekStart = getMondayOfWeek(new Date(), weekViewOffset);
+      checked++;
+    }
+    window._WEEK_VIEW_OFFSET = weekViewOffset;
+    // Build meta for 7 days
+    let daysMeta = [];
+    for (let d = 0; d < 7; d++) {
+      const day = new Date(weekStart);
+      day.setDate(weekStart.getDate() + d);
+      const dayISO = iso(day);
+      const dayOfWeek = getDayOfWeekString(day);
+      const businessDay = BUSINESS_HOURS.find(bh => bh.day_of_week === dayOfWeek);
+      let closed = !businessDay || !businessDay.is_open;
+      let fullyBooked = false;
+      if (!closed) fullyBooked = await isFullyBooked(dayISO);
+      daysMeta.push({ day, dayISO, dayOfWeek, closed, fullyBooked });
+    }
+    // --- Render 9 cards: < prev | 7 days | next > ---
+    const todayISO = iso(new Date());
+    const weekRow = document.createElement('div');
+    weekRow.className = 'd-flex justify-content-center align-items-center gap-2';
 
-      // Style based on availability and date
-      if (day < today) {
-        btn.classList.add('disabled');
-        btn.disabled = true;
-        btn.title = 'Fecha pasada';
-      } else if (!isOpen) {
-        btn.classList.add('disabled');
+    // Prev arrow
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'btn btn-light week-arrow';
+    prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+    prevBtn.title = 'Semana anterior';
+    prevBtn.disabled = weekViewOffset <= 0;
+    prevBtn.onclick = () => {
+      window._WEEK_VIEW_OFFSET = Math.max(0, weekViewOffset - 1);
+      renderWeek();
+    };
+    weekRow.appendChild(prevBtn);
+
+    // 7 day cards
+    daysMeta.forEach(({ day, dayISO, closed, fullyBooked, dayOfWeek }) => {
+      // Card wrapper
+      const card = document.createElement('div');
+      card.className = 'd-flex flex-column align-items-center';
+      // Button for date and day
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn calendar-day-btn d-flex flex-column align-items-center py-2';
+      btn.dataset.date = dayISO;
+      // Day of week abbreviation (short, Spanish)
+      const dayLabel = document.createElement('span');
+      dayLabel.className = 'small fw-bold';
+      dayLabel.textContent = day.toLocaleDateString('es-MX', { weekday: 'short' });
+      // Date MM/DD
+      const dateLabel = document.createElement('span');
+      dateLabel.textContent = `${String(day.getMonth() + 1).padStart(2, '0')}/${String(day.getDate()).padStart(2, '0')}`;
+      btn.appendChild(dayLabel);
+      btn.appendChild(dateLabel);
+      if (dayISO === todayISO) btn.classList.add('today');
+      if (closed) {
+        btn.classList.add('btn-secondary');
         btn.disabled = true;
         btn.title = 'Cerrado';
+      } else if (fullyBooked) {
+        btn.classList.add('btn-outline-secondary');
+        btn.disabled = true;
+        btn.title = 'Sin horarios disponibles';
       } else {
         btn.classList.add('btn-outline-primary');
-        btn.title = `Seleccionar ${dayNameShort} ${dayNumber}`;
+        btn.addEventListener('click', () => selectDay(dayISO));
       }
-
-      // Mark selected day
-      if (dayISO === currentDateISO) {
-        btn.classList.remove('btn-outline-primary');
-        btn.classList.add('selected');
-      }
-
-      if (!btn.disabled) {
-        btn.addEventListener('click', () => {
-          console.log('Calendar day clicked:', dayISO, 'Currently selected:', currentDateISO);
-          
-          // If this day is already selected, load time slots
-          if (currentDateISO === dayISO) {
-            console.log('Same day clicked - loading time slots');
-            loadTimeSlotsForDay(dayISO);
-            return;
-          }
-          
-          // Select the new day and immediately load time slots
-          selectDay(dayISO);
-        });
-      }
-      
-      weekDaysContainer.appendChild(btn);
-    }
-
-    // Add navigation event listeners
-    document.getElementById('prevWeek').addEventListener('click', () => {
-      weekOffset--;
-      renderWeek();
+      if (currentDateISO === dayISO) btn.classList.add('selected');
+      // Assemble card
+      card.appendChild(btn);
+      weekRow.appendChild(card);
     });
-    
-    document.getElementById('nextWeek').addEventListener('click', () => {
-      weekOffset++;
+
+    // Next arrow
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'btn btn-light week-arrow';
+    nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+    nextBtn.title = 'Semana siguiente';
+    nextBtn.onclick = () => {
+      window._WEEK_VIEW_OFFSET = weekViewOffset + 1;
       renderWeek();
-    });
-    
-  } catch (error) {
-    console.error('❌ Error rendering calendar week:', error);
-    calendarEl.innerHTML = '<div class="alert alert-danger">Error loading calendar</div>';
-  }
+    };
+    weekRow.appendChild(nextBtn);
+
+    calendarEl.innerHTML = '';
+    calendarEl.appendChild(weekRow);
+  })().catch(error => {
+    console.error('Error rendering week:', error);
+    calendarEl.innerHTML = '<div class="alert alert-danger text-center">Error al cargar el calendario semanal</div>';
+  });
 }
 
 async function selectDay(dayISO) {

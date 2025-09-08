@@ -16,7 +16,7 @@ const routes = require('./routes/apiRoutes');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
-const scheduleController = require('./controllers/scheduleController');
+// const scheduleController = require('./controllers/scheduleController');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -130,17 +130,18 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
+
 // Cron job to apply scheduled business hours every day at midnight
-cron.schedule('0 0 * * *', () => {
-  console.log('Running scheduled business hours check...');
-  scheduleController.applyScheduledBusinessHours();
-}, {
-  timezone: "America/Tijuana"
-});
+// cron.schedule('0 0 * * *', () => {
+//   console.log('Running scheduled business hours check...');
+//   scheduleController.applyScheduledBusinessHours();
+// }, {
+//   timezone: "America/Tijuana"
+// });
 
 // Also check on server startup for any missed scheduled hours
-console.log('Checking for any scheduled business hours to apply on startup...');
-scheduleController.applyScheduledBusinessHours();
+// console.log('Checking for any scheduled business hours to apply on startup...');
+// scheduleController.applyScheduledBusinessHours();
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
