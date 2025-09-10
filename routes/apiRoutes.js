@@ -1,4 +1,3 @@
-
 const express = require('express');
 const db = require('../config/connections');
 const router = express.Router();
@@ -115,15 +114,14 @@ router.get('/config/maps-key', (req, res) => {
   });
 });
 
-
 // Get business hours for a specific date (using scheduled_business_hours)
 router.get('/business-hours/:date', (req, res) => {
   const dayISO = req.params.date;
   const dateObj = new Date(dayISO);
   if (isNaN(dateObj)) return res.status(400).json({ business_hours: [] });
+  // Always use this order to match frontend: Sunday (0) ... Saturday (6)
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  const dayOfWeek = days[dateObj.getDay()];
-  // Query for all days of week for this date (for full week display)
+
   const promises = days.map(dow => {
     return new Promise((resolve, reject) => {
       const bhQuery = `
@@ -135,17 +133,42 @@ router.get('/business-hours/:date', (req, res) => {
         LIMIT 1
       `;
       db.query(bhQuery, [dow, dayISO], (err, results) => {
-        if (err || !results || results.length === 0) {
-          // If not found, return closed for that day
-          resolve({ day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null });
+        if (err) return reject(err);
+        if (results && results.length > 0) {
+          // Force day_of_week to lowercase string
+          const bh = results[0];
+          bh.day_of_week = (bh.day_of_week || dow).toLowerCase();
+          resolve(bh);
         } else {
-          resolve(results[0]);
+          // Fallback to business_hours
+          db.query(
+            'SELECT * FROM business_hours WHERE LOWER(day_of_week) = ? AND is_active = 1 LIMIT 1',
+            [dow],
+            (err2, results2) => {
+              if (err2 || !results2 || results2.length === 0) {
+                resolve({ day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null });
+              } else {
+                // Force day_of_week to lowercase string
+                const bh2 = results2[0];
+                bh2.day_of_week = (bh2.day_of_week || dow).toLowerCase();
+                resolve(bh2);
+              }
+            }
+          );
         }
       });
     });
   });
+
   Promise.all(promises).then(weekHours => {
-    res.json({ business_hours: weekHours });
+    // Ensure correct order and all days present
+    const ordered = days.map(dow => {
+      const found = weekHours.find(bh => (bh.day_of_week || '').toLowerCase() === dow);
+      if (found) return found;
+      // Defensive: fill missing days as closed
+      return { day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null };
+    });
+    res.json({ business_hours: ordered });
   }).catch(() => {
     res.status(500).json({ business_hours: [] });
   });
@@ -606,8 +629,6 @@ router.get('/user/:id', (req, res) => {
     res.json(results[0]);
   });
 });
-
-
 
 //Get registered user by ID
 router.get('/registered_users/:id', (req, res) => {
