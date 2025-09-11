@@ -755,4 +755,3 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('Failed to initialize AdminPanel:', error);
   }
 });
-module.exports = router;

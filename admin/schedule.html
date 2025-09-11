@@ -176,11 +176,14 @@
 
             loadBusinessHours();
             loadStats();
-            
-            // Set default preview date to tomorrow
+
+            // Set default preview date to tomorrow (local date, not UTC)
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
-            document.getElementById('previewDate').value = tomorrow.toISOString().split('T')[0];
+            const yyyy = tomorrow.getFullYear();
+            const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+            const dd = String(tomorrow.getDate()).padStart(2, '0');
+            document.getElementById('previewDate').value = `${yyyy}-${mm}-${dd}`;
         });
 
         async function loadBusinessHours() {

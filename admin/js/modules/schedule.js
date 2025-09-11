@@ -877,35 +877,40 @@ export class ScheduleModule {
     }
   }
 async loadBusinessHours() {
-    try {
-        this.showLoading();
-        console.log('Loading business hours...');
+  try {
+    this.showLoading();
+    console.log('Loading business hours...');
         
-        const response = await fetch('/api/admin/business-hours', {
-            headers: {
-                'Authorization': `Bearer ${this.getAuthToken()}`
-            }
-        });
+    const response = await fetch('/api/admin/business-hours', {
+      headers: {
+        'Authorization': `Bearer ${this.getAuthToken()}`
+      }
+    });
 
-        if (!response.ok) throw new Error('Error loading business hours');
+    if (!response.ok) throw new Error('Error loading business hours');
         
-        const data = await response.json();
-        console.log('Business hours data loaded:', data);
-        
-        // Ensure we have the businessHours array
-        if (data && data.businessHours) {
-            this.displayBusinessHours(data.businessHours);
-        } else {
-            console.error('Invalid business hours data format:', data);
-            this.showError('Formato de datos inválido');
-        }
-        
-    } catch (error) {
-        console.error('Error loading business hours:', error);
-        this.showError('Error cargando los horarios');
-    } finally {
-        this.hideLoading();
+    const data = await response.json();
+    console.log('Business hours data loaded:', data);
+    if (data && data.businessHours) {
+      console.log('businessHours:', data.businessHours);
     }
+    if (data && data.scheduledBusinessHours) {
+      console.log('scheduledBusinessHours:', data.scheduledBusinessHours);
+    }
+    // Ensure we have the businessHours array
+    if (data && data.businessHours) {
+      this.displayBusinessHours(data.businessHours);
+    } else {
+      console.error('Invalid business hours data format:', data);
+      this.showError('Formato de datos inválido');
+    }
+        
+  } catch (error) {
+    console.error('Error loading business hours:', error);
+    this.showError('Error cargando los horarios');
+  } finally {
+    this.hideLoading();
+  }
 }
 
 

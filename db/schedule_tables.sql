@@ -15,18 +15,6 @@ CREATE TABLE IF NOT EXISTS holiday_templates (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Annual Closures generated from templates
-CREATE TABLE IF NOT EXISTS annual_closures (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  template_id INT,
-  name VARCHAR(255) NOT NULL,
-  closure_date DATE NOT NULL,
-  year INT NOT NULL,
-  description TEXT,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (template_id) REFERENCES holiday_templates(id) ON DELETE SET NULL
-);
 
 -- Scheduled Closures (temporary closures)
 CREATE TABLE IF NOT EXISTS scheduled_closures (
