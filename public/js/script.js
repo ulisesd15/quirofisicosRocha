@@ -7,9 +7,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load and display announcements
   loadAnnouncements();
-  
+
   // Load business hours
   loadBusinessHours();
+
+  // Load and display clinic settings in the footer
+  loadClinicSettingsFooter();
 
   // Remove guestBtn, loginBtn, and registerBtn if user is logged in
   const isLoggedIn = localStorage.getItem('token') || localStorage.getItem('user_token');
@@ -37,6 +40,35 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = '/appointment.html';
   });
 });
+// Fetch and display clinic settings in the footer
+async function loadClinicSettingsFooter() {
+  try {
+    const response = await fetch('/api/clinic-settings');
+    console.log('Clinic settings fetch response:', response);
+    if (!response.ok) throw new Error('No se pudo cargar la información de la clínica');
+    const settings = await response.json();
+    console.log('Clinic settings JSON:', settings);
+  const name = settings.clinic_name || 'Quirofísicos Rocha';
+  const address = settings.clinic_address || 'Plaza Johnson, Av. Josefa Ortiz de Domínguez 1993, Independencia, 22055 Tijuana, B.C., México';
+  const phone = settings.clinic_phone || '664-123-4567';
+  const email = settings.clinic_email || 'info@quirofisicosrocha.com';
+  const description = settings.clinic_description || '';
+
+  // Update footer fields
+  const nameEl = document.querySelector('footer h5.text-white');
+  if (nameEl) nameEl.textContent = name;
+  const addressEl = document.querySelector('footer .fa-map-marker-alt').parentElement;
+  if (addressEl) addressEl.innerHTML = `<i class="fas fa-map-marker-alt me-2"></i>${address}`;
+  const phoneEl = document.querySelector('footer .fa-phone').parentElement;
+  if (phoneEl) phoneEl.innerHTML = `<i class="fas fa-phone me-2"></i>${phone}`;
+  const emailEl = document.querySelector('footer .fa-envelope').parentElement;
+  if (emailEl) emailEl.innerHTML = `<i class="fas fa-envelope me-2"></i>${email}`;
+  const descEl = document.getElementById('clinic-description');
+  if (descEl) descEl.textContent = description;
+  } catch (error) {
+    console.error('Error loading clinic settings for footer:', error);
+  }
+}
 
 
 // Announcements Management
@@ -141,23 +173,27 @@ async function loadBusinessHours() {
     }
     
     const data = await response.json();
-    const businessHours = data.business_hours;
-    
+    console.log('Business hours API response:', data); // Debug log
+    let businessHours = Array.isArray(data.business_hours)
+      ? data.business_hours
+      : Array.isArray(data.businessHours)
+        ? data.businessHours
+        : [];
+    if (!Array.isArray(data.business_hours) && !Array.isArray(data.businessHours)) {
+      console.warn('API did not return business_hours or businessHours as an array:', data);
+    }
     // Update info section
     const infoSection = document.getElementById('business-hours-info');
     if (infoSection) {
       infoSection.innerHTML = formatBusinessHoursForInfo(businessHours);
     }
-    
     // Update footer section
     const footerSection = document.getElementById('business-hours-footer');
     if (footerSection) {
       footerSection.innerHTML = formatBusinessHoursForFooter(businessHours);
     }
-    
   } catch (error) {
     console.error('Error loading business hours:', error);
-    
     // Fallback to default hours if API fails
     const fallbackInfo = '<p class="mb-0">Lunes a Viernes<br>9:00 AM - 6:00 PM</p>';
     const fallbackFooter = `
@@ -165,22 +201,23 @@ async function loadBusinessHours() {
       <p class="text-white-50 mb-1">Sábados: 9:00 AM - 2:00 PM</p>
       <p class="text-white-50">Domingos: Cerrado</p>
     `;
-    
     const infoSection = document.getElementById('business-hours-info');
     if (infoSection) infoSection.innerHTML = fallbackInfo;
-    
     const footerSection = document.getElementById('business-hours-footer');
     if (footerSection) footerSection.innerHTML = fallbackFooter;
   }
 }
 
 function formatBusinessHoursForInfo(businessHours) {
+  if (!Array.isArray(businessHours)) {
+    console.error('formatBusinessHoursForInfo: businessHours is not an array', businessHours);
+    return '<p class="mb-0">Actualmente cerrado</p>';
+  }
   const openDays = businessHours.filter(day => day.is_open);
   
   if (openDays.length === 0) {
     return '<p class="mb-0">Actualmente cerrado</p>';
   }
-  
   // Group consecutive days with same hours
   const groups = [];
   let currentGroup = null;
@@ -244,17 +281,20 @@ function formatBusinessHoursForFooter(businessHours) {
     'Saturday': 'Sábado',
     'Sunday': 'Domingo'
   };
-  
+  if (!Array.isArray(businessHours)) {
+    console.error('formatBusinessHoursForFooter: businessHours is not an array', businessHours);
+    return '';
+  }
   const lines = businessHours.map(day => {
     const dayName = dayNames[day.day_of_week];
-    
+    // Remove trailing ':00' if present
+    const formatTime = t => t ? t.replace(/:00$/, '') : '';
     if (day.is_open) {
-      return `<p class="text-white-50 mb-1">${dayName}: ${day.open_time} - ${day.close_time}</p>`;
+      return `<p class="text-white-50 mb-1">${dayName}: ${formatTime(day.open_time)} - ${formatTime(day.close_time)}</p>`;
     } else {
       return `<p class="text-white-50 mb-1">${dayName}: Cerrado</p>`;
     }
   });
-  
   return lines.join('');
 }
 

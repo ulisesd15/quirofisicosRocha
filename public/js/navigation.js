@@ -49,7 +49,7 @@ class NavigationManager {
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link main-nav-link" href="#ubicacion-section" data-scroll="contacto-section">
+                                <a class="nav-link main-nav-link" href="#contacto-section" data-scroll="contacto-section">
                                     <i class="fas fa-map-marker-alt me-1"></i>Ubicación
                                 </a>
                             </li>
@@ -189,9 +189,8 @@ class NavigationManager {
     closeMobileSidebar() {
         const sidebar = document.getElementById('mobileSidebar');
         const overlay = document.getElementById('sidebarOverlay');
-        
-        sidebar.classList.remove('show');
-        overlay.classList.remove('show');
+        if (sidebar) sidebar.classList.remove('show');
+        if (overlay) overlay.classList.remove('show');
     }
 
     initializeNavigation() {

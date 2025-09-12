@@ -1,3 +1,4 @@
+
 const express = require('express');
 const db = require('../config/connections');
 const router = express.Router();
@@ -7,6 +8,24 @@ const authenticateToken = require('../middleware/auth');
 // const scheduleController = require('../controllers/scheduleController');
 const appointmentController = require('../controllers/appointmentController');
 const secretKey = process.env.SECRET_KEY;
+
+// Get public clinic settings for display (name, address, phone, email)
+router.get('/clinic-settings', (req, res) => {
+  const keys = ['clinic_name', 'clinic_address', 'clinic_phone', 'clinic_email', 'clinic_description'];
+  const placeholders = keys.map(() => '?').join(',');
+  const sql = `SELECT setting_key, setting_value FROM clinic_settings WHERE setting_key IN (${placeholders})`;
+  db.query(sql, keys, (err, results) => {
+    if (err) {
+      console.error('Error fetching clinic settings:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    const settings = {};
+    results.forEach(row => {
+      settings[row.setting_key] = row.setting_value;
+    });
+    res.json(settings);
+  });
+});
 
 // Save new scheduled business hours (admin only)
 router.post('/admin/scheduled-business-hours', (req, res) => {
