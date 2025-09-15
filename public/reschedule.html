@@ -11,8 +11,178 @@
   <link rel="stylesheet" href="./css/appointment.css" />
   <link rel="stylesheet" href="./css/appointment-mobile.css" />
   <link rel="stylesheet" href="./css/monthly-calendar.css" />
+  <link rel="stylesheet" href="./css/reschedule.css" />
+  <style>
+    :root {
+      --main-blue: #2563eb;
+      --main-blue-light: #3b82f6;
+      --main-blue-dark: #1e40af;
+      --main-bg: #f3f6fb;
+      --main-card-bg: #f8fafc;
+      --main-border: #dbeafe;
+      --main-text: #22304a;
+      --main-muted: #6b7a90;
+      --main-success: #3bbfa6;
+      --main-warning: #fbbf24;
+      --main-secondary: #a5b4fc;
+    }
+    body {
+      background: linear-gradient(120deg, var(--main-bg) 0%, #e0e7ef 100%);
+      min-height: 100vh;
+    }
+    .services-section {
+      padding-top: 2.5rem;
+      padding-bottom: 2.5rem;
+    }
+    .card.shadow-lg {
+      border-radius: 20px;
+      background: var(--main-card-bg);
+      box-shadow: 0 8px 32px rgba(37, 99, 235, 0.10);
+      border: none;
+    }
+    .card-body {
+      padding: 2.5rem 2rem;
+    }
+    .alert-warning {
+      background: #fef9c3;
+      color: #b45309;
+      border: none;
+      border-radius: 14px;
+      box-shadow: 0 2px 8px rgba(251, 191, 36, 0.08);
+    }
+    .alert-info {
+      background: #e0f2fe;
+      color: var(--main-blue-dark);
+      border: none;
+      border-radius: 10px;
+    }
+    .alert-heading {
+      color: var(--main-blue-dark);
+      font-weight: 600;
+    }
+    .text-warning {
+      color: var(--main-blue) !important;
+    }
+    .btn,
+    .btn:focus {
+      border-radius: 8px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      box-shadow: none;
+      outline: none;
+    }
+    .btn-warning,
+    .btn-primary,
+    .btn-outline-primary {
+      background: var(--main-blue);
+      border-color: var(--main-blue);
+      color: #fff;
+    }
+    .btn-warning:hover,
+    .btn-primary:hover,
+    .btn-outline-primary:hover {
+      background: var(--main-blue-dark);
+      border-color: var(--main-blue-dark);
+      color: #fff;
+    }
+    .btn-outline-secondary,
+    .btn-outline-secondary:focus {
+      border-color: var(--main-border);
+      color: var(--main-muted);
+      background: #f1f5fa;
+    }
+    .btn-outline-secondary:hover {
+      background: var(--main-blue-light);
+      color: #fff;
+      border-color: var(--main-blue-light);
+    }
+    .calendar-day-btn.selected,
+    .calendar-day-btn.btn-primary {
+      background: var(--main-blue-dark) !important;
+      color: #fff !important;
+      border-color: var(--main-blue-dark) !important;
+    }
+    .calendar-day-btn {
+      min-width: 60px;
+      min-height: 60px;
+      font-size: 1.1rem;
+      border-radius: 12px;
+      margin-bottom: 0.5rem;
+      transition: background 0.2s, color 0.2s, border 0.2s;
+    }
+    .calendar-day-btn.today {
+      border: 2px solid var(--main-blue-light) !important;
+    }
+    .calendar-day-btn.btn-secondary,
+    .calendar-day-btn.btn-outline-secondary {
+      background: #e5e7eb !important;
+      color: #a1a1aa !important;
+      border-color: #e5e7eb !important;
+    }
+    .form-label {
+      font-weight: 500;
+      color: var(--main-text);
+    }
+    .form-control {
+      border-radius: 10px;
+      border: 1px solid var(--main-border);
+      background: #f1f5fa;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-control:focus {
+      border-color: var(--main-blue);
+      box-shadow: 0 0 0 0.13rem rgba(37, 99, 235, 0.13);
+      background: #fff;
+    }
+    .section-subtitle {
+      color: var(--main-blue-dark);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
+    h2, h3, h5 {
+      color: var(--main-blue-dark);
+      font-weight: 700;
+    }
+    .lead {
+      color: var(--main-muted);
+      font-size: 1.15rem;
+    }
+    .btn-group .btn {
+      min-width: 70px;
+      font-size: 1rem;
+      border-radius: 8px !important;
+    }
+    .btn-check:checked + .btn-outline-secondary {
+      background: var(--main-blue-light);
+      color: #fff;
+      border-color: var(--main-blue-light);
+    }
+    .row.g-2 > [class^='col-'] {
+      margin-bottom: 0.5rem;
+    }
+    .footer {
+      background: var(--main-blue-dark);
+      color: #fff;
+      padding: 1.2rem 0 0.7rem 0;
+      border-top-left-radius: 18px;
+      border-top-right-radius: 18px;
+      margin-top: 3rem;
+    }
+    @media (max-width: 767px) {
+      .card-body {
+        padding: 1.2rem 0.5rem;
+      }
+      .services-section {
+        padding-top: 1.2rem;
+        padding-bottom: 1.2rem;
+      }
+    }
+  </style>
 </head>
-<body>
+<body class="reschedule-page">
 
 <!-- Sidebar Navigation -->
 <div id="main-navigation"></div>
@@ -50,19 +220,18 @@
         </div>
 
         <div class="card border-0 shadow-lg">
-          <div class="card-body p-5">
+          <div class="card-body">
             <div class="text-center mb-4">
-              <h3 class="text-warning mb-2">
+              <h3 class="mb-2">
                 <i class="fas fa-calendar-alt me-2"></i>
                 Nueva Cita
               </h3>
-              <p class="text-muted">Selecciona tu nueva fecha y hora preferida</p>
+              <p class="lead">Selecciona tu nueva fecha y hora preferida</p>
               <div class="alert alert-info d-flex align-items-center mb-3">
                 <i class="fas fa-info-circle me-2"></i>
                 <small><strong>Nota:</strong> Las citas deben reagendarse con al menos 30 minutos de anticipación.</small>
               </div>
             </div>
-            
             <!-- Appointment Form -->
             <form id="bookingForm">
               <!-- Date Selection -->
@@ -76,27 +245,22 @@
                     <label class="btn btn-outline-secondary" for="weekView">
                       <i class="fas fa-list me-1"></i>Week
                     </label>
-                    
                     <input type="radio" class="btn-check" name="calendarView" id="monthView">
                     <label class="btn btn-outline-secondary" for="monthView">
                       <i class="fas fa-calendar-alt me-1"></i>Month
                     </label>
                   </div>
                 </div>
-                
                 <!-- Week View (Original) -->
                 <div id="weekViewContainer">
                   <div id="calendar"></div>
                 </div>
-                
                 <!-- Month View (Enhanced) -->
                 <div id="monthViewContainer" style="display: none;">
                   <div id="monthlyCalendar"></div>
                 </div>
-                
                 <input type="hidden" name="date" id="selectedDate" required />
               </div>
-
               <!-- Time Selection -->
               <div class="mb-4">
                 <h5 class="mb-3">
@@ -105,7 +269,6 @@
                 <div id="timeCards" class="row g-2"></div>
                 <input type="hidden" name="time" id="selectedTime" required />
               </div>
-
               <!-- Additional Notes -->
               <div class="mb-4">
                 <label for="note" class="form-label">
@@ -113,13 +276,11 @@
                 </label>
                 <textarea class="form-control" name="note" id="note" rows="3" placeholder="Actualiza el motivo de tu consulta o cualquier información relevante..."></textarea>
               </div>
-
               <!-- Submit Button -->
-              <button class="btn btn-warning w-100" type="submit">
+              <button class="btn btn-primary w-100" type="submit">
                 <i class="fas fa-calendar-check me-2"></i>Confirmar Reagendamiento
               </button>
             </form>
-            
             <!-- Navigation Links -->
             <div class="text-center mt-4">
               <p class="mb-0">
@@ -136,10 +297,10 @@
 </section>
 
 <!-- Footer -->
-<footer>
+<footer class="footer">
   <div class="container">
     <div class="text-center">
-      <small class="text-white-50">&copy; 2025 Quirophisicos Rocha. Todos los derechos reservados.</small>
+      <small>&copy; 2025 Quirophisicos Rocha. Todos los derechos reservados.</small>
     </div>
   </div>
 </footer>

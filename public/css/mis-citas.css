@@ -1,0 +1,99 @@
+/*
+ * mis-citas.css
+ * Custom styles for the "Mis Citas" (My Appointments) page.
+ * Use this file to give a modern, clean, blue-themed look to the appointments list and details.
+ */
+
+:root {
+  --mc-blue: #2563eb;
+  --mc-blue-dark: #1e40af;
+  --mc-bg: #f4f8fd;
+  --mc-card-bg: #fafdff;
+  --mc-border: #dbeafe;
+  --mc-muted: #6b7a90;
+  --mc-shadow: 0 8px 32px rgba(37, 99, 235, 0.10);
+}
+
+body.mis-citas-page {
+  background: linear-gradient(120deg, var(--mc-bg) 0%, #e0e7ef 100%);
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+}
+
+.section-title, h2, h3, h5 {
+  color: var(--mc-blue-dark);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.card.appointment-card {
+  border-radius: 18px;
+  background: var(--mc-card-bg);
+  box-shadow: var(--mc-shadow);
+  border: none;
+  margin-bottom: 1.5rem;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.card.appointment-card:hover {
+  box-shadow: 0 12px 40px rgba(37, 99, 235, 0.16);
+  transform: translateY(-2px) scale(1.01);
+}
+
+.card-body {
+  padding: 2rem 1.5rem;
+}
+
+.status-badge {
+  border-radius: 8px;
+  padding: 0.4em 1em;
+  font-size: 1em;
+  font-weight: 500;
+  background: var(--mc-blue);
+  color: #fff;
+  margin-right: 0.5em;
+}
+.status-badge.cancelled {
+  background: #f87171;
+}
+.status-badge.completed {
+  background: #22c55e;
+}
+
+.btn-primary, .btn-outline-primary {
+  background: var(--mc-blue);
+  border-color: var(--mc-blue);
+  color: #fff;
+  border-radius: 8px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition: background 0.18s, color 0.18s, border 0.18s, transform 0.18s;
+}
+.btn-primary:hover, .btn-outline-primary:hover {
+  background: var(--mc-blue-dark);
+  border-color: var(--mc-blue-dark);
+  color: #fff;
+  transform: translateY(-1px) scale(1.03);
+}
+
+.appointment-date {
+  color: var(--mc-blue-dark);
+  font-weight: 600;
+  font-size: 1.08rem;
+}
+.appointment-time {
+  color: var(--mc-muted);
+  font-size: 1.02rem;
+}
+
+.appointment-actions .btn {
+  margin-right: 0.5em;
+  margin-bottom: 0.3em;
+}
+
+@media (max-width: 767px) {
+  .card-body {
+    padding: 1.1rem 0.5rem;
+  }
+  .card.appointment-card {
+    margin-bottom: 1rem;
+  }
+}
