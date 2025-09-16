@@ -61,6 +61,21 @@ class AdminPanel {
         }
       });
     }
+
+      // Automatically log scheduled business hours when admin panel loads
+      document.addEventListener('DOMContentLoaded', () => {
+        this.schedule.loadBusinessHours();
+      });
+
+      // Log business hours button event
+      document.addEventListener('DOMContentLoaded', () => {
+        const logBtn = document.getElementById('log-business-hours-btn');
+        if (logBtn) {
+          logBtn.addEventListener('click', () => {
+            this.schedule.loadBusinessHours();
+          });
+        }
+      });
   }
   async loadUserVerification() {
     console.log('Loading user verification data');
