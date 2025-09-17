@@ -3,7 +3,6 @@ const router = express.Router();
 const db = require('../config/connections');
 const auth = require('../middleware/auth');
 // const scheduleController = require('../controllers/scheduleController');
-const userVerificationController = require('../controllers/userVerificationController');
 
 // Middleware to check if user is admin
 const requireAdmin = (req, res, next) => {

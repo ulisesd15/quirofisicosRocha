@@ -57,11 +57,16 @@ async function loadClinicSettingsFooter() {
   // Update footer fields
   const nameEl = document.querySelector('footer h5.text-white');
   if (nameEl) nameEl.textContent = name;
-  const addressEl = document.querySelector('footer .fa-map-marker-alt').parentElement;
+  const addressIcon = document.querySelector('footer .fa-map-marker-alt');
+  const addressEl = addressIcon ? addressIcon.parentElement : null;
   if (addressEl) addressEl.innerHTML = `<i class="fas fa-map-marker-alt me-2"></i>${address}`;
-  const phoneEl = document.querySelector('footer .fa-phone').parentElement;
+
+  const phoneIcon = document.querySelector('footer .fa-phone');
+  const phoneEl = phoneIcon ? phoneIcon.parentElement : null;
   if (phoneEl) phoneEl.innerHTML = `<i class="fas fa-phone me-2"></i>${phone}`;
-  const emailEl = document.querySelector('footer .fa-envelope').parentElement;
+
+  const emailIcon = document.querySelector('footer .fa-envelope');
+  const emailEl = emailIcon ? emailIcon.parentElement : null;
   if (emailEl) emailEl.innerHTML = `<i class="fas fa-envelope me-2"></i>${email}`;
   const descEl = document.getElementById('clinic-description');
   if (descEl) descEl.textContent = description;
