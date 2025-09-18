@@ -1,10 +1,52 @@
+// =================
+// ADMIN DASHBOARD STATS ENDPOINT
+// =================
+
+router.get('/dashboard/stats', requireAdmin, async (req, res) => {
+  try {
+    // Example: Query counts for users, appointments, announcements
+    const stats = {};
+    const userCountPromise = new Promise((resolve, reject) => {
+      db.query('SELECT COUNT(*) as count FROM users', (err, results) => {
+        if (err) return reject(err);
+        resolve(results[0].count);
+      });
+    });
+    const appointmentCountPromise = new Promise((resolve, reject) => {
+      db.query('SELECT COUNT(*) as count FROM appointments', (err, results) => {
+        if (err) return reject(err);
+        resolve(results[0].count);
+      });
+    });
+    const announcementCountPromise = new Promise((resolve, reject) => {
+      db.query('SELECT COUNT(*) as count FROM announcements WHERE is_active = TRUE', (err, results) => {
+        if (err) return reject(err);
+        resolve(results[0].count);
+      });
+    });
+    const [userCount, appointmentCount, announcementCount] = await Promise.all([
+      userCountPromise,
+      appointmentCountPromise,
+      announcementCountPromise
+    ]);
+    stats.users = userCount;
+    stats.appointments = appointmentCount;
+    stats.announcements = announcementCount;
+    res.json({ success: true, stats });
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({ error: 'Error fetching dashboard stats' });
+  }
+});
 const express = require('express');
-const router = express.Router();
 const db = require('../config/connections');
 const auth = require('../middleware/auth');
-// const scheduleController = require('../controllers/scheduleController');
+const router = express.Router();
 
-// Middleware to check if user is admin
+// =================
+// SCHEDULED BUSINESS HOURS MANAGEMENT
+// =================
+
 const requireAdmin = (req, res, next) => {
   auth(req, res, (authErr) => {
     if (authErr) return authErr;
@@ -13,113 +55,54 @@ const requireAdmin = (req, res, next) => {
       return res.status(403).json({ message: 'Acceso denegado. Se requieren privilegios de administrador.' });
     }
     next();
+  })};
+
+// Get all scheduled business hours
+router.get('/scheduled-business-hours', requireAdmin, (req, res) => {
+  db.query('SELECT * FROM scheduled_business_hours ORDER BY effective_date DESC, day_of_week', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    res.json({ scheduledBusinessHours: results });
   });
-};
 
-// =================
-// USER VERIFICATION
-// =================
-
-// List users pending verification
-router.get('/pending-verifications', requireAdmin, userVerificationController.listPendingVerifications);
-
-// Accept or deny user verification
-router.post('/verify-user/:userId', requireAdmin, userVerificationController.verifyUser);
-
-// ...rest of your routes...
-
-// =================
-// DASHBOARD STATS
-// =================
-
-// Main dashboard endpoint
-router.get('/dashboard', requireAdmin, (req, res) => {
-  const queries = [
-    'SELECT COUNT(*) as totalUsers FROM users',
-    'SELECT COUNT(*) as totalAppointments FROM appointments',
-    'SELECT COUNT(*) as totalAppointmentsToday FROM appointments WHERE DATE(date) = CURDATE()',
-    // Count users not verified
-    `SELECT COUNT(*) as pendingUsers FROM users WHERE is_verified = 0 AND role = 'user'`
-  ];
-
-  Promise.all(queries.map(query => {
-    return new Promise((resolve, reject) => {
-      db.query(query, (err, results) => {
-        if (err) reject(err);
-        else resolve(results[0]);
-      });
-    });
-  }))
-  .then(results => {
-    // Get recent appointments
-    db.query(`
-      SELECT id, full_name as name, email, phone, 
-             DATE_FORMAT(date, '%Y-%m-%d') as appointment_date, 
-             TIME_FORMAT(time, '%H:%i') as appointment_time, 
-             status, created_at
-      FROM appointments 
-      ORDER BY created_at DESC 
-      LIMIT 5
-    `, (err, recentAppointments) => {
-      if (err) {
-        console.error('Recent appointments query error:', err);
-        return res.status(500).json({ error: 'Database error' });
-      }
-      
-      res.json({
-        totalUsers: results[0].totalUsers || 0,
-        totalAppointments: results[1].totalAppointments || 0,
-        totalAppointmentsToday: results[2].totalAppointmentsToday || 0,
-        pendingUsers: results[3].pendingUsers || 0,
-        recentAppointments: recentAppointments || []
-      });
-    });
-  })
-  .catch(err => {
-    console.error('Dashboard error:', err);
-    res.status(500).json({ error: 'Database error' });
+// Get single scheduled business hour by ID
+router.get('/scheduled-business-hours/:id', requireAdmin, (req, res) => {
+  const id = req.params.id;
+  db.query('SELECT * FROM scheduled_business_hours WHERE id = ?', [id], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (results.length === 0) return res.status(404).json({ error: 'Scheduled business hour not found' });
+    res.json({ scheduledBusinessHour: results[0] });
   });
 });
 
-router.get('/dashboard/stats', requireAdmin, (req, res) => {
-  const stats = {};
-  
-  // Get total users count
-  db.query('SELECT COUNT(*) as total_users FROM users WHERE role = "user"', (err, userResults) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    stats.total_users = userResults[0].total_users;
-    
-    // Get total appointments count
-    db.query('SELECT COUNT(*) as total_appointments FROM appointments', (err, appointmentResults) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      stats.total_appointments = appointmentResults[0].total_appointments;
-      
-      // Get appointments by status
-      db.query(`
-        SELECT status, COUNT(*) as count 
-        FROM appointments 
-        GROUP BY status
-      `, (err, statusResults) => {
-        if (err) return res.status(500).json({ error: 'Database error' });
-        
-        stats.appointments_by_status = {};
-        statusResults.forEach(row => {
-          stats.appointments_by_status[row.status] = row.count;
-        });
-        
-        // Get today's appointments
-        db.query(`
-          SELECT COUNT(*) as today_appointments 
-          FROM appointments 
-          WHERE DATE(date) = CURDATE()
-        `, (err, todayResults) => {
-          if (err) return res.status(500).json({ error: 'Database error' });
-          stats.today_appointments = todayResults[0].today_appointments;
-          
-          res.json(stats);
-        });
-      });
-    });
+// Create new scheduled business hours
+router.post('/scheduled-business-hours', requireAdmin, (req, res) => {
+  const { businessHours, effective_date } = req.body;
+  if (!businessHours || !Array.isArray(businessHours) || !effective_date) {
+    return res.status(400).json({ error: 'Missing businessHours array or effective_date' });
+  }
+  const values = businessHours.map(bh => [
+    bh.day_of_week,
+    bh.is_open ? 1 : 0,
+    bh.open_time || null,
+    bh.close_time || null,
+    bh.break_start || null,
+    bh.break_end || null,
+    effective_date,
+    1 // is_active
+  ]);
+
+  const sql = `
+    INSERT INTO scheduled_business_hours
+      (day_of_week, is_open, open_time, close_time, break_start, break_end, effective_date, is_active)
+    VALUES ?
+  `;
+  req.db = req.db || require('../config/connections');
+  req.db.query(sql, [values], (err, result) => {
+    if (err) {
+      console.error('Error saving scheduled business hours:', err);
+      return res.status(500).json({ error: 'Error saving scheduled business hours' });
+    }
+    res.json({ message: 'Scheduled business hours saved', inserted: result.affectedRows });
   });
 });
 
@@ -367,13 +350,7 @@ router.get('/appointments', requireAdmin, (req, res) => {
 // APPOINTMENT MANAGEMENT WITH SMS
 // =================
 
-const appointmentController = require('../controllers/appointmentController');
-
-// Get pending appointments (must be before /:id route)
-router.get('/appointments/pending', requireAdmin, appointmentController.getPendingAppointments);
-
-// Send appointment reminders (must be before /:id route)
-router.post('/appointments/send-reminders', requireAdmin, appointmentController.sendAppointmentReminders);
+// ...existing code...
 
 // Get single appointment
 router.get('/appointments/:id', requireAdmin, (req, res) => {
@@ -391,16 +368,15 @@ router.get('/appointments/:id', requireAdmin, (req, res) => {
     FROM appointments a
     LEFT JOIN users u ON a.user_id = u.id
     WHERE a.id = ?
-  `, [appointmentId], (err, results) => {
-    if (err) {
+  `), [appointmentId], (err, results) => {
       console.error('Error fetching appointment:', err);
       return res.status(500).json({ error: 'Database error' });
     }
-    
+
     if (results.length === 0) {
       return res.status(404).json({ error: 'Appointment not found' });
     }
-    
+
     res.json({ appointment: results[0] });
   });
 });
@@ -452,7 +428,7 @@ router.delete('/appointments/:id', requireAdmin, (req, res) => {
 });
 
 // Approve appointment (with SMS notification)
-router.post('/appointments/:id/approve', requireAdmin, appointmentController.approveAppointment);
+// ...existing code...
 
 // =================
 // USER VERIFICATION WITH SMS
@@ -1086,4 +1062,5 @@ router.post('/test-sms-notification', requireAdmin, async (req, res) => {
     res.status(500).json({ error: 'Error sending test SMS' });
   }
 });
+
 module.exports = router;

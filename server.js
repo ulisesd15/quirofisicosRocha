@@ -15,8 +15,6 @@ require('./config/passport');
 const routes = require('./routes/apiRoutes');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const appointmentRoutes = require('./routes/appointmentRoutes');
-// const scheduleController = require('./controllers/scheduleController');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -99,10 +97,21 @@ app.use('/admin', express.static('admin')); // Serve admin files under /admin pa
 app.use(passport.initialize()); 
 
 // Apply auth rate limiting to auth routes
-app.use('/api/auth', authLimiter, authRoutes); 
-app.use('/api/admin', adminRoutes);
-app.use('/api/appointments', appointmentRoutes);
-app.use('/api', routes);          
+if (typeof authRoutes !== 'function' && typeof authRoutes !== 'object') {
+  console.error('authRoutes is not a valid router. Check your export in routes/authRoutes.js');
+} else {
+  app.use('/api/auth', authLimiter, authRoutes);
+}
+if (typeof adminRoutes !== 'function' && typeof adminRoutes !== 'object') {
+  console.error('adminRoutes is not a valid router. Check your export in routes/adminRoutes.js');
+} else {
+  app.use('/api/admin', adminRoutes);
+}
+if (typeof routes !== 'function' && typeof routes !== 'object') {
+  console.error('routes is not a valid router. Check your export in routes/apiRoutes.js');
+} else {
+  app.use('/api', routes);
+}          
 
 // Error handling middleware
 app.use((err, req, res, next) => {

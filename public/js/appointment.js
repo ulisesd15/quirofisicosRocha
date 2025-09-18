@@ -36,7 +36,10 @@ async function fetchBusinessHours(date) {
     const response = await fetch(`/api/business-hours${dateParam}`);
     if (!response.ok) throw new Error('Failed to fetch business hours');
     const data = await response.json();
-    let arr = Array.isArray(data) ? data : (Array.isArray(data.business_hours) ? data.business_hours : []);
+    let arr = Array.isArray(data)
+      ? data
+      : (Array.isArray(data.business_hours) ? data.business_hours
+        : (Array.isArray(data.businessHours) ? data.businessHours : []));
     businessHours = arr.map(bh => ({ ...bh, day_of_week: bh.day_of_week.toLowerCase() }));
     return businessHours;
   } catch (e) {
@@ -90,16 +93,11 @@ async function renderMonthlyCalendar() {
     console.error('No #monthViewContainer container found');
     return;
   }
-  // Always fetch business hours and exceptions for the first day of the month
-  const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
-  await fetchBusinessHours(firstDayOfMonth);
+  // Always fetch business hours for the week (no date param) and exceptions
+  await fetchBusinessHours();
   await fetchScheduleExceptions();
+  console.log('DEBUG businessHours:', businessHours);
   calendarContainer.innerHTML = '';
-  // Heading for accessibility and clarity
-  const heading = document.createElement('h6');
-  heading.className = 'mb-3 text-center text-primary';
-  heading.innerHTML = '<i class="fas fa-calendar-alt me-2"></i>Calendario Mensual';
-  calendarContainer.appendChild(heading);
 
   // Calendar controls and grid
   const calendar = document.createElement('div');
@@ -160,6 +158,10 @@ async function renderMonthlyCalendar() {
       const isOpenDay = isDayOpen(currentCalendarDate);
       const isTodayDate = isToday(currentCalendarDate);
       const isSelectedDate = selectedDate && currentCalendarDate.toDateString() === selectedDate.toDateString();
+      if (isCurrentMonth && isCurrentYear) {
+        console.log(`DEBUG ${formatDate(currentCalendarDate)} isOpenDay:`, isOpenDay);
+      }
+      // Block past days
       if (isTodayDate && !isSelectedDate) dayElement.classList.add('today');
       if (isSelectedDate) dayElement.classList.add('selected');
       if (!isCurrentMonth || !isCurrentYear) {
@@ -220,8 +222,12 @@ async function renderWeeklyCalendar() {
   weekRow.appendChild(prevBtn);
   // 7 day cards
   for (let d = 0; d < 7; d++) {
-    const day = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + d);
-    const isOpenDay = isDayOpen(day);
+    const day = new Date(weekStart);
+    day.setDate(weekStart.getDate() + d);
+  const dayOfWeek = getDayOfWeekString(day).toLowerCase();
+  const businessDay = businessHours.find(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek);
+  console.log(`DEBUG Weekly: ${formatDate(day)} maps to businessHours[${dayOfWeek}]`, businessDay);
+  const isOpenDay = isDayOpen(day);
     const isTodayDate = isToday(day);
     const isSelectedDate = selectedDate && day.toDateString() === selectedDate.toDateString();
     const btn = document.createElement('button');
@@ -235,21 +241,8 @@ async function renderWeeklyCalendar() {
     dateLabel.textContent = `${String(day.getMonth() + 1).padStart(2, '0')}/${String(day.getDate()).padStart(2, '0')}`;
     btn.appendChild(dayLabel);
     btn.appendChild(dateLabel);
-    // Disable if in the past
-    const now = new Date();
-    now.setSeconds(0, 0);
-    let isPast = false;
-    if (day < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
-      isPast = true;
-    } else if (isTodayDate) {
-      // If today, check if all slots are less than 30 minutes from now
-      const endOfDay = new Date(day);
-      endOfDay.setHours(23, 59, 59, 999);
-      // If now is after end of day minus 30 minutes, disable
-      const lastBookable = new Date(day);
-      lastBookable.setHours(now.getHours(), now.getMinutes() + 30, 0, 0);
-      if (lastBookable > endOfDay) isPast = true;
-    }
+    // Block previous days
+    const isPast = isPastDate(day);
     if (isTodayDate && !isSelectedDate) btn.classList.add('today');
     if (isSelectedDate) btn.classList.add('selected');
     if (!isOpenDay || isPast) {
@@ -310,8 +303,12 @@ async function renderWeeklyCalendarForDate(date) {
   weekRow.appendChild(prevBtn);
   // 7 day cards
   for (let d = 0; d < 7; d++) {
-    const day = new Date(date.getFullYear(), date.getMonth(), date.getDate() + d);
-    const isOpenDay = isDayOpen(day);
+    const day = new Date(date);
+    day.setDate(date.getDate() + d);
+  const dayOfWeek = getDayOfWeekString(day).toLowerCase();
+  const businessDay = businessHours.find(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek);
+  console.log(`DEBUG Weekly: ${formatDate(day)} maps to businessHours[${dayOfWeek}]`, businessDay);
+  const isOpenDay = isDayOpen(day);
     const isTodayDate = isToday(day);
     const isSelectedDate = selectedDate && day.toDateString() === selectedDate.toDateString();
     const btn = document.createElement('button');
@@ -325,12 +322,14 @@ async function renderWeeklyCalendarForDate(date) {
     dateLabel.textContent = `${String(day.getMonth() + 1).padStart(2, '0')}/${String(day.getDate()).padStart(2, '0')}`;
     btn.appendChild(dayLabel);
     btn.appendChild(dateLabel);
+    // Block previous days
+    const isPast = isPastDate(day);
     if (isTodayDate && !isSelectedDate) btn.classList.add('today');
     if (isSelectedDate) btn.classList.add('selected');
-    if (!isOpenDay) {
+    if (!isOpenDay || isPast) {
       btn.classList.add('btn-secondary');
       btn.disabled = true;
-      btn.title = 'Cerrado';
+      btn.title = !isOpenDay ? 'Cerrado' : 'No disponible';
     } else {
       btn.classList.add('btn-outline-primary');
       btn.addEventListener('click', () => {
@@ -373,15 +372,29 @@ async function renderTimeSlots(date) {
   const slotContainer = document.getElementById('timeCards');
   if (!slotContainer) return;
   slotContainer.innerHTML = '<div class="text-center">Cargando horarios...</div>';
+  // Find business hours for this day
+  const dayOfWeek = getDayOfWeekString(date).toLowerCase();
+  const businessDay = businessHours.find(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek);
+  if (!businessDay || !businessDay.is_open || !businessDay.open_time || !businessDay.close_time) {
+    slotContainer.innerHTML = '<div class="alert alert-warning text-center">Sin horarios disponibles para este día</div>';
+    return;
+  }
+  // Generate slots for this day
   const slots = await fetchAvailableSlots(date);
   slotContainer.innerHTML = '';
   if (!slots.length) {
     slotContainer.innerHTML = '<div class="alert alert-warning text-center">Sin horarios disponibles para este día</div>';
     return;
   }
+  const now = new Date();
   const row = document.createElement('div');
   row.className = 'row g-2';
   slots.forEach(time => {
+    // Normalize to HH:mm for comparison
+    const slotHM = time.slice(0,5);
+    const openHM = businessDay.open_time.slice(0,5);
+    const closeHM = businessDay.close_time.slice(0,5);
+    if (slotHM < openHM || slotHM > closeHM) return;
     const col = document.createElement('div');
     col.className = 'col-6 col-md-4 col-lg-3 mb-2';
     const btn = document.createElement('button');
@@ -389,7 +402,15 @@ async function renderTimeSlots(date) {
     btn.className = 'btn btn-outline-primary time-slot-btn';
     btn.textContent = formatTimeToAMPM(time);
     btn.dataset.time24 = time;
-    btn.addEventListener('click', () => selectTimeSlot(time, btn));
+    // Block past hours and <30 min anticipation
+    const slotDateTime = new Date(`${formatDate(date)}T${time}:00`);
+    if (slotDateTime < new Date(now.getTime() + 30 * 60 * 1000)) {
+      btn.disabled = true;
+      btn.classList.add('disabled');
+      btn.title = 'No disponible (menos de 30 minutos de anticipación o pasado)';
+    } else {
+      btn.addEventListener('click', () => selectTimeSlot(time, btn));
+    }
     col.appendChild(btn);
     row.appendChild(col);
   });
@@ -401,15 +422,29 @@ async function renderMonthlyTimeSlots(date) {
   const slotContainer = document.getElementById('timeCards');
   if (!slotContainer) return;
   slotContainer.innerHTML = '<div class="text-center">Cargando horarios...</div>';
+  // Find business hours for this day
+  const dayOfWeek = getDayOfWeekString(date).toLowerCase();
+  const businessDay = businessHours.find(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek);
+  if (!businessDay || !businessDay.is_open || !businessDay.open_time || !businessDay.close_time) {
+    slotContainer.innerHTML = '<div class="alert alert-warning text-center">Sin horarios disponibles para este día</div>';
+    return;
+  }
+  // Generate slots for this day
   const slots = await fetchAvailableSlots(date);
   slotContainer.innerHTML = '';
   if (!slots.length) {
     slotContainer.innerHTML = '<div class="alert alert-warning text-center">Sin horarios disponibles para este día</div>';
     return;
   }
+  const now = new Date();
   const row = document.createElement('div');
   row.className = 'row g-2';
   slots.forEach(time => {
+    // Normalize to HH:mm for comparison
+    const slotHM = time.slice(0,5);
+    const openHM = businessDay.open_time.slice(0,5);
+    const closeHM = businessDay.close_time.slice(0,5);
+    if (slotHM < openHM || slotHM > closeHM) return;
     const col = document.createElement('div');
     col.className = 'col-6 col-md-4 col-lg-3 mb-2';
     const btn = document.createElement('button');
@@ -417,7 +452,15 @@ async function renderMonthlyTimeSlots(date) {
     btn.className = 'btn btn-outline-primary time-slot-btn';
     btn.textContent = formatTimeToAMPM(time);
     btn.dataset.time24 = time;
-    btn.addEventListener('click', () => selectTimeSlot(time, btn));
+    // Block past hours and <30 min anticipation
+    const slotDateTime = new Date(`${formatDate(date)}T${time}:00`);
+    if (slotDateTime < new Date(now.getTime() + 30 * 60 * 1000)) {
+      btn.disabled = true;
+      btn.classList.add('disabled');
+      btn.title = 'No disponible (menos de 30 minutos de anticipación o pasado)';
+    } else {
+      btn.addEventListener('click', () => selectTimeSlot(time, btn));
+    }
     col.appendChild(btn);
     row.appendChild(col);
   });
@@ -458,8 +501,8 @@ document.addEventListener('DOMContentLoaded', () => {
         weekContainer.style.display = '';
         monthContainer.style.display = 'none';
         // Clear monthly calendar and slots to avoid stale content
-        const monthlyCalendar = document.getElementById('monthlyCalendar');
-        if (monthlyCalendar) monthlyCalendar.innerHTML = '';
+        const monthViewContainer = document.getElementById('monthViewContainer');
+        if (monthViewContainer) monthViewContainer.innerHTML = '';
         const slotContainer = document.getElementById('timeCards');
         if (slotContainer) slotContainer.innerHTML = '';
         selectedDate = null;
@@ -467,6 +510,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     monthRadio.addEventListener('change', () => {
       if (monthRadio.checked) {
+        // Reset to current month/year when switching to monthly view
+        const today = new Date();
+        currentMonth = today.getMonth();
+        currentYear = today.getFullYear();
         weekContainer.style.display = 'none';
         monthContainer.style.display = '';
         // Clear slots before rendering

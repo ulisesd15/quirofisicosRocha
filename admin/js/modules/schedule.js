@@ -179,7 +179,7 @@ export class ScheduleModule {
 
     try {
       this.showLoading();
-      const response = await fetch('/api/admin/scheduled-business-hours', {
+  const response = await fetch('/admin/scheduled-business-hours', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

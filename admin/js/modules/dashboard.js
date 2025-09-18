@@ -24,7 +24,7 @@ export class DashboardModule {
     try {
       this.showLoading();
       const token = localStorage.getItem('token') || localStorage.getItem('user_token');
-      const response = await fetch('/api/admin/dashboard', {
+  const response = await fetch('/api/admin/dashboard/stats', {
         headers: {
           'Authorization': `Bearer ${token}`
         }

@@ -4,18 +4,19 @@ const passport = require('passport');
 const jwt = require('jsonwebtoken');
 const db = require('../config/connections');
 const auth = require('../middleware/auth');
-const authController = require('../controllers/authController');
+// Return authenticated user's profile
+router.get('/profile', auth, (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  // Return basic user info
+  const { id, email, role } = req.user;
+  res.json({ id, email, role });
+});
+// const authController = require('../controllers/authController');
 const secretKey = process.env.SECRET_KEY;
 
 // Traditional authentication routes
-router.post('/register', authController.register);
-router.post('/login', authController.login);
-router.get('/profile', auth, authController.getUserProfile);
-router.get('/me', auth, authController.getUserProfile); // Alias for profile endpoint
-router.put('/profile', auth, authController.updateProfile);
-router.put('/update-profile', auth, authController.updateUserProfile);
-router.put('/change-password', auth, authController.changePassword);
-router.put('/notification-preferences', auth, authController.updateNotificationPreferences);
 
 // Google OAuth routes
 router.get('/google', (req, res, next) => {
