@@ -91,12 +91,10 @@ app.use(compression());
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(express.static('public'));
-app.use('/admin', express.static('admin')); // Serve admin files under /admin path
 
-app.use(passport.initialize()); 
+app.use(passport.initialize());
 
-// Apply auth rate limiting to auth routes
+// Mount API routers BEFORE static and catch-all routes
 if (typeof authRoutes !== 'function' && typeof authRoutes !== 'object') {
   console.error('authRoutes is not a valid router. Check your export in routes/authRoutes.js');
 } else {
@@ -111,7 +109,11 @@ if (typeof routes !== 'function' && typeof routes !== 'object') {
   console.error('routes is not a valid router. Check your export in routes/apiRoutes.js');
 } else {
   app.use('/api', routes);
-}          
+}
+
+// Static file serving AFTER API routers
+app.use(express.static('public'));
+app.use('/admin', express.static('admin')); // Serve admin files under /admin path
 
 // Error handling middleware
 app.use((err, req, res, next) => {

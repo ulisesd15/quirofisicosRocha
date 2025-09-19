@@ -1,61 +1,66 @@
+const express = require('express');
+const router = express.Router();
+const db = require('../config/connections');
+const requireAdmin = require('../middleware/requireAdmin');
 // =================
 // ADMIN DASHBOARD STATS ENDPOINT
 // =================
 
 router.get('/dashboard/stats', requireAdmin, async (req, res) => {
   try {
-    // Example: Query counts for users, appointments, announcements
     const stats = {};
-    const userCountPromise = new Promise((resolve, reject) => {
-      db.query('SELECT COUNT(*) as count FROM users', (err, results) => {
-        if (err) return reject(err);
-        resolve(results[0].count);
+    // User count
+    let userCount = 0, appointmentCount = 0, announcementCount = 0;
+    try {
+      const [users] = await new Promise((resolve, reject) => {
+        db.query('SELECT COUNT(*) as count FROM users', (err, results) => {
+          if (err) return reject(err);
+          resolve(results);
+        });
       });
-    });
-    const appointmentCountPromise = new Promise((resolve, reject) => {
-      db.query('SELECT COUNT(*) as count FROM appointments', (err, results) => {
-        if (err) return reject(err);
-        resolve(results[0].count);
+      userCount = users.count || 0;
+    } catch (err) {
+      console.error('Error fetching user count:', err);
+    }
+    // Appointment count
+    try {
+      const [appointments] = await new Promise((resolve, reject) => {
+        db.query('SELECT COUNT(*) as count FROM appointments', (err, results) => {
+          if (err) return reject(err);
+          resolve(results);
+        });
       });
-    });
-    const announcementCountPromise = new Promise((resolve, reject) => {
-      db.query('SELECT COUNT(*) as count FROM announcements WHERE is_active = TRUE', (err, results) => {
-        if (err) return reject(err);
-        resolve(results[0].count);
+      appointmentCount = appointments.count || 0;
+    } catch (err) {
+      console.error('Error fetching appointment count:', err);
+    }
+    // Announcement count
+    try {
+      const [announcements] = await new Promise((resolve, reject) => {
+        db.query('SELECT COUNT(*) as count FROM announcements WHERE is_active = TRUE', (err, results) => {
+          if (err) return reject(err);
+          resolve(results);
+        });
       });
-    });
-    const [userCount, appointmentCount, announcementCount] = await Promise.all([
-      userCountPromise,
-      appointmentCountPromise,
-      announcementCountPromise
-    ]);
+      announcementCount = announcements.count || 0;
+    } catch (err) {
+      console.error('Error fetching announcement count:', err);
+    }
     stats.users = userCount;
     stats.appointments = appointmentCount;
     stats.announcements = announcementCount;
     res.json({ success: true, stats });
   } catch (error) {
-    console.error('Error fetching dashboard stats:', error);
+    console.error('Error in dashboard stats endpoint:', error);
     res.status(500).json({ error: 'Error fetching dashboard stats' });
   }
 });
-const express = require('express');
-const db = require('../config/connections');
-const auth = require('../middleware/auth');
-const router = express.Router();
+
 
 // =================
 // SCHEDULED BUSINESS HOURS MANAGEMENT
 // =================
 
-const requireAdmin = (req, res, next) => {
-  auth(req, res, (authErr) => {
-    if (authErr) return authErr;
-    if (req.user.role !== 'admin') {
-      console.warn('Non-admin user tried to access admin endpoint:', req.user.email);
-      return res.status(403).json({ message: 'Acceso denegado. Se requieren privilegios de administrador.' });
-    }
-    next();
-  })};
 
 // Get all scheduled business hours
 router.get('/scheduled-business-hours', requireAdmin, (req, res) => {

@@ -142,9 +142,11 @@ export class UsersModule {
     this.showLoading();
     const search = document.getElementById('users-search').value || '';
     const roleFilter = document.getElementById('users-role-filter').value || '';
-    
+    // Ensure valid pagination
+    const page = Number.isInteger(this.currentPage) && this.currentPage > 0 ? this.currentPage : 1;
+    const limit = Number.isInteger(this.itemsPerPage) && this.itemsPerPage > 0 ? this.itemsPerPage : 10;
     try {
-      const response = await fetch(`/api/admin/users?page=${this.currentPage}&search=${encodeURIComponent(search)}&role=${encodeURIComponent(roleFilter)}`, {
+      const response = await fetch(`/api/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&role=${encodeURIComponent(roleFilter)}`, {
         headers: {
           'Authorization': `Bearer ${this.getAuthToken()}`
         }
@@ -153,9 +155,9 @@ export class UsersModule {
       if (!response.ok) throw new Error('Error loading users');
 
       const data = await response.json();
-  console.log('Users API response:', data);
-  this.displayUsers(data.users);
-  this.updateUsersCount(data.pagination.total_records);
+      console.log('Users API response:', data);
+      this.displayUsers(data.users);
+      this.updateUsersCount(data.pagination.total_records);
 
     } catch (error) {
       console.error('Error loading users:', error);

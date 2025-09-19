@@ -79,7 +79,7 @@ async function loadClinicSettingsFooter() {
 // Announcements Management
 async function loadAnnouncements() {
   try {
-    const response = await fetch('/api/announcements/public');
+  const response = await fetch('/api/admin/announcements/public');
     if (!response.ok) return; // Silently fail if no announcements
 
     const announcements = await response.json();
@@ -172,7 +172,7 @@ function dismissAnnouncement(id) {
 // Load and display business hours
 async function loadBusinessHours() {
   try {
-    const response = await fetch('/api/business-hours');
+  const response = await fetch('/api/admin/business-hours');
     if (!response.ok) {
       throw new Error('Failed to load business hours');
     }

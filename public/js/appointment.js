@@ -33,7 +33,7 @@ const getDayOfWeekString = date => fullDayNames[date.getDay()];
 async function fetchBusinessHours(date) {
   try {
     const dateParam = date ? `/${formatDate(date)}` : '';
-    const response = await fetch(`/api/business-hours${dateParam}`);
+  const response = await fetch(`/api/admin/business-hours${dateParam}`);
     if (!response.ok) throw new Error('Failed to fetch business hours');
     const data = await response.json();
     let arr = Array.isArray(data)

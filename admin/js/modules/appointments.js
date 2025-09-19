@@ -134,9 +134,12 @@ export class AppointmentsModule {
         }
       }
       
+      // Ensure valid pagination
+      const page = Number.isInteger(this.currentPage) && this.currentPage > 0 ? this.currentPage : 1;
+      const limit = Number.isInteger(this.itemsPerPage) && this.itemsPerPage > 0 ? this.itemsPerPage : 10;
       const params = new URLSearchParams({
-        page: this.currentPage,
-        limit: this.itemsPerPage
+        page,
+        limit
       });
 
       // Add filters
