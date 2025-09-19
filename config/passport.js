@@ -3,6 +3,7 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const jwt = require('jsonwebtoken');
 const db = require('../config/connections');
 const secretKey = process.env.SECRET_KEY;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Debug logging
 console.log('🔍 Passport Google Strategy Config:', {
@@ -46,7 +47,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           });
       }
       
-      const token = jwt.sign({ id: user.id, email: user.email }, secretKey, { expiresIn: '2h' });
+  const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '2h' });
       return done(null, { token });
     }
 
@@ -59,7 +60,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     db.query(insertSql, [full_name, email, null, null, 'google', google_id], (err, result) => {
       if (err) return done(err);
 
-      const token = jwt.sign({ id: result.insertId, email }, secretKey, { expiresIn: '2h' });
+  const token = jwt.sign({ id: result.insertId, email }, JWT_SECRET, { expiresIn: '2h' });
       return done(null, { token });
     });
   });

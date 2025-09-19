@@ -1,9 +1,20 @@
-// admin/js/modules/users.js
 export class UsersModule {
-  getAuthToken() {
-    return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+  constructor() {
+    this.currentPage = 1;
+    this.itemsPerPage = 10;
   }
 
+  getAuthToken() {
+    return localStorage.getItem('token') || localStorage.getItem('token') || '';
+  }
+
+  getUserRole() {
+    return localStorage.getItem('user_role') || '';
+  }
+
+  isAdmin() {
+    return this.getUserRole() === 'admin';
+  }
 
   showError(message) {
     this.showAlert(message, 'danger');
@@ -24,10 +35,7 @@ export class UsersModule {
       alertContainer.style.zIndex = '9999';
       document.body.appendChild(alertContainer);
     }
-    alertContainer.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
-      ${message}
-      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>`;
+    alertContainer.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">${message}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>`;
     setTimeout(() => {
       alertContainer.innerHTML = '';
     }, 3000);
@@ -43,17 +51,12 @@ export class UsersModule {
     if (spinner) spinner.style.display = 'none';
   }
 
-
-  
-  constructor() {
-    this.currentPage = 1;
-    this.itemsPerPage = 10;
-  }
-  // Add usuarios/users logic here
-  
   async deleteUser(id) {
+    if (!this.isAdmin()) {
+      this.showError('Acceso denegado. Solo administradores pueden eliminar usuarios.');
+      return;
+    }
     if (!confirm('¿Estás seguro de que quieres eliminar este usuario?')) return;
-
     try {
       const response = await fetch(`/api/admin/users/${id}`, {
         method: 'DELETE',
@@ -61,12 +64,9 @@ export class UsersModule {
           'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
-
       if (!response.ok) throw new Error('Error deleting user');
-
       this.showSuccess('Usuario eliminado correctamente');
       await this.loadUsers();
-
     } catch (error) {
       console.error('Error deleting user:', error);
       this.showError('Error eliminando el usuario');
@@ -74,6 +74,10 @@ export class UsersModule {
   }
 
   async saveUserChanges() {
+    if (!this.isAdmin()) {
+      this.showError('Acceso denegado. Solo administradores pueden actualizar usuarios.');
+      return;
+    }
     try {
       const id = document.getElementById('edit-user-id').value;
       const data = {
@@ -82,7 +86,6 @@ export class UsersModule {
         phone: document.getElementById('edit-user-phone').value,
         role: document.getElementById('edit-user-role').value
       };
-
       const response = await fetch(`/api/admin/users/${id}`, {
         method: 'PUT',
         headers: {
@@ -91,17 +94,11 @@ export class UsersModule {
         },
         body: JSON.stringify(data)
       });
-
       if (!response.ok) throw new Error('Error updating user');
-
-      // Close modal
       const modal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
       modal.hide();
-
-      // Reload data
       await this.refreshCurrentSection();
       this.showSuccess('Usuario actualizado correctamente');
-
     } catch (error) {
       console.error('Error saving user:', error);
       this.showError('Error guardando los cambios');
@@ -109,29 +106,26 @@ export class UsersModule {
   }
 
   async editUser(id) {
+    if (!this.isAdmin()) {
+      this.showError('Acceso denegado. Solo administradores pueden editar usuarios.');
+      return;
+    }
     try {
       const response = await fetch(`/api/admin/users/${id}`, {
         headers: {
           'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
-
       if (!response.ok) throw new Error('Error loading user');
-      
       const data = await response.json();
       const user = data.user;
-
-      // Populate modal
       document.getElementById('edit-user-id').value = user.id;
       document.getElementById('edit-user-name').value = user.name;
       document.getElementById('edit-user-email').value = user.email;
       document.getElementById('edit-user-phone').value = user.phone || '';
       document.getElementById('edit-user-role').value = user.role || 'user';
-
-      // Show modal
       const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
       modal.show();
-
     } catch (error) {
       console.error('Error loading user:', error);
       this.showError('Error cargando el usuario');
@@ -139,10 +133,14 @@ export class UsersModule {
   }
 
   async loadUsers() {
+    if (!this.isAdmin()) {
+      this.showError('Acceso denegado. Solo administradores pueden ver usuarios.');
+      this.hideLoading();
+      return;
+    }
     this.showLoading();
     const search = document.getElementById('users-search').value || '';
     const roleFilter = document.getElementById('users-role-filter').value || '';
-    // Ensure valid pagination
     const page = Number.isInteger(this.currentPage) && this.currentPage > 0 ? this.currentPage : 1;
     const limit = Number.isInteger(this.itemsPerPage) && this.itemsPerPage > 0 ? this.itemsPerPage : 10;
     try {
@@ -151,14 +149,11 @@ export class UsersModule {
           'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
-
       if (!response.ok) throw new Error('Error loading users');
-
       const data = await response.json();
       console.log('Users API response:', data);
       this.displayUsers(data.users);
       this.updateUsersCount(data.pagination.total_records);
-
     } catch (error) {
       console.error('Error loading users:', error);
       this.showError('Error cargando los usuarios');
@@ -168,11 +163,9 @@ export class UsersModule {
   }
 
   displayUsers(users) {
-  const usersTableBody = document.getElementById('users-table');
+    const usersTableBody = document.getElementById('users-table');
     if (!usersTableBody) return;
-
-    usersTableBody.innerHTML = ''; // Clear existing rows
-
+    usersTableBody.innerHTML = '';
     users.forEach(user => {
       const row = document.createElement('tr');
       row.innerHTML = `
@@ -205,24 +198,15 @@ export class UsersModule {
   }
 
   showAddUserModal() {
-    // For now, show a simple alert. You can implement a proper modal later
     alert('Funcionalidad de agregar usuario - pendiente de implementar');
   }
 
   clearUsersFilters() {
-    // Clear search input
     const searchInput = document.getElementById('users-search');
     if (searchInput) searchInput.value = '';
-
-    // Clear role filter
     const roleFilter = document.getElementById('users-role-filter');
     if (roleFilter) roleFilter.value = '';
-
-    // Reset to first page and reload
     this.currentPage = 1;
     this.loadUsers();
   }
-
-  
-
 }

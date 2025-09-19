@@ -3,9 +3,9 @@ const router = express.Router();
 const passport = require('passport');
 const jwt = require('jsonwebtoken');
 const db = require('../config/connections');
-const auth = require('../middleware/auth');
+const authenticateToken = require('../middleware/authenticateToken');
 // Return authenticated user's profile
-router.get('/profile', auth, (req, res) => {
+router.get('/profile', authenticateToken, (req, res) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Unauthorized' });
   }

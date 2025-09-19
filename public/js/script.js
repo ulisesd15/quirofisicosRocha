@@ -172,11 +172,12 @@ function dismissAnnouncement(id) {
 // Load and display business hours
 async function loadBusinessHours() {
   try {
-  const response = await fetch('/api/admin/business-hours');
+    const response = await fetch('/api/admin/business-hours', {
+      headers: window.authManager ? window.authManager.getAuthHeaders() : {}
+    });
     if (!response.ok) {
       throw new Error('Failed to load business hours');
     }
-    
     const data = await response.json();
     console.log('Business hours API response:', data); // Debug log
     let businessHours = Array.isArray(data.business_hours)

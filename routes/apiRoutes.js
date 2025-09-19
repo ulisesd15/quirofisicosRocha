@@ -4,10 +4,11 @@ const db = require('../config/connections');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const authenticateToken = require('../middleware/auth');
+const authenticateToken = require('../middleware/authenticateToken');
 // const scheduleController = require('../controllers/scheduleController');
 // const appointmentController = require('../controllers/appointmentController');
 const secretKey = process.env.SECRET_KEY;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Get public clinic settings for display (name, address, phone, email)
 router.get('/clinic-settings', (req, res) => {
@@ -477,7 +478,7 @@ router.post('/auth/login', (req, res) => {
           id: user.id, 
           email: user.email, 
           role: user.role || 'user' 
-        }, secretKey, { expiresIn: '2h' });
+  }, JWT_SECRET, { expiresIn: '2h' });
         
         console.log('✅ Login successful for:', email);
 
@@ -535,7 +536,7 @@ router.post('/auth/register', async (req, res) => {
         id: results.insertId, 
         email,
         role: 'user'
-      }, secretKey, { expiresIn: '2h' });
+  }, JWT_SECRET, { expiresIn: '2h' });
 
       res.status(201).json({
         success: true,

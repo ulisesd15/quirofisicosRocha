@@ -13,7 +13,7 @@ async function fetchDashboardStats() {
   }
   try {
     const response = await fetch('/api/admin/dashboard/stats', {
-      headers: {
+      headers: window.authManager ? window.authManager.getAuthHeaders() : {
         'Authorization': 'Bearer ' + token,
         'Content-Type': 'application/json'
       }
@@ -24,7 +24,9 @@ async function fetchDashboardStats() {
     const data = await response.json();
     // Use data for dashboard rendering
     console.log('Dashboard stats:', data);
-    // ... update dashboard UI ...
+    document.getElementById('totalAppointments').innerText = data.totalAppointments || 0;
+    document.getElementById('totalUsers').innerText = data.totalUsers || 0;
+    document.getElementById('totalRevenue').innerText = '$' + (data.totalRevenue || 0);
   } catch (err) {
     alert('Sesión expirada. Por favor, inicie sesión nuevamente.');
     console.error('Dashboard stats error:', err);
