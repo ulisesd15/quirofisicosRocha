@@ -1,3 +1,5 @@
+// Debug route to confirm router is mounted
+router.get('/test', (req, res) => res.json({ ok: true }));
 const express = require('express');
 const router = express.Router();
 // Debug route to verify adminRoutes mounting
