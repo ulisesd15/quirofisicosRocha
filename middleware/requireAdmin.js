@@ -32,15 +32,16 @@ module.exports = function requireAdmin(req, res, next) {
   }
 
   // Fallback to session-based authentication (if used)
-  if (req.isAuthenticated && req.isAuthenticated()) {
-    if (req.user && req.user.role === 'admin') {
-      console.log('[requireAdmin] Session admin access granted for:', req.user.email || req.user.id);
-      return next();
-    } else {
-      console.warn('[requireAdmin] Session user is not admin:', req.user ? req.user.role : null);
-      return res.status(403).json({ error: 'Access denied. Admins only.' });
+    if (req.isAuthenticated && req.isAuthenticated()) {
+      console.log('[requireAdmin] Session req.user:', req.user);
+      if (req.user && req.user.role === 'admin') {
+        console.log('[requireAdmin] Session admin access granted for:', req.user.email || req.user.id);
+        return next();
+      } else {
+        console.warn('[requireAdmin] Session user is not admin:', req.user ? req.user.role : null);
+        return res.status(403).json({ error: 'Access denied. Admins only.' });
+      }
     }
-  }
 
   console.warn('[requireAdmin] No valid JWT or session found. Unauthorized.');
   return res.status(401).json({ error: 'Unauthorized. Please log in.' });

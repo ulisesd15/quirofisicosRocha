@@ -136,28 +136,28 @@ async displayPendingAppointments() {
 }
 
 async approveAppointment(appointmentId) {
-    try {
-        const response = await fetch(`/api/admin/appointments/${appointmentId}/approve`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
-            'Content-Type': 'application/json'
-        }
-        });
+  try {
+    const response = await fetch(`/api/admin/appointments/${appointmentId}/approve`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+      'Content-Type': 'application/json'
+    }
+    });
 
-        if (!response.ok) {
-            throw new Error(`Error: ${response.status}`);
-        }
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
         
-        const result = await response.json();
+    const result = await response.json();
         
-        // Show success message
-        this.showNotification('Cita aprobada y SMS enviado exitosamente', 'success');
+    // Show success message
+    this.showNotification('Cita aprobada correctamente', 'success');
         
-        // Refresh the pending appointments list
-        this.displayPendingAppointments();
+    // Refresh the pending appointments list
+    this.displayPendingAppointments();
         
-        } catch (error) {
+    } catch (error) {
             console.error('Error approving appointment:', error);
             this.showNotification('Error al aprobar la cita', 'error');
         }

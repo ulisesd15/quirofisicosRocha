@@ -1,4 +1,63 @@
 export class UsersModule {
+  async loadUnverifiedUsers() {
+    if (!this.isAdmin()) {
+      this.showError('Acceso denegado. Solo administradores pueden ver usuarios no verificados.');
+      return;
+    }
+    try {
+      const response = await fetch('/api/admin/users/unverified', {
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+      if (!response.ok) throw new Error('Error cargando usuarios no verificados');
+      const data = await response.json();
+      this.displayUnverifiedUsers(data.users);
+    } catch (error) {
+      console.error('Error loading unverified users:', error);
+      this.showError('Error cargando usuarios no verificados');
+    }
+  }
+
+  displayUnverifiedUsers(users) {
+    const tableBody = document.getElementById('unverified-users-table');
+    if (!tableBody) return;
+    tableBody.innerHTML = '';
+    users.forEach(user => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${user.id}</td>
+        <td>${user.full_name}</td>
+        <td>${user.email}</td>
+        <td>${user.phone || 'N/A'}</td>
+        <td>
+          <button class="btn btn-success btn-sm" onclick="usersModule.verifyUser(${user.id})">Verificar</button>
+        </td>
+      `;
+      tableBody.appendChild(row);
+    });
+  }
+
+  async verifyUser(id) {
+    if (!this.isAdmin()) {
+      this.showError('Acceso denegado. Solo administradores pueden verificar usuarios.');
+      return;
+    }
+    try {
+      const response = await fetch(`/api/admin/users/${id}/verify`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
+      });
+      if (!response.ok) throw new Error('Error verificando usuario');
+      this.showSuccess('Usuario verificado correctamente');
+      await this.loadUnverifiedUsers();
+    } catch (error) {
+      console.error('Error verifying user:', error);
+      this.showError('Error verificando el usuario');
+    }
+  }
   constructor() {
     this.currentPage = 1;
     this.itemsPerPage = 10;

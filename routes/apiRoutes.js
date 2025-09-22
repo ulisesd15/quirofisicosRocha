@@ -199,6 +199,40 @@ router.get('/business-hours/:date', (req, res) => {
 // ...existing code...
 
 
+
+
+// ADMIN: Verify a user
+router.put('/admin/users/:id/verify', authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  const userId = req.params.id;
+  db.query('UPDATE users SET is_verified = 1, requires_verification = 0 WHERE id = ?', [userId], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Error verificando usuario' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json({ message: 'Usuario verificado correctamente' });
+  });
+});
+
+// ADMIN: Get all pending appointments
+router.get('/admin/appointments/pending', authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  db.query('SELECT * FROM appointments WHERE status = "pending"', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error obteniendo citas pendientes' });
+    res.json({ appointments: results });
+  });
+});
+
+// ADMIN: Approve appointment (set status to confirmed)
+router.put('/admin/appointments/:id/approve', authenticateToken, (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
+  const appointmentId = req.params.id;
+  db.query('UPDATE appointments SET status = "confirmed", updated_at = CURRENT_TIMESTAMP WHERE id = ?', [appointmentId], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Error aprobando cita' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Cita no encontrada' });
+    res.json({ message: 'Cita aprobada correctamente' });
+  });
+});
+
+
 //get all appointments
 router.get('/appointments', authenticateToken, (req, res) => {
   db.query('SELECT * FROM appointments', (err, results) => {
@@ -219,6 +253,18 @@ router.post('/appointments', (req, res) => {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
+    // If user_id is present, check verification status
+    function createAppointmentWithStatus(status) {
+      const appointmentData = { full_name, email, phone, date, time, note, user_id, status };
+      db.query('INSERT INTO appointments SET ?', appointmentData, (err, result) => {
+        if (err) {
+          console.error('Error inserting appointment:', err);
+          return res.status(500).json({ error: 'Database error', details: err });
+        }
+        res.json({ message: 'Cita agendada correctamente', id: result.insertId, status });
+      });
+    }
+
   // Check if the time slot is already taken
   db.query('SELECT id FROM appointments WHERE date = ? AND time = ? AND status IN ("pending", "confirmed")', 
     [date, time], (err, existing) => {
@@ -231,15 +277,23 @@ router.post('/appointments', (req, res) => {
       return res.status(409).json({ error: 'Time slot already taken', message: 'Este horario ya está ocupado' });
     }
 
-    const appointmentData = { full_name, email, phone, date, time, note, user_id, status: 'pending' };
-
-    db.query('INSERT INTO appointments SET ?', appointmentData, (err, result) => {
-      if (err) {
-        console.error('Error inserting appointment:', err);
-        return res.status(500).json({ error: 'Database error', details: err });
+      if (user_id) {
+        // Check user verification status
+        db.query('SELECT is_verified FROM users WHERE id = ?', [user_id], (err, userRows) => {
+          if (err || !userRows || userRows.length === 0) {
+            return res.status(400).json({ error: 'Usuario no encontrado para verificación' });
+          }
+          const isVerified = userRows[0].is_verified;
+          if (isVerified) {
+            createAppointmentWithStatus('pending'); // or 'confirmed' if you want to auto-confirm
+          } else {
+            createAppointmentWithStatus('pending'); // stays pending for admin review
+          }
+        });
+      } else {
+        // Guest user, always pending
+        createAppointmentWithStatus('pending');
       }
-      // res.json({ message: 'Cita agendada correctamente', id: result.insertId });
-    });
   });
 });
 

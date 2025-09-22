@@ -1,8 +1,12 @@
 const express = require('express');
 const router = express.Router();
+// Debug route to verify adminRoutes mounting
+router.get('/test', (req, res) => {
+  res.json({ ok: true, message: 'adminRoutes is working!' });
+});
 const db = require('../config/connections');
 const requireAdmin = require('../middleware/requireAdmin');
-// =================
+
 // ADMIN DASHBOARD STATS ENDPOINT
 // =================
 
@@ -61,6 +65,51 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
 // SCHEDULED BUSINESS HOURS MANAGEMENT
 // =================
 
+// ADMIN: Get all business hours
+router.get('/business-hours', requireAdmin, (req, res) => {
+  db.query('SELECT * FROM business_hours WHERE is_active = 1', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error obteniendo horarios'});
+    res.json({ business_hours: results });
+  });
+});
+
+// ADMIN: Get business hours for the whole week of a given date
+router.get('/business-hours/:date', requireAdmin, (req, res) => {
+  const dayISO = req.params.date;
+  const dateObj = new Date(dayISO);
+  if (isNaN(dateObj)) return res.status(400).json({ business_hours: [] });
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const promises = days.map(dow => {
+    return new Promise((resolve, reject) => {
+      db.query('SELECT * FROM scheduled_business_hours WHERE LOWER(day_of_week) = ? AND effective_date <= ? AND is_active = 1 ORDER BY effective_date DESC LIMIT 1', [dow, dayISO], (err, results) => {
+        if (err) return reject(err);
+        if (results && results.length > 0) {
+          resolve({ day_of_week: dow, ...results[0] });
+        } else {
+          db.query('SELECT * FROM business_hours WHERE LOWER(day_of_week) = ? AND is_active = 1 LIMIT 1', [dow], (err2, results2) => {
+            if (err2 || !results2 || results2.length === 0) {
+              resolve({ day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null });
+            } else {
+              resolve({ day_of_week: dow, ...results2[0] });
+            }
+          });
+        }
+      });
+    });
+  });
+  Promise.all(promises).then(weekHours => {
+    const ordered = days.map(dow => {
+      const found = weekHours.find(bh => (bh.day_of_week || '').toLowerCase() === dow);
+      if (found) return found;
+      return { day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null };
+    });
+    res.json({ business_hours: ordered });
+  }).catch(() => {
+    res.status(500).json({ business_hours: [] });
+  });
+});
+
+
 
 // Get all scheduled business hours
 router.get('/scheduled-business-hours', requireAdmin, (req, res) => {
@@ -68,6 +117,7 @@ router.get('/scheduled-business-hours', requireAdmin, (req, res) => {
     if (err) return res.status(500).json({ error: 'Database error' });
     res.json({ scheduledBusinessHours: results });
   });
+});
 
 // Get single scheduled business hour by ID
 router.get('/scheduled-business-hours/:id', requireAdmin, (req, res) => {
@@ -117,6 +167,7 @@ router.post('/scheduled-business-hours', requireAdmin, (req, res) => {
 
 // Get all users (paginated)
 router.get('/users', requireAdmin, (req, res) => {
+  console.log('DEBUG: /api/admin/users route hit');
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
@@ -248,7 +299,19 @@ router.delete('/users/:id', requireAdmin, (req, res) => {
 // =================
 
 // Get all appointments (paginated and filtered)
+
+// ADMIN: Reject appointment (set status to rejected)
+router.put('/appointments/:id/reject', requireAdmin, (req, res) => {
+  const appointmentId = req.params.id;
+  db.query('UPDATE appointments SET status = "rejected", updated_at = CURRENT_TIMESTAMP WHERE id = ?', [appointmentId], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Error rechazando cita' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Cita no encontrada' });
+    res.json({ message: 'Cita rechazada correctamente' });
+  });
+});
+
 router.get('/appointments', requireAdmin, (req, res) => {
+  console.log('DEBUG: /api/admin/appointments route hit');
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 15;
   const offset = (page - 1) * limit;
@@ -352,10 +415,13 @@ router.get('/appointments', requireAdmin, (req, res) => {
 });
 
 // =================
-// APPOINTMENT MANAGEMENT WITH SMS
-// =================
-
-// ...existing code...
+// ADMIN: Get all unverified users
+router.get('/users/unverified', requireAdmin, (req, res) => {
+  db.query('SELECT * FROM users WHERE is_verified = 0', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error obteniendo usuarios no verificados' });
+    res.json({ users: results });
+  });
+});
 
 // Get single appointment
 router.get('/appointments/:id', requireAdmin, (req, res) => {
@@ -384,7 +450,6 @@ router.get('/appointments/:id', requireAdmin, (req, res) => {
 
     res.json({ appointment: results[0] });
   });
-});
 
 // Update appointment
 router.put('/appointments/:id', requireAdmin, (req, res) => {
