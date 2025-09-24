@@ -1,11 +1,5 @@
-// Debug route to confirm router is mounted
-router.get('/test', (req, res) => res.json({ ok: true }));
 const express = require('express');
 const router = express.Router();
-// Debug route to verify adminRoutes mounting
-router.get('/test', (req, res) => {
-  res.json({ ok: true, message: 'adminRoutes is working!' });
-});
 const db = require('../config/connections');
 const requireAdmin = require('../middleware/requireAdmin');
 
@@ -69,7 +63,7 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
 
 // ADMIN: Get all business hours
 router.get('/business-hours', requireAdmin, (req, res) => {
-  db.query('SELECT * FROM business_hours WHERE is_active = 1', (err, results) => {
+  db.query('SELECT * FROM business_hours WHERE is_active = TRUE', (err, results) => {
     if (err) return res.status(500).json({ error: 'Error obteniendo horarios'});
     res.json({ business_hours: results });
   });
@@ -1133,6 +1127,13 @@ router.post('/test-sms-notification', requireAdmin, async (req, res) => {
     console.error('Error testing SMS notification:', error);
     res.status(500).json({ error: 'Error sending test SMS' });
   }
+});
+
+
+router.get('/test', (req, res) => res.json({ ok: true }));
+
+router.get('/test', (req, res) => {
+  res.json({ ok: true, message: 'adminRoutes is working!' });
 });
 
 module.exports = router;
