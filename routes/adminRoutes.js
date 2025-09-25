@@ -1,13 +1,7 @@
-// Debug route to confirm router is mounted
-router.get('/test', (req, res) => res.json({ ok: true }));
-const express = require('express');
-const router = express.Router();
-// Debug route to verify adminRoutes mounting
-router.get('/test', (req, res) => {
-  res.json({ ok: true, message: 'adminRoutes is working!' });
-});
 const db = require('../config/connections');
 const requireAdmin = require('../middleware/requireAdmin');
+const express = require('express');
+const router = express.Router();
 
 // ADMIN DASHBOARD STATS ENDPOINT
 // =================
@@ -1133,6 +1127,14 @@ router.post('/test-sms-notification', requireAdmin, async (req, res) => {
     console.error('Error testing SMS notification:', error);
     res.status(500).json({ error: 'Error sending test SMS' });
   }
+});
+
+// Debug route to confirm router is mounted
+router.get('/test', (req, res) => res.json({ ok: true }));
+
+// Debug route to verify adminRoutes mounting
+router.get('/test', (req, res) => {
+  res.json({ ok: true, message: 'adminRoutes is working!' });
 });
 
 module.exports = router;
