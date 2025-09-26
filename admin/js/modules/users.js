@@ -154,10 +154,10 @@ export class UsersModule {
         body: JSON.stringify(data)
       });
       if (!response.ok) throw new Error('Error updating user');
-      const modal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
-      modal.hide();
-      await this.refreshCurrentSection();
-      this.showSuccess('Usuario actualizado correctamente');
+  const modal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
+  modal.hide();
+  await this.loadUsers();
+  this.showSuccess('Usuario actualizado correctamente');
     } catch (error) {
       console.error('Error saving user:', error);
       this.showError('Error guardando los cambios');

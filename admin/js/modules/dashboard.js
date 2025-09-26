@@ -70,12 +70,14 @@ export class DashboardModule {
 
     // Helper to format time to AM/PM
     function formatTimeToAMPM(timeStr) {
-      // Assumes timeStr is "HH:mm" or "HH:mm:ss"
-      const [hour, minute] = timeStr.split(':');
-      let h = parseInt(hour, 10);
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      h = h % 12 || 12;
-      return `${h}:${minute} ${ampm}`;
+  // Assumes timeStr is "HH:mm" or "HH:mm:ss"
+  if (!timeStr || typeof timeStr !== 'string' || !timeStr.includes(':')) return '';
+  const [hour, minute] = timeStr.split(':');
+  let h = parseInt(hour, 10);
+  if (isNaN(h) || minute === undefined) return '';
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${minute} ${ampm}`;
     }
 
     tbody.innerHTML = appointments.map(apt => {

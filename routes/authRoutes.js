@@ -4,6 +4,7 @@ const passport = require('passport');
 const jwt = require('jsonwebtoken');
 const db = require('../config/connections');
 const authenticateToken = require('../middleware/authenticateToken');
+
 // Return authenticated user's profile
 router.get('/profile', authenticateToken, (req, res) => {
   if (!req.user) {
@@ -13,8 +14,6 @@ router.get('/profile', authenticateToken, (req, res) => {
   const { id, email, role } = req.user;
   res.json({ id, email, role });
 });
-// const authController = require('../controllers/authController');
-const secretKey = process.env.SECRET_KEY;
 
 // Traditional authentication routes
 

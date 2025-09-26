@@ -77,24 +77,27 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
   }
 });
 
-
 // =================
 // SCHEDULED BUSINESS HOURS MANAGEMENT
 // =================
 
-
-// BUSINESS HOURS MANAGEMENT
 // Get business hours
 router.get('/business-hours', requireAdmin, (req, res) => {
-  db.query(`SELECT id, LOWER(day_of_week) as day_of_week, is_open, 
-           TIME_FORMAT(open_time, '%H:%i') as open_time,
-           TIME_FORMAT(close_time, '%H:%i') as close_time,
-           TIME_FORMAT(break_start, '%H:%i') as break_start,
-           TIME_FORMAT(break_end, '%H:%i') as break_end,
-           updated_at
-           FROM business_hours 
-           WHERE is_active = 1
-           ORDER BY FIELD(day_of_week, "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")`, (err, results) => {
+  db.query(`
+    SELECT 
+      id,
+      LOWER(day_of_week) as day_of_week,
+      is_open,
+      TIME_FORMAT(open_time, '%H:%i') as open_time,
+      TIME_FORMAT(close_time, '%H:%i') as close_time,
+      TIME_FORMAT(break_start, '%H:%i') as break_start,
+      TIME_FORMAT(break_end, '%H:%i') as break_end,
+      is_active,
+      updated_at
+    FROM business_hours 
+    WHERE is_active = 1
+    ORDER BY FIELD(day_of_week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
+  `, (err, results) => {
     if (err) return res.status(500).json({ error: 'Database error' });
     res.json({ businessHours: results });
   });
@@ -118,8 +121,63 @@ router.put('/business-hours/:id', requireAdmin, (req, res) => {
 });
 
 
+router.put('/business-hours', requireAdmin, (req, res) => {
+  const { businessHours } = req.body;
+  if (!businessHours || !Array.isArray(businessHours)) {
+    return res.status(400).json({ error: 'Invalid business hours data' });
+  }
+  const updatePromises = businessHours.map(hours => {
+    return new Promise((resolve, reject) => {
+      db.query(
+        'SELECT id FROM business_hours WHERE LOWER(day_of_week) = LOWER(?)',
+        [hours.day_of_week],
+        (err, results) => {
+          if (err) return reject(err);
+          if (results.length === 0) {
+            db.query(
+              'INSERT INTO business_hours (day_of_week, is_open, open_time, close_time, break_start, break_end) VALUES (?, ?, ?, ?, ?, ?)',
+              [hours.day_of_week, hours.is_open, hours.open_time, hours.close_time, hours.break_start || null, hours.break_end || null],
+              (insertErr, insertResult) => {
+                if (insertErr) return reject(insertErr);
+                resolve(insertResult);
+              }
+            );
+          } else {
+            const id = results[0].id;
+            db.query(
+              'UPDATE business_hours SET is_open = ?, open_time = ?, close_time = ?, break_start = ?, break_end = ?, updated_at = NOW() WHERE id = ?',
+              [hours.is_open, hours.open_time, hours.close_time, hours.break_start || null, hours.break_end || null, id],
+              (updateErr, updateResult) => {
+                if (updateErr) return reject(updateErr);
+                resolve(updateResult);
+              }
+            );
+          }
+        }
+      );
+    });
+  });
+  Promise.all(updatePromises)
+    .then(() => {
+      res.json({ message: 'Business hours updated successfully' });
+    })
+    .catch(err => {
+      console.error('Error updating business hours:', err);
+      res.status(500).json({ error: 'Database error updating business hours' });
+    });
 
-// Get all scheduled business hours
+
+  Promise.all(updatePromises)
+    .then(() => {
+      res.json({ message: 'Business hours updated successfully' });
+    })
+    .catch(err => {
+      console.error('Error updating business hours:', err);
+      res.status(500).json({ error: 'Database error updating business hours' });
+    });
+});
+
+
 router.get('/scheduled-business-hours', requireAdmin, (req, res) => {
   db.query('SELECT * FROM scheduled_business_hours ORDER BY effective_date DESC, day_of_week', (err, results) => {
     if (err) return res.status(500).json({ error: 'Database error' });
@@ -166,6 +224,155 @@ router.post('/scheduled-business-hours', requireAdmin, (req, res) => {
       return res.status(500).json({ error: 'Error saving scheduled business hours' });
     }
     res.json({ message: 'Scheduled business hours saved', inserted: result.affectedRows });
+  });
+});
+
+
+// Get schedule exceptions
+router.get('/schedule-exceptions', requireAdmin, (req, res) => {
+  db.query(`
+    SELECT 
+      id,
+      exception_type,
+      start_date,
+      end_date,
+      is_closed,
+      TIME_FORMAT(custom_open_time, '%H:%i') as custom_open_time,
+      TIME_FORMAT(custom_close_time, '%H:%i') as custom_close_time,
+      TIME_FORMAT(custom_break_start, '%H:%i') as custom_break_start,
+      TIME_FORMAT(custom_break_end, '%H:%i') as custom_break_end,
+      reason,
+      description,
+      is_active,
+      created_at,
+      updated_at
+    FROM schedule_exceptions 
+    WHERE is_active = 1
+    ORDER BY start_date DESC
+  `, (err, results) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    res.json({ scheduleExceptions: results });
+  });
+});
+
+// Add schedule exception
+router.post('/schedule-exceptions', requireAdmin, (req, res) => {
+  const {
+    exception_type,
+    start_date,
+    end_date,
+    is_closed,
+    custom_open_time,
+    custom_close_time,
+    custom_break_start,
+    custom_break_end,
+    reason,
+    description,
+    recurring_type
+  } = req.body;
+
+  const query = `
+    INSERT INTO schedule_exceptions 
+    (exception_type, start_date, end_date, is_closed, custom_open_time, custom_close_time, 
+     custom_break_start, custom_break_end, reason, description, recurring_type, is_active) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+  `;
+
+  const values = [
+    exception_type || 'single_day',
+    start_date,
+    end_date || null,
+    is_closed || false,
+    custom_open_time || null,
+    custom_close_time || null,
+    custom_break_start || null,
+    custom_break_end || null,
+    reason || '',
+    description || '',
+    recurring_type || null
+  ];
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error adding schedule exception:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    res.json({ message: 'Schedule exception added successfully', id: result.insertId });
+  });
+});
+
+// Update schedule exception
+router.put('/schedule-exceptions/:id', requireAdmin, (req, res) => {
+  const exceptionId = req.params.id;
+  const {
+    exception_type,
+    start_date,
+    end_date,
+    is_closed,
+    custom_open_time,
+    custom_close_time,
+    custom_break_start,
+    custom_break_end,
+    reason,
+    description,
+    recurring_type,
+    is_active
+  } = req.body;
+
+  const query = `
+    UPDATE schedule_exceptions 
+    SET exception_type = ?, start_date = ?, end_date = ?, is_closed = ?, 
+        custom_open_time = ?, custom_close_time = ?, custom_break_start = ?, 
+        custom_break_end = ?, reason = ?, description = ?, recurring_type = ?, 
+        is_active = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `;
+
+  const values = [
+    exception_type,
+    start_date,
+    end_date,
+    is_closed,
+    custom_open_time,
+    custom_close_time,
+    custom_break_start,
+    custom_break_end,
+    reason,
+    description,
+    recurring_type,
+    is_active,
+    exceptionId
+  ];
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error updating schedule exception:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Schedule exception not found' });
+    }
+    
+    res.json({ message: 'Schedule exception updated successfully' });
+  });
+});
+
+// Delete schedule exception
+router.delete('/schedule-exceptions/:id', requireAdmin, (req, res) => {
+  const exceptionId = req.params.id;
+  
+  db.query('UPDATE schedule_exceptions SET is_active = FALSE WHERE id = ?', [exceptionId], (err, result) => {
+    if (err) {
+      console.error('Error deleting schedule exception:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Schedule exception not found' });
+    }
+    
+    res.json({ message: 'Schedule exception deleted successfully' });
   });
 });
 
@@ -282,7 +489,7 @@ router.put('/users/:id', requireAdmin, (req, res) => {
         return res.status(404).json({ error: 'User not found' });
       }
       
-      // res.json({ message: 'User updated successfully' });
+  res.json({ message: 'User updated successfully' });
     }
   );
 });
@@ -299,6 +506,16 @@ router.delete('/users/:id', requireAdmin, (req, res) => {
     }
     
     // res.json({ message: 'User deleted successfully' });
+  });
+});
+
+// ADMIN: Verify a user
+router.put('/users/:id/verify', requireAdmin, (req, res) => {
+  const userId = req.params.id;
+  db.query('UPDATE users SET is_verified = 1, requires_verification = 0 WHERE id = ?', [userId], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Error verificando usuario' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json({ message: 'Usuario verificado correctamente' });
   });
 });
 
@@ -422,7 +639,6 @@ router.get('/appointments', requireAdmin, (req, res) => {
   });
 });
 
-// =================
 // ADMIN: Get all unverified users
 router.get('/users/unverified', requireAdmin, (req, res) => {
   db.query('SELECT * FROM users WHERE is_verified = 0', (err, results) => {
@@ -481,15 +697,7 @@ router.put('/appointments/:id', requireAdmin, (req, res) => {
     }
   );
 });
-// Server status endpoint for admin dashboard
-router.get('/server/status', requireAdmin, (req, res) => {
-  res.json({
-    is_healthy: true,
-    uptime: process.uptime() + ' seconds',
-    cpu_usage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
-    memory_usage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
-  });
-});
+
 // Delete appointment
 router.delete('/appointments/:id', requireAdmin, (req, res) => {
   const appointmentId = req.params.id;
@@ -506,61 +714,25 @@ router.delete('/appointments/:id', requireAdmin, (req, res) => {
 });
 
 
-router.put('/business-hours', requireAdmin, (req, res) => {
-  const { businessHours } = req.body;
-  if (!businessHours || !Array.isArray(businessHours)) {
-    return res.status(400).json({ error: 'Invalid business hours data' });
-  }
-  const updatePromises = businessHours.map(hours => {
-    return new Promise((resolve, reject) => {
-      db.query(
-        'SELECT id FROM business_hours WHERE LOWER(day_of_week) = LOWER(?)',
-        [hours.day_of_week],
-        (err, results) => {
-          if (err) return reject(err);
-          if (results.length === 0) {
-            db.query(
-              'INSERT INTO business_hours (day_of_week, is_open, open_time, close_time, break_start, break_end) VALUES (?, ?, ?, ?, ?, ?)',
-              [hours.day_of_week, hours.is_open, hours.open_time, hours.close_time, hours.break_start || null, hours.break_end || null],
-              (insertErr, insertResult) => {
-                if (insertErr) return reject(insertErr);
-                resolve(insertResult);
-              }
-            );
-          } else {
-            const id = results[0].id;
-            db.query(
-              'UPDATE business_hours SET is_open = ?, open_time = ?, close_time = ?, break_start = ?, break_end = ?, updated_at = NOW() WHERE id = ?',
-              [hours.is_open, hours.open_time, hours.close_time, hours.break_start || null, hours.break_end || null, id],
-              (updateErr, updateResult) => {
-                if (updateErr) return reject(updateErr);
-                resolve(updateResult);
-              }
-            );
-          }
-        }
-      );
-    });
+// Get all pending appointments
+router.get('/appointments/pending', requireAdmin, (req, res) => {
+  db.query('SELECT * FROM appointments WHERE status = "pending"', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error obteniendo citas pendientes' });
+    res.json({ appointments: results });
   });
-  Promise.all(updatePromises)
-    .then(() => {
-      res.json({ message: 'Business hours updated successfully' });
-    })
-    .catch(err => {
-      console.error('Error updating business hours:', err);
-      res.status(500).json({ error: 'Database error updating business hours' });
-    });
-
-
-  Promise.all(updatePromises)
-    .then(() => {
-      res.json({ message: 'Business hours updated successfully' });
-    })
-    .catch(err => {
-      console.error('Error updating business hours:', err);
-      res.status(500).json({ error: 'Database error updating business hours' });
-    });
 });
+
+// Approve appointment (set status to confirmed)
+router.put('/appointments/:id/approve', requireAdmin, (req, res) => {
+  const appointmentId = req.params.id;
+  db.query('UPDATE appointments SET status = "confirmed", updated_at = CURRENT_TIMESTAMP WHERE id = ?', [appointmentId], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Error aprobando cita' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Cita no encontrada' });
+    res.json({ message: 'Cita aprobada correctamente' });
+  });
+});
+
+
 // =================
 // CLINIC SETTINGS MANAGEMENT
 // =================
@@ -676,140 +848,6 @@ router.get('/approval/recent', requireAdmin, (req, res) => {
       return res.status(500).json({ error: 'Database error' });
     }
     res.json(results);
-  });
-});
-
-
-
-// Get schedule exceptions
-router.get('/schedule-exceptions', requireAdmin, (req, res) => {
-  db.query('SELECT * FROM schedule_exceptions WHERE is_active = TRUE ORDER BY start_date', (err, results) => {
-    if (err) {
-      console.error('Error fetching schedule exceptions:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    res.json(results);
-  });
-});
-
-// Add schedule exception
-router.post('/schedule-exceptions', requireAdmin, (req, res) => {
-  const {
-    exception_type,
-    start_date,
-    end_date,
-    is_closed,
-    custom_open_time,
-    custom_close_time,
-    custom_break_start,
-    custom_break_end,
-    reason,
-    description,
-    recurring_type
-  } = req.body;
-
-  const query = `
-    INSERT INTO schedule_exceptions 
-    (exception_type, start_date, end_date, is_closed, custom_open_time, custom_close_time, 
-     custom_break_start, custom_break_end, reason, description, recurring_type, is_active) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
-  `;
-
-  const values = [
-    exception_type || 'single_day',
-    start_date,
-    end_date || null,
-    is_closed || false,
-    custom_open_time || null,
-    custom_close_time || null,
-    custom_break_start || null,
-    custom_break_end || null,
-    reason || '',
-    description || '',
-    recurring_type || null
-  ];
-
-  db.query(query, values, (err, result) => {
-    if (err) {
-      console.error('Error adding schedule exception:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    res.json({ message: 'Schedule exception added successfully', id: result.insertId });
-  });
-});
-
-// Update schedule exception
-router.put('/schedule-exceptions/:id', requireAdmin, (req, res) => {
-  const exceptionId = req.params.id;
-  const {
-    exception_type,
-    start_date,
-    end_date,
-    is_closed,
-    custom_open_time,
-    custom_close_time,
-    custom_break_start,
-    custom_break_end,
-    reason,
-    description,
-    recurring_type,
-    is_active
-  } = req.body;
-
-  const query = `
-    UPDATE schedule_exceptions 
-    SET exception_type = ?, start_date = ?, end_date = ?, is_closed = ?, 
-        custom_open_time = ?, custom_close_time = ?, custom_break_start = ?, 
-        custom_break_end = ?, reason = ?, description = ?, recurring_type = ?, 
-        is_active = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `;
-
-  const values = [
-    exception_type,
-    start_date,
-    end_date,
-    is_closed,
-    custom_open_time,
-    custom_close_time,
-    custom_break_start,
-    custom_break_end,
-    reason,
-    description,
-    recurring_type,
-    is_active,
-    exceptionId
-  ];
-
-  db.query(query, values, (err, result) => {
-    if (err) {
-      console.error('Error updating schedule exception:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Schedule exception not found' });
-    }
-    
-    res.json({ message: 'Schedule exception updated successfully' });
-  });
-});
-
-// Delete schedule exception
-router.delete('/schedule-exceptions/:id', requireAdmin, (req, res) => {
-  const exceptionId = req.params.id;
-  
-  db.query('UPDATE schedule_exceptions SET is_active = FALSE WHERE id = ?', [exceptionId], (err, result) => {
-    if (err) {
-      console.error('Error deleting schedule exception:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Schedule exception not found' });
-    }
-    
-    res.json({ message: 'Schedule exception deleted successfully' });
   });
 });
 
@@ -1035,6 +1073,15 @@ router.post('/test-sms-notification', requireAdmin, async (req, res) => {
   }
 });
 
+// Server status endpoint for admin dashboard
+router.get('/server/status', requireAdmin, (req, res) => {
+  res.json({
+    is_healthy: true,
+    uptime: process.uptime() + ' seconds',
+    cpu_usage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
+    memory_usage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
+  });
+});
 
 router.get('/test', (req, res) => res.json({ ok: true }));
 

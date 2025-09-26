@@ -5,60 +5,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const authenticateToken = require('../middleware/authenticateToken');
-// const scheduleController = require('../controllers/scheduleController');
-// const appointmentController = require('../controllers/appointmentController');
-const secretKey = process.env.SECRET_KEY;
 const JWT_SECRET = process.env.JWT_SECRET;
-
-// Get public clinic settings for display (name, address, phone, email)
-router.get('/clinic-settings', (req, res) => {
-  const keys = ['clinic_name', 'clinic_address', 'clinic_phone', 'clinic_email', 'clinic_description'];
-  const placeholders = keys.map(() => '?').join(',');
-  const sql = `SELECT setting_key, setting_value FROM clinic_settings WHERE setting_key IN (${placeholders})`;
-  db.query(sql, keys, (err, results) => {
-    if (err) {
-      console.error('Error fetching clinic settings:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    const settings = {};
-    results.forEach(row => {
-      settings[row.setting_key] = row.setting_value;
-    });
-    res.json(settings);
-  });
-});
-
-// Save new scheduled business hours (admin only)
-router.post('/admin/scheduled-business-hours', (req, res) => {
-  const { businessHours, effective_date } = req.body;
-  if (!businessHours || !Array.isArray(businessHours) || !effective_date) {
-    return res.status(400).json({ error: 'Missing businessHours array or effective_date' });
-  }
-  // Insert each day's business hours for the effective date
-  const values = businessHours.map(bh => [
-    bh.day_of_week,
-    bh.is_open ? 1 : 0,
-    bh.open_time || null,
-    bh.close_time || null,
-    bh.break_start || null,
-    bh.break_end || null,
-    effective_date,
-    1 // is_active
-  ]);
-  const sql = `
-    INSERT INTO scheduled_business_hours
-      (day_of_week, is_open, open_time, close_time, break_start, break_end, effective_date, is_active)
-    VALUES ?
-  `;
-  req.db = req.db || require('../config/connections');
-  req.db.query(sql, [values], (err, result) => {
-    if (err) {
-      console.error('Error saving scheduled business hours:', err);
-      return res.status(500).json({ error: 'Error saving scheduled business hours' });
-    }
-    res.json({ message: 'Scheduled business hours saved', inserted: result.affectedRows });
-  });
-});
 
 // --- Available Slots Endpoint ---
 // Returns available slots for a given date using business hours and appointments
@@ -79,6 +26,24 @@ function generateTimeSlots(openTime, closeTime) {
   }
   return slots;
 }
+
+// Get public clinic settings for display (name, address, phone, email)
+router.get('/clinic-settings', (req, res) => {
+  const keys = ['clinic_name', 'clinic_address', 'clinic_phone', 'clinic_email', 'clinic_description'];
+  const placeholders = keys.map(() => '?').join(',');
+  const sql = `SELECT setting_key, setting_value FROM clinic_settings WHERE setting_key IN (${placeholders})`;
+  db.query(sql, keys, (err, results) => {
+    if (err) {
+      console.error('Error fetching clinic settings:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    const settings = {};
+    results.forEach(row => {
+      settings[row.setting_key] = row.setting_value;
+    });
+    res.json(settings);
+  });
+});
 
 router.get('/available-slots/:date', async (req, res) => {
   const dayISO = req.params.date;
@@ -144,6 +109,27 @@ router.get('/config/maps-key', (req, res) => {
   });
 });
 
+router.get('/business-hours', (req, res) => {
+  const query = `
+    SELECT day_of_week, is_open, 
+           TIME_FORMAT(open_time, '%H:%i') as open_time,
+           TIME_FORMAT(close_time, '%H:%i') as close_time,
+           TIME_FORMAT(break_start, '%H:%i') as break_start,
+           TIME_FORMAT(break_end, '%H:%i') as break_end
+    FROM business_hours 
+    ORDER BY FIELD(day_of_week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error getting business hours:', err);
+      return res.status(500).json({ error: 'Error getting business hours' });
+    }
+    
+    res.json({ business_hours: results });
+  });
+});
+
 // Get business hours for a specific date (uses scheduled-business-hours if available)
 router.get('/business-hours/:date', (req, res) => {
   const dayISO = req.params.date;
@@ -195,43 +181,6 @@ router.get('/business-hours/:date', (req, res) => {
     res.status(500).json({ business_hours: [] });
   });
 });
-
-// ...existing code...
-
-
-
-
-// ADMIN: Verify a user
-router.put('/admin/users/:id/verify', authenticateToken, (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
-  const userId = req.params.id;
-  db.query('UPDATE users SET is_verified = 1, requires_verification = 0 WHERE id = ?', [userId], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Error verificando usuario' });
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
-    res.json({ message: 'Usuario verificado correctamente' });
-  });
-});
-
-// ADMIN: Get all pending appointments
-router.get('/admin/appointments/pending', authenticateToken, (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
-  db.query('SELECT * FROM appointments WHERE status = "pending"', (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error obteniendo citas pendientes' });
-    res.json({ appointments: results });
-  });
-});
-
-// ADMIN: Approve appointment (set status to confirmed)
-router.put('/admin/appointments/:id/approve', authenticateToken, (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Acceso denegado' });
-  const appointmentId = req.params.id;
-  db.query('UPDATE appointments SET status = "confirmed", updated_at = CURRENT_TIMESTAMP WHERE id = ?', [appointmentId], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Error aprobando cita' });
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Cita no encontrada' });
-    res.json({ message: 'Cita aprobada correctamente' });
-  });
-});
-
 
 //get all appointments
 router.get('/appointments', authenticateToken, (req, res) => {
@@ -441,8 +390,6 @@ router.get('/appointments/date/:date/time/:time', authenticateToken,(req, res) =
   });
 });
 
-;
-
 // Cancel appointment (user can cancel their own appointments) - MUST come before :id route
 router.put('/appointments/:id/cancel', authenticateToken, (req, res) => {
   const appointmentId = req.params.id;
@@ -480,7 +427,6 @@ router.delete('/appointments/:id', authenticateToken,(req, res) => {
     res.sendStatus(204);
   });
 });
-
 
 // Replace the existing /login route with /auth/login
 router.post('/auth/login', (req, res) => {
@@ -615,4 +561,3 @@ router.post('/auth/register', async (req, res) => {
 });
 
 module.exports = router;
-// ...existing code...

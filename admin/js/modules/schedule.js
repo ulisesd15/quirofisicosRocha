@@ -1,76 +1,10 @@
 // admin/js/modules/schedule.js
 export class ScheduleModule {
-  // --- WEEKLY VIEW AUTO-ADVANCE FEATURE ---
-  /**
-   * Checks if the current week has any available (future and unfilled) slots.
-   * If not, advances to the next week with available slots.
-   * Should be called after rendering the weekly view.
-   * @param {Array} weekSlots - Array of slot objects for the current week
-   * @param {Function} renderWeekFn - Function to render a given week (accepts a Date object for Monday)
-   * @param {Date} currentMonday - The Monday date of the current week
-   */
-  async autoAdvanceIfNoAvailableSlots(weekSlots, renderWeekFn, currentMonday) {
-    const now = new Date();
-    // Filter for available slots: not filled and in the future
-    const available = weekSlots.filter(slot => {
-      const slotDate = new Date(slot.date + 'T' + slot.time);
-      return !slot.filled && slotDate > now;
-    });
-    if (available.length > 0) return; // There are available slots this week
-
-    // Try next week (up to 12 weeks ahead for safety)
-    let weeksAhead = 1;
-    let found = false;
-    let nextMonday = new Date(currentMonday);
-    while (weeksAhead <= 12 && !found) {
-      nextMonday.setDate(currentMonday.getDate() + 7 * weeksAhead);
-      // Fetch slots for nextMonday's week (assume API or local function)
-      let nextWeekSlots = await this.fetchSlotsForWeek(nextMonday);
-      const nextAvailable = nextWeekSlots.filter(slot => {
-        const slotDate = new Date(slot.date + 'T' + slot.time);
-        return !slot.filled && slotDate > now;
-      });
-      if (nextAvailable.length > 0) {
-        found = true;
-        renderWeekFn(nextMonday); // Render the next available week
-        this.showSuccess('No hay horarios disponibles esta semana. Mostrando la siguiente semana con disponibilidad.');
-        break;
-      }
-      weeksAhead++;
-    }
-    if (!found) {
-      this.showError('No se encontraron horarios disponibles en las próximas semanas.');
-    }
-  }
-
-  /**
-   * Example stub for fetching slots for a week. Replace with your real API call.
-   * @param {Date} mondayDate
-   * @returns {Promise<Array>} Array of slot objects for the week
-   */
-  async fetchSlotsForWeek(mondayDate) {
-    // Format mondayDate as yyyy-mm-dd
-    const yyyy = mondayDate.getFullYear();
-    const mm = String(mondayDate.getMonth() + 1).padStart(2, '0');
-    const dd = String(mondayDate.getDate()).padStart(2, '0');
-    const weekStart = `${yyyy}-${mm}-${dd}`;
-    // Example API endpoint: /api/slots?week_start=yyyy-mm-dd
-    try {
-      const resp = await fetch(`/api/slots?week_start=${weekStart}`, {
-        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
-      });
-      if (!resp.ok) throw new Error('Error fetching slots');
-      const data = await resp.json();
-      return data.slots || [];
-    } catch (e) {
-      console.error('Error fetching slots for week:', e);
-      return [];
-    }
-  }
+  
 
   // --- END WEEKLY VIEW AUTO-ADVANCE FEATURE ---
   getAuthToken() {
-    return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+  return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
   }
 
 
@@ -78,10 +12,7 @@ export class ScheduleModule {
     alert(message);
   }
 
-  showSuccess(message) {
-    // Simple implementation using alert, can be replaced with a toast/notification
-    alert(message);
-  }
+  // showSuccess already defined above, remove duplicate
 
   showLoading() {
     const spinner = document.getElementById('users-loading-spinner');
@@ -112,7 +43,6 @@ export class ScheduleModule {
       firstContent.classList.add('active', 'show');
     }
   }
-  // Add gestión de horarios logic here
   
 
   async loadScheduleSection() {
@@ -162,7 +92,6 @@ export class ScheduleModule {
         break_end: isOpen ? document.getElementById(`break-end-${dayLower}`)?.value || null : null
       };
     });
-
     // Get effective date from date picker
     const datePicker = document.getElementById('schedule-effective-date');
     const effective_date = datePicker ? datePicker.value : null;
@@ -176,10 +105,9 @@ export class ScheduleModule {
       this.showError('Debe seleccionar una fecha de inicio');
       return;
     }
-
     try {
       this.showLoading();
-  const response = await fetch('/admin/scheduled-business-hours', {
+      const response = await fetch('/admin/scheduled-business-hours', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -254,7 +182,7 @@ export class ScheduleModule {
 
   async loadHolidayTemplates(context = 'main') {
     try {
-      const response = await fetch('/api/admin/schedule/holiday-templates', {
+      const response = await fetch('/admin/schedule/holiday-templates', {
         headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
       });
 
@@ -370,8 +298,7 @@ export class ScheduleModule {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
       });
-
-      const result = await response.json();a
+      const result = await response.json();
 
       if (!response.ok) {
         throw new Error(result.message || 'Error al generar feriados');
@@ -614,9 +541,6 @@ export class ScheduleModule {
     // Set up event listeners for the new schedule-specific elements
     this.initializeScheduleSpecificEventListeners();
   }
-
-
-  
 
   displayBusinessHours(businessHours) {
     const container = document.getElementById('business-hours-container');
@@ -876,59 +800,39 @@ export class ScheduleModule {
       });
     }
   }
-async loadBusinessHours() {
-  try {
-    this.showLoading();
-    console.log('Loading business hours...');
-        
-    const response = await fetch('/api/admin/business-hours', {
-      headers: {
-        'Authorization': `Bearer ${this.getAuthToken()}`
-      }
-    });
 
-    if (!response.ok) throw new Error('Error loading business hours');
-        
-    const data = await response.json();
-    console.log('Business hours data loaded:', data);
-    if (data && data.businessHours) {
-      console.log('businessHours:', data.businessHours);
-    }
-    if (data && data.scheduledBusinessHours) {
-      console.log('scheduledBusinessHours:', data.scheduledBusinessHours);
-    }
-    // Ensure we have the businessHours array
-    if (data && data.businessHours) {
-      this.displayBusinessHours(data.businessHours);
-    } else {
-      console.error('Invalid business hours data format:', data);
-      this.showError('Formato de datos inválido');
-    }
-        
-  } catch (error) {
-    console.error('Error loading business hours:', error);
-    this.showError('Error cargando los horarios');
-  } finally {
-    this.hideLoading();
-  }
-}
-
-
-  async loadScheduleExceptions() {
+  async loadBusinessHours() {
     try {
-      const response = await fetch('/api/admin/schedule-exceptions', {
-        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+      this.showLoading();
+      console.log('Loading business hours...');
+      
+      const response = await fetch('/api/admin/business-hours', {
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
       });
 
-      if (!response.ok) throw new Error('Failed to load schedule exceptions');
-
-      const exceptions = await response.json();
-      this.renderScheduleExceptions(exceptions);
+      if (!response.ok) throw new Error('Error loading business hours');
+      
+      const data = await response.json();
+      console.log('Business hours data loaded:', data);
+      
+      // Ensure we have the businessHours array
+      if (data && data.businessHours) {
+        this.displayBusinessHours(data.businessHours);
+      } else {
+        console.error('Invalid business hours data format:', data);
+        this.showError('Formato de datos inválido');
+      }
+      
     } catch (error) {
-      console.error('Error loading schedule exceptions:', error);
-      this.showError('Error al cargar excepciones de horario');
+      console.error('Error loading business hours:', error);
+      this.showError('Error cargando los horarios');
+    } finally {
+      this.hideLoading();
     }
   }
+
 
   
   async saveScheduleException() {
@@ -950,7 +854,7 @@ async loadBusinessHours() {
     };
 
     console.log('Form data collected:', formData);
-    console.log('Auth token:', this.getAuthToken());
+    console.log('Auth token:', localStorage.getItem('token'));
 
     if (!formData.exception_type || !formData.start_date || !formData.reason) {
       console.log('Validation failed - missing required fields');
@@ -1001,9 +905,7 @@ async loadBusinessHours() {
     if (!confirm('¿Está seguro de eliminar esta excepción de horario?')) return;
 
     try {
-      console.log('Sending DELETE request to:', `/api/admin/schedule-exceptions/${id}`);
-      console.log('Auth token:', this.getAuthToken());
-      
+
       const response = await fetch(`/api/admin/schedule-exceptions/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
@@ -1112,7 +1014,7 @@ async loadBusinessHours() {
         method: method,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getAuthToken()}`
+          'Authorization': `Bearer ${this.getAuthToken()}`,
         },
         body: JSON.stringify(data)
       });
@@ -1141,7 +1043,9 @@ async loadBusinessHours() {
     try {
       // Get template data from the rendered list (or fetch from API if needed)
       const response = await fetch('/api/admin/schedule/holiday-templates', {
-        headers: { 'Authorization': `Bearer ${this.getAuthToken()}` }
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        }
       });
 
       if (!response.ok) throw new Error('Failed to load template data');
@@ -1229,7 +1133,7 @@ async loadBusinessHours() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         },
         body: JSON.stringify({ year: parseInt(year) })
       });
@@ -1251,7 +1155,7 @@ async loadBusinessHours() {
     try {
       const response = await fetch('/api/admin/schedule/exceptions', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
       
@@ -1284,7 +1188,3 @@ async loadBusinessHours() {
       '<i class="fas fa-star me-2"></i>Nueva Plantilla de Feriado';
   }
 }
-
-
-
-// Only export ScheduleModule for admin panel usage

@@ -6,6 +6,37 @@ import { SettingsModule } from './modules/settings.js';
 import { UserVerificationModule } from './modules/userVerification.js';
 import { ServerStatusModule } from './modules/serverStatus.js';
 
+// Global notification utility
+function showNotification(message, type = 'info', timeout = 3500) {
+  let container = document.getElementById('notification-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'notification-container';
+    container.style.position = 'fixed';
+    container.style.top = '20px';
+    container.style.right = '20px';
+    container.style.zIndex = '9999';
+    document.body.appendChild(container);
+  }
+  const alertType = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-danger' : 'alert-info';
+  const notification = document.createElement('div');
+  notification.className = `alert ${alertType} fade show`; 
+  notification.innerHTML = `<i class="fas fa-info-circle me-2"></i>${message}`;
+  container.appendChild(notification);
+  setTimeout(() => {
+    notification.classList.remove('show');
+    notification.classList.add('hide');
+    setTimeout(() => notification.remove(), 500);
+  }, timeout);
+}
+
+// Utility to refresh all admin sections (for error recovery)
+function refreshAllAdminSections() {
+  const sections = document.querySelectorAll('.admin-section');
+  sections.forEach(sec => sec.classList.remove('d-none'));
+  showNotification('Secciones recargadas', 'info');
+}
+
 class AdminPanel {
   initializeSMSTabListeners() {
     // Only initialize once to prevent duplicate listeners
@@ -632,12 +663,24 @@ class AdminPanel {
 
     // Show dashboard by default
     this.showSection('dashboard');
+
+    // Fallback logging for missing DOM elements
+    [
+      'page-title', 'admin-sidebar', 'citas-pendientes-card', 'dashboard-header',
+      'save-user-btn', 'logout-btn', 'admin-name'
+    ].forEach(id => {
+      if (!document.getElementById(id)) {
+        console.warn(`[AdminPanel] Missing DOM element: #${id}`);
+      }
+    });
   }
 
   showSection(section) {
     // Force hide page title unless dashboard is selected
     const pageTitle = document.getElementById('page-title');
-    if (pageTitle) {
+    if (!pageTitle) {
+      console.warn('[AdminPanel] Missing #page-title element');
+    } else {
       pageTitle.classList.add('d-none');
       if (section === 'dashboard') {
         pageTitle.classList.remove('d-none');
@@ -645,11 +688,20 @@ class AdminPanel {
     }
     // Hide all sections
     const allSections = document.querySelectorAll('.admin-section');
+    if (allSections.length === 0) {
+      console.warn('[AdminPanel] No .admin-section elements found');
+    }
     allSections.forEach(sec => sec.classList.add('d-none'));
 
     // Hide Citas Pendientes card and dashboard header unless dashboard is shown
     const citasPendientes = document.getElementById('citas-pendientes-card');
     const dashboardHeader = document.getElementById('dashboard-header');
+    if (!citasPendientes) {
+      console.warn('[AdminPanel] Missing #citas-pendientes-card element');
+    }
+    if (!dashboardHeader) {
+      console.warn('[AdminPanel] Missing #dashboard-header element');
+    }
     if (citasPendientes) {
       if (section === 'dashboard') {
         citasPendientes.classList.remove('d-none');
@@ -667,9 +719,12 @@ class AdminPanel {
 
     // Show the selected section
     const target = document.getElementById(`${section}-section`);
-    if (target) {
-      target.classList.remove('d-none');
+    if (!target) {
+      console.warn(`[AdminPanel] Missing section element: #${section}-section`);
+      showNotification(`No se encontró la sección: ${section}`, 'error');
+      return;
     }
+    target.classList.remove('d-none');
 
     // Update sidebar active tab
     const tabLinks = document.querySelectorAll('.nav-link[data-section]');
@@ -739,6 +794,17 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (e) {
     console.error('Error loading upcoming appointments:', e);
   }
+
+  // Add event listener for save-user-btn in Edit User Modal
+  const saveUserBtn = document.getElementById('save-user-btn');
+  if (saveUserBtn) {
+    saveUserBtn.addEventListener('click', function() {
+      if (window.usersModule && typeof window.usersModule.saveUserChanges === 'function') {
+        window.usersModule.saveUserChanges();
+      }
+    });
+  }
+
   // Make logout button functional
   const logoutBtn = document.getElementById('logout-btn');
   if (logoutBtn) {

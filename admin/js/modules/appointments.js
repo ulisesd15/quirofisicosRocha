@@ -1,5 +1,26 @@
 // admin/js/modules/appointments.js
 export class AppointmentsModule {
+  showError(message) {
+    alert(message);
+  }
+
+  // showSuccess already defined above, remove duplicate
+
+  showLoading() {
+    const spinner = document.getElementById('users-loading-spinner');
+    if (spinner) spinner.style.display = 'block';
+  }
+
+  hideLoading() {
+    const spinner = document.getElementById('users-loading-spinner');
+    if (spinner) spinner.style.display = 'none';
+  }
+
+  showSuccess(message) {
+    // Simple implementation using alert, can be replaced with a toast/notification
+    alert(message);
+  }
+
   async loadUpcomingAppointments() {
     try {
       const response = await fetch('/api/admin/appointments?limit=10&sort=upcoming', {
@@ -440,17 +461,26 @@ async displayPendingAppointments() {
     appointments.forEach(appointment => {
       const appointmentDiv = document.createElement('div');
       appointmentDiv.className = 'appointment-item';
+      // Defensive: handle both user_name and name, service and type, etc.
+      const userName = appointment.user_name || appointment.name || 'Sin nombre';
+      const email = appointment.email || appointment.user_email || '';
+      const phone = appointment.phone || appointment.user_phone || 'No especificado';
+      const service = appointment.service || appointment.type || 'Sin servicio';
+      const notes = appointment.notes || appointment.note || 'Sin notas';
+      const appointmentDate = appointment.appointment_date || appointment.date || '';
+      const appointmentTime = appointment.appointment_time || appointment.time || '';
+      const createdAt = appointment.created_at || appointment.created || '';
       appointmentDiv.innerHTML = `
         <div class="appointment-details">
-          <h4>Cita #${appointment.id}</h4>
-          <p><strong>Cliente:</strong> ${appointment.user_name}</p>
-          <p><strong>Email:</strong> ${appointment.email}</p>
-          <p><strong>Teléfono:</strong> ${appointment.phone || 'No especificado'}</p>
-          <p><strong>Fecha:</strong> ${appointment.appointment_date}</p>
-          <p><strong>Hora:</strong> ${formatTimeToAMPM(appointment.appointment_time)}</p>
-          <p><strong>Servicio:</strong> ${appointment.service}</p>
-          <p><strong>Notas:</strong> ${appointment.notes || 'Sin notas'}</p>
-          <p><strong>Fecha de solicitud:</strong> ${new Date(appointment.created_at).toLocaleString()}</p>
+          <h4>Cita #${appointment.id || ''}</h4>
+          <p><strong>Cliente:</strong> ${userName}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Teléfono:</strong> ${phone}</p>
+          <p><strong>Fecha:</strong> ${appointmentDate}</p>
+          <p><strong>Hora:</strong> ${typeof formatTimeToAMPM === 'function' ? formatTimeToAMPM(appointmentTime) : appointmentTime}</p>
+          <p><strong>Servicio:</strong> ${service}</p>
+          <p><strong>Notas:</strong> ${notes}</p>
+          <p><strong>Fecha de solicitud:</strong> ${createdAt ? new Date(createdAt).toLocaleString() : ''}</p>
         </div>
         <div class="appointment-actions">
           <button class="btn-approve" onclick="approveAppointment(${appointment.id})">
@@ -461,7 +491,6 @@ async displayPendingAppointments() {
           </button>
         </div>
       `;
-      
       container.appendChild(appointmentDiv);
     });
     

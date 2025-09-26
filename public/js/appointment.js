@@ -29,11 +29,85 @@ const isPastDate = date => {
 };
 const getDayOfWeekString = date => fullDayNames[date.getDay()];
 
-// --- Data Fetch ---
-async function fetchBusinessHours(date) {
+
+// --- WEEKLY VIEW AUTO-ADVANCE FEATURE ---
+  /**
+   * Checks if the current week has any available (future and unfilled) slots.
+   * If not, advances to the next week with available slots.
+   * Should be called after rendering the weekly view.
+   * @param {Array} weekSlots - Array of slot objects for the current week
+   * @param {Function} renderWeekFn - Function to render a given week (accepts a Date object for Monday)
+   * @param {Date} currentMonday - The Monday date of the current week
+   */
+async function autoAdvanceIfNoAvailableSlots(weekSlots, renderWeekFn, currentMonday) {
+  const now = new Date();
+  // Filter for available slots: not filled and in the future
+  const available = weekSlots.filter(slot => {
+    const slotDate = new Date(slot.date + 'T' + slot.time);
+    return !slot.filled && slotDate > now;
+  });
+  if (available.length > 0) return; // There are available slots this week
+
+  // Try next week (up to 12 weeks ahead for safety)
+  let weeksAhead = 1;
+  let found = false;
+  let nextMonday = new Date(currentMonday);
+  while (weeksAhead <= 12 && !found) {
+    nextMonday.setDate(currentMonday.getDate() + 7 * weeksAhead);
+    // Fetch slots for nextMonday's week
+    let nextWeekSlots = await fetchSlotsForWeek(nextMonday);
+    const nextAvailable = nextWeekSlots.filter(slot => {
+      const slotDate = new Date(slot.date + 'T' + slot.time);
+      return !slot.filled && slotDate > now;
+    });
+    if (nextAvailable.length > 0) {
+      found = true;
+      renderWeekFn(nextMonday); // Render the next available week
+      if (typeof showSuccess === 'function') {
+        showSuccess('No hay horarios disponibles esta semana. Mostrando la siguiente semana con disponibilidad.');
+      } else {
+        alert('No hay horarios disponibles esta semana. Mostrando la siguiente semana con disponibilidad.');
+      }
+      break;
+    }
+    weeksAhead++;
+  }
+  if (!found) {
+    if (typeof showError === 'function') {
+      showError('No se encontraron horarios disponibles en las próximas semanas.');
+    } else {
+      alert('No se encontraron horarios disponibles en las próximas semanas.');
+    }
+  }
+}
+
+  /**
+   * Example stub for fetching slots for a week. Replace with your real API call.
+   * @param {Date} mondayDate
+   * @returns {Promise<Array>} Array of slot objects for the week
+   */
+  async function fetchSlotsForWeek(mondayDate) {
+  // Format mondayDate as yyyy-mm-dd
+  const yyyy = mondayDate.getFullYear();
+  const mm = String(mondayDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(mondayDate.getDate()).padStart(2, '0');
+  const weekStart = `${yyyy}-${mm}-${dd}`;
   try {
-    const dateParam = date ? `/${formatDate(date)}` : '';
-  const response = await fetch(`/api/admin/business-hours${dateParam}`);
+    const resp = await fetch(`/api/slots?week_start=${weekStart}`);
+    if (!resp.ok) throw new Error('Error fetching slots');
+    const data = await resp.json();
+    return data.slots || [];
+  } catch (e) {
+    console.error('Error fetching slots for week:', e);
+    return [];
+  }
+  }
+
+  // --- Data Fetch ---
+  async function fetchBusinessHours(date) {
+    try {
+      const dateParam = date ? `/${formatDate(date)}` : '';
+      const response = await fetch(`/api/admin/business-hours${dateParam}`);
     if (!response.ok) throw new Error('Failed to fetch business hours');
     const data = await response.json();
     let arr = Array.isArray(data)
