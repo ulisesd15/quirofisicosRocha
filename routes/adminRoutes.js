@@ -61,14 +61,6 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
 // SCHEDULED BUSINESS HOURS MANAGEMENT
 // =================
 
-// ADMIN: Get all business hours
-router.get('/business-hours', requireAdmin, (req, res) => {
-  db.query('SELECT * FROM business_hours WHERE is_active = 1', (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error obteniendo horarios'});
-    res.json({ business_hours: results });
-  });
-});
-
 // ADMIN: Get business hours for the whole week of a given date
 router.get('/business-hours/:date', requireAdmin, (req, res) => {
   const dayISO = req.params.date;
@@ -413,7 +405,7 @@ router.get('/appointments', requireAdmin, (req, res) => {
 // =================
 // ADMIN: Get all unverified users
 router.get('/users/unverified', requireAdmin, (req, res) => {
-  db.query('SELECT * FROM users WHERE is_verified = 0', (err, results) => {
+  db.query('SELECT * FROM users WHERE is_verified = 0 AND requires_verification = 1', (err, results) => {
     if (err) return res.status(500).json({ error: 'Error obteniendo usuarios no verificados' });
     res.json({ users: results });
   });
@@ -712,27 +704,7 @@ router.get('/approval/recent', requireAdmin, (req, res) => {
   });
 });
 
-// =================
-// BUSINESS HOURS MANAGEMENT
-// =================
 
-// Get business hours
-router.get('/business-hours', requireAdmin, (req, res) => {
-  db.query(`SELECT id, LOWER(day_of_week) as day_of_week, is_open, 
-           TIME_FORMAT(open_time, '%H:%i') as open_time,
-           TIME_FORMAT(close_time, '%H:%i') as close_time,
-           TIME_FORMAT(break_start, '%H:%i') as break_start,
-           TIME_FORMAT(break_end, '%H:%i') as break_end,
-           updated_at
-           FROM business_hours 
-           ORDER BY FIELD(day_of_week, "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")`, (err, results) => {
-    if (err) {
-      console.error('Error fetching business hours:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    res.json({ businessHours: results });
-  });
-});
 
 // Update business hours
 router.put('/business-hours', requireAdmin, (req, res) => {
