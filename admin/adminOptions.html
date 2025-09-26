@@ -129,7 +129,7 @@
         </div>
 
           <!-- Unverified Users Section -->
-          <div id="unverified-users-section" class="admin-section d-none">
+        <div id="unverified-users-section" class="admin-section d-none">
             <h3>Usuarios No Verificados</h3>
             <div class="table-responsive">
               <table class="table table-bordered">
@@ -143,13 +143,14 @@
                   </tr>
                 </thead>
                 <tbody id="unverified-users-table">
-                  <!-- Usuarios no verificados se cargarán aquí -->
+                  <!-- JS will populate rows here -->
                 </tbody>
               </table>
             </div>
-          </div>
+            <button id="show-unverified-users-btn" class="btn btn-info mt-3">Ver usuarios no verificados</button>
+        </div>
         <!-- Dashboard Section -->
-  <div id="dashboard-section" class="admin-section" data-title="Dashboard">
+        <div id="dashboard-section" class="admin-section" data-title="Dashboard">
     <div id="dashboard-header">
     <div class="row">
       <div class="col-6 col-lg-3 mb-4">
@@ -297,7 +298,7 @@
         </div>
 
         <!-- Appointments Section -->
-  <div id="appointments-section" class="admin-section d-none" >
+        <div id="appointments-section" class="admin-section d-none" >
           <!-- Standardized Section Header -->
           <div class="section-header">
             <h2>
@@ -387,7 +388,7 @@
         </div>
 
     <!-- Users Section -->
-  <div id="users-section" class="admin-section d-none">
+        <div id="users-section" class="admin-section d-none">
           <!-- Standardized Section Header -->
           <div class="section-header">
             <h2>
@@ -477,7 +478,7 @@
         </div>
 
         <!-- Schedule Management Section -->
-  <div id="schedule-section" class="admin-section d-none" data-title="Gestión de Horarios">
+        <div id="schedule-section" class="admin-section d-none" data-title="Gestión de Horarios">
           <div class="d-flex justify-content-between align-items-center mb-4">
             <h2 class="mb-0">
               <i class="fas fa-calendar-alt me-2 text-primary"></i>Gestión de Horarios
@@ -701,7 +702,7 @@
         </div>
 
         <!-- Settings Section -->
-  <div id="settings-section" class="admin-section d-none" data-title="Configuración">
+        <div id="settings-section" class="admin-section d-none" data-title="Configuración">
           <!-- Standardized Section Header -->
           <div class="section-header">
             <h2>
@@ -739,7 +740,7 @@
         </div>
 
         <!-- SMS Management Section -->
-  <div id="sms-management-section" class="admin-section d-none" data-title="Verificación de Usuarios">
+        <div id="user-verification-section" class="admin-section d-none" data-title="Verificación de Usuarios">
           <!-- Standardized Section Header -->
           <div class="section-header">
             <h2>
@@ -827,7 +828,7 @@
         </div>
 
         <!-- Server Status Section -->
-  <div id="server-status-section" class="admin-section d-none" data-title="Estado del Servidor">
+        <div id="server-status-section" class="admin-section d-none" data-title="Estado del Servidor">
           <!-- Standardized Section Header -->
           <div class="section-header">
             <h2>
@@ -2164,5 +2165,19 @@
       });
     });
   </script>
+    <script type="module">
+      import { UserVerificationModule } from './js/modules/userVerification.js';
+      window.userVerificationModule = new UserVerificationModule();
+      document.addEventListener('DOMContentLoaded', function() {
+        const showBtn = document.getElementById('show-unverified-users-btn');
+        if (showBtn) {
+          showBtn.addEventListener('click', function() {
+            document.querySelectorAll('.admin-section').forEach(sec => sec.classList.add('d-none'));
+            document.getElementById('unverified-users-section').classList.remove('d-none');
+            window.userVerificationModule.loadUnverifiedUsers();
+          });
+        }
+      });
+    </script>
 </body>
 </html>

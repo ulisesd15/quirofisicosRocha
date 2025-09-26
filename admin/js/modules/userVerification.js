@@ -1,4 +1,91 @@
-  export class UserVerificationModule {
+export class UserVerificationModule {
+  // Verify a user and refresh the list
+  async verifyUser(id) {
+    if (!confirm('¿Estás seguro de que quieres verificar este usuario?')) return;
+    try {
+      const response = await fetch(`/api/admin/users/${id}/verify`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`
+        }
+      });
+      if (!response.ok) throw new Error('Error verificando usuario');
+      this.showNotification('Usuario verificado correctamente', 'success');
+      await this.loadUnverifiedUsers();
+    } catch (error) {
+      console.error('Error verifying user:', error);
+      this.showNotification('Error verificando el usuario', 'error');
+    }
+  }
+  // Fetch and display unverified users
+  async loadUnverifiedUsers() {
+    try {
+      const response = await fetch('/api/admin/users/unverified', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`
+        }
+      });
+      if (!response.ok) throw new Error('Error cargando usuarios no verificados');
+      const data = await response.json();
+      this.displayUnverifiedUsers(data.users);
+    } catch (error) {
+      console.error('Error loading unverified users:', error);
+      this.displayUnverifiedUsers([]); // Show empty state
+    }
+  }
+
+  // Render unverified users list in the correct container
+  displayUnverifiedUsers(users) {
+    const container = document.getElementById('unverified-users');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!users || users.length === 0) {
+      container.innerHTML = `<div class="empty-state">No hay usuarios no verificados para verificar.</div>`;
+      return;
+    }
+    const table = document.createElement('table');
+    table.className = 'table table-bordered';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nombre</th>
+          <th>Email</th>
+          <th>Teléfono</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${users.map(user => `
+          <tr>
+            <td>${user.id}</td>
+            <td>${user.full_name}</td>
+            <td>${user.email}</td>
+            <td>${user.phone || 'N/A'}</td>
+            <td>
+              <button class="btn btn-success btn-sm" onclick="userVerificationModule.verifyUser(${user.id})">Verificar</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    `;
+    container.appendChild(table);
+  }
+  // Setup button and auto-refresh for unverified users
+  setupUnverifiedUsersUI() {
+    const refreshBtn = document.getElementById('load-unverified-users-btn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => {
+        this.loadUnverifiedUsers();
+      });
+    }
+    // Auto-refresh every 30 seconds
+    setInterval(() => {
+      this.loadUnverifiedUsers();
+    }, 30000);
+    // Initial load
+    this.loadUnverifiedUsers();
+  }
   // Dynamically update the send-reminders-dynamic container
   updateSendRemindersContent(html) {
     const container = document.getElementById('send-reminders-dynamic');
@@ -6,8 +93,8 @@
       container.innerHTML = html;
     }
   }
-  // Render the notification settings form
-      displayAppointments(appointments) {
+  // Render appointments table
+  displayAppointments(appointments) {
     const tbody = document.getElementById('appointments-table');
     
     if (appointments.length === 0) {
@@ -70,285 +157,72 @@
     }
   }
 
-async displayPendingAppointments() {
-  try {
-    const response = await fetch('/api/admin/appointments/pending', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-    
-    const appointments = await response.json();
-    
-    const container = document.getElementById('pending-appointments');
-    if (!container) {
-      console.error('Pending appointments container not found');
-      return;
-    }
-    
-    container.innerHTML = '';
-    
-    if (appointments.length === 0) {
-      container.innerHTML = '<p>No hay citas pendientes de aprobación.</p>';
-      return;
-    }
-    
-    appointments.forEach(appointment => {
-      const appointmentDiv = document.createElement('div');
-      appointmentDiv.className = 'appointment-item';
-      appointmentDiv.innerHTML = `
-        <div class="appointment-details">
-          <h4>Cita #${appointment.id}</h4>
-          <p><strong>Cliente:</strong> ${appointment.user_name}</p>
-          <p><strong>Email:</strong> ${appointment.email}</p>
-          <p><strong>Teléfono:</strong> ${appointment.phone || 'No especificado'}</p>
-          <p><strong>Fecha:</strong> ${appointment.appointment_date}</p>
-          <p><strong>Hora:</strong> ${formatTimeToAMPM(appointment.appointment_time)}</p>
-          <p><strong>Servicio:</strong> ${appointment.service}</p>
-          <p><strong>Notas:</strong> ${appointment.notes || 'Sin notas'}</p>
-          <p><strong>Fecha de solicitud:</strong> ${new Date(appointment.created_at).toLocaleString()}</p>
-        </div>
-        <div class="appointment-actions">
-          <button class="btn-approve" onclick="approveAppointment(${appointment.id})">
-            Aprobar y Enviar SMS
-          </button>
-          <button class="btn-reject" onclick="rejectAppointment(${appointment.id})">
-            Rechazar
-          </button>
-        </div>
-      `;
-      
-      container.appendChild(appointmentDiv);
-    });
-    
-  } catch (error) {
-    console.error('Error loading pending appointments:', error);
-    const container = document.getElementById('pending-appointments');
-    if (container) {
-      container.innerHTML = '<p>Error al cargar las citas pendientes.</p>';
-    }
-  }
-}
-
-async approveAppointment(appointmentId) {
-  try {
-    const response = await fetch(`/api/admin/appointments/${appointmentId}/approve`, {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
-      'Content-Type': 'application/json'
-    }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-        
-    const result = await response.json();
-        
-    // Show success message
-    this.showNotification('Cita aprobada correctamente', 'success');
-        
-    // Refresh the pending appointments list
-    this.displayPendingAppointments();
-        
-    } catch (error) {
-            console.error('Error approving appointment:', error);
-            this.showNotification('Error al aprobar la cita', 'error');
+  async displayPendingAppointments() {
+    try {
+      const response = await fetch('/api/admin/appointments/pending', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
         }
-}
-
-// Function to reject an appointment (placeholder for future implementation)
-async rejectAppointment(appointmentId) {
-  if (!confirm('¿Está seguro de que desea rechazar esta cita?')) {
-    return;
-  }
-
-  async function sendAppointmentReminders() {
-  try {
-    const confirmSend = confirm('¿Desea enviar recordatorios SMS a todos los pacientes con citas para mañana?');
-    if (!confirmSend) return;
-    
-    const response = await fetch('/api/admin/appointments/send-reminders', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
+      });
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
       }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
+      const appointments = await response.json();
+      const container = document.getElementById('pending-appointments');
+      if (!container) {
+        console.error('Pending appointments container not found');
+        return;
+      }
+      container.innerHTML = '';
+      if (appointments.length === 0) {
+        container.innerHTML = '<p>No hay citas pendientes de aprobación.</p>';
+        return;
+      }
+      appointments.forEach(appointment => {
+        const appointmentDiv = document.createElement('div');
+        appointmentDiv.className = 'appointment-item';
+        appointmentDiv.innerHTML = `
+          <div class="appointment-details">
+            <h4>Cita #${appointment.id}</h4>
+            <p><strong>Cliente:</strong> ${appointment.user_name}</p>
+            <p><strong>Email:</strong> ${appointment.email}</p>
+            <p><strong>Teléfono:</strong> ${appointment.phone || 'No especificado'}</p>
+            <p><strong>Fecha:</strong> ${appointment.appointment_date}</p>
+            <p><strong>Hora:</strong> ${formatTimeToAMPM(appointment.appointment_time)}</p>
+            <p><strong>Servicio:</strong> ${appointment.service}</p>
+            <p><strong>Notas:</strong> ${appointment.notes || 'Sin notas'}</p>
+            <p><strong>Fecha de solicitud:</strong> ${new Date(appointment.created_at).toLocaleString()}</p>
+          </div>
+          <div class="appointment-actions">
+            <button class="btn-approve" onclick="userVerificationModule.approveAppointment(${appointment.id})">
+              Aprobar y Enviar SMS
+            </button>
+            <button class="btn-reject" onclick="userVerificationModule.rejectAppointment(${appointment.id})">
+              Rechazar
+            </button>
+          </div>
+        `;
+        container.appendChild(appointmentDiv);
+      });
+    } catch (error) {
+      console.error('Error loading pending appointments:', error);
+      const container = document.getElementById('pending-appointments');
+      if (container) {
+        container.innerHTML = '<p>Error al cargar las citas pendientes.</p>';
+      }
     }
-    
-    const result = await response.json();
-    
-    showNotification(`Recordatorios enviados: ${result.sent} SMS enviados exitosamente`, 'success');
-    
-  } catch (error) {
-    console.error('Error sending reminders:', error);
-    showNotification('Error al enviar recordatorios', 'error');
   }
+// ...existing code...
+
+  // ...existing code...
+  // Place all methods above this line, including approveAppointment, rejectAppointment, renderNotificationSettings
 }
 
-  
-  // TODO: Implement appointment rejection endpoint
-  this.showNotification('Función de rechazo en desarrollo', 'warning');
-}
-
-    renderNotificationSettings(settingsMap = {}) {
-      const html = `
-        <div class="settings-group">
-          <h6><i class="fas fa-bell me-2"></i>Configuración de Notificaciones</h6>
-          <div class="alert alert-info">
-            <i class="fas fa-info-circle me-2"></i>
-            Configure cómo desea enviar notificaciones automáticas a los pacientes sobre sus citas.
-          </div>
-          <div class="row">
-            <div class="col-md-6">
-              <div class="card border-primary">
-                <div class="card-header bg-primary text-white">
-                  <h6 class="mb-0"><i class="fas fa-envelope me-2"></i>Notificaciones por Email</h6>
-                </div>
-                <div class="card-body">
-                  <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" id="email_notifications" 
-                           ${settingsMap.email_notifications === 'true' ? 'checked' : ''}>
-                    <label class="form-check-label" for="email_notifications">
-                      <strong>Activar notificaciones por email</strong>
-                    </label>
-                  </div>
-                  <div class="notification-options" id="email-options" style="display: ${settingsMap.email_notifications === 'true' ? 'block' : 'none'}">
-                    <div class="form-check mb-2">
-                      <input class="form-check-input" type="checkbox" id="email_appointment_confirmation" 
-                             ${settingsMap.email_appointment_confirmation === 'true' ? 'checked' : ''}>
-                      <label class="form-check-label" for="email_appointment_confirmation">
-                        Confirmación de cita
-                      </label>
-                    </div>
-                    <div class="form-check mb-2">
-                      <input class="form-check-input" type="checkbox" id="email_appointment_reminder" 
-                             ${settingsMap.email_appointment_reminder === 'true' ? 'checked' : ''}>
-                      <label class="form-check-label" for="email_appointment_reminder">
-                        Recordatorio de cita (24h antes)
-                      </label>
-                    </div>
-                    <div class="form-check mb-2">
-                      <input class="form-check-input" type="checkbox" id="email_appointment_changes" 
-                             ${settingsMap.email_appointment_changes === 'true' ? 'checked' : ''}>
-                      <label class="form-check-label" for="email_appointment_changes">
-                        Cambios en la cita
-                      </label>
-                    </div>
-                    <div class="mt-3">
-                      <button type="button" class="btn btn-outline-primary btn-sm" onclick="adminPanel.testEmailNotification()">
-                        <i class="fas fa-envelope me-1"></i>Probar Email
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="card border-success">
-                <div class="card-header bg-success text-white">
-                  <h6 class="mb-0"><i class="fas fa-sms me-2"></i>Notificaciones por SMS</h6>
-                </div>
-                <div class="card-body">
-                  <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" id="sms_notifications" 
-                           ${settingsMap.sms_notifications === 'true' ? 'checked' : ''}>
-                    <label class="form-check-label" for="sms_notifications">
-                      <strong>Activar notificaciones por SMS</strong>
-                    </label>
-                  </div>
-                  <div class="notification-options" id="sms-options" style="display: ${settingsMap.sms_notifications === 'true' ? 'block' : 'none'}">
-                    <div class="form-check mb-2">
-                      <input class="form-check-input" type="checkbox" id="sms_appointment_confirmation" 
-                             ${settingsMap.sms_appointment_confirmation === 'true' ? 'checked' : ''}>
-                      <label class="form-check-label" for="sms_appointment_confirmation">
-                        Confirmación de cita
-                      </label>
-                    </div>
-                    <div class="form-check mb-2">
-                      <input class="form-check-input" type="checkbox" id="sms_appointment_reminder" 
-                             ${settingsMap.sms_appointment_reminder === 'true' ? 'checked' : ''}>
-                      <label class="form-check-label" for="sms_appointment_reminder">
-                        Recordatorio de cita (24h antes)
-                      </label>
-                    </div>
-                    <div class="form-check mb-2">
-                      <input class="form-check-input" type="checkbox" id="sms_appointment_changes" 
-                             ${settingsMap.sms_appointment_changes === 'true' ? 'checked' : ''}>
-                      <label class="form-check-label" for="sms_appointment_changes">
-                        Cambios en la cita
-                      </label>
-                    </div>
-                  </div>
-                  <div class="mt-3">
-                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="adminPanel.testEmailNotification()">
-                      <i class="fas fa-envelope me-1"></i>Probar Email
-                    </button>
-                  </div>
-                  <div class="mt-3">
-                    <small class="text-muted">
-                      <i class="fas fa-info-circle me-1"></i>
-                      Servicio SMS: ${settingsMap.sms_service_status || 'Vonage (activo)'}
-                    </small>
-                  </div>
-                  <div class="mt-3">
-                    <button type="button" class="btn btn-outline-success btn-sm" onclick="adminPanel.testSMSNotification()">
-                      <i class="fas fa-paper-plane me-1"></i>Probar SMS
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="row mt-3">
-            <div class="col-12">
-              <div class="card border-warning">
-                <div class="card-header bg-warning text-dark">
-                  <h6 class="mb-0"><i class="fas fa-clock me-2"></i>Configuración de Horarios</h6>
-                </div>
-                <div class="card-body">
-                  <div class="row">
-                    <div class="col-md-6">
-                      <div class="mb-3">
-                        <label for="reminder_hours_before" class="form-label">Enviar recordatorios (horas antes)</label>
-                        <select class="form-select" id="reminder_hours_before">
-                          <option value="1" ${settingsMap.reminder_hours_before === '1' ? 'selected' : ''}>1 hora antes</option>
-                          <option value="2" ${settingsMap.reminder_hours_before === '2' ? 'selected' : ''}>2 horas antes</option>
-                          <option value="6" ${settingsMap.reminder_hours_before === '6' ? 'selected' : ''}>6 horas antes</option>
-                          <option value="12" ${settingsMap.reminder_hours_before === '12' ? 'selected' : ''}>12 horas antes</option>
-                          <option value="24" ${settingsMap.reminder_hours_before === '24' || !settingsMap.reminder_hours_before ? 'selected' : ''}>24 horas antes</option>
-                          <option value="48" ${settingsMap.reminder_hours_before === '48' ? 'selected' : ''}>48 horas antes</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div class="col-md-6">
-                      <div class="mb-3">
-                        <label for="business_hours_only" class="form-label">Envío de notificaciones</label>
-                        <div class="form-check">
-                          <input class="form-check-input" type="checkbox" id="business_hours_only" 
-                                 ${settingsMap.business_hours_only === 'true' ? 'checked' : ''}>
-                          <label class="form-check-label" for="business_hours_only">
-                            Solo en horario de atención (8:00 AM - 6:00 PM)
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>`;
-      this.updateSendRemindersContent(html);
-    }
-}
+// Initialize module and UI wiring for user verification section
+window.userVerificationModule = new UserVerificationModule();
+document.addEventListener('DOMContentLoaded', function() {
+  if (document.getElementById('user-verification-section')) {
+    window.userVerificationModule.setupUnverifiedUsersUI();
+  }
+});
