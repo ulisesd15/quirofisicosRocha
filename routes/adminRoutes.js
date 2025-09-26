@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+const express = require('express');
+const router = express.Router();
+>>>>>>> 8afe3872e198c063100ebfc401c2dc79be5c1001
 const db = require('../config/connections');
 const requireAdmin = require('../middleware/requireAdmin');
 const express = require('express');
@@ -61,6 +66,17 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
 // SCHEDULED BUSINESS HOURS MANAGEMENT
 // =================
 
+<<<<<<< HEAD
+=======
+// ADMIN: Get all business hours
+router.get('/business-hours', requireAdmin, (req, res) => {
+  db.query('SELECT * FROM business_hours WHERE is_active = TRUE', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error obteniendo horarios'});
+    res.json({ business_hours: results });
+  });
+});
+
+>>>>>>> 8afe3872e198c063100ebfc401c2dc79be5c1001
 // ADMIN: Get business hours for the whole week of a given date
 router.get('/business-hours/:date', requireAdmin, (req, res) => {
   const dayISO = req.params.date;
@@ -1101,10 +1117,16 @@ router.post('/test-sms-notification', requireAdmin, async (req, res) => {
   }
 });
 
+<<<<<<< HEAD
 // Debug route to confirm router is mounted
 router.get('/test', (req, res) => res.json({ ok: true }));
 
 // Debug route to verify adminRoutes mounting
+=======
+
+router.get('/test', (req, res) => res.json({ ok: true }));
+
+>>>>>>> 8afe3872e198c063100ebfc401c2dc79be5c1001
 router.get('/test', (req, res) => {
   res.json({ ok: true, message: 'adminRoutes is working!' });
 });
