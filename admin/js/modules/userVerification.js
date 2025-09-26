@@ -213,16 +213,53 @@ export class UserVerificationModule {
       }
     }
   }
-// ...existing code...
 
-  // ...existing code...
-  // Place all methods above this line, including approveAppointment, rejectAppointment, renderNotificationSettings
-}
+  async setupUnverifiedUsersUI() {
+    const container = document.getElementById('unverified-users');
+    if (!container) return;
+
+    try {
+      const response = await fetch('/api/admin/users/unverified', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error(`Error: ${response.status}`);
+
+      const { users } = await response.json();
+      if (!Array.isArray(users)) {
+        console.error('Unexpected response format:', users);
+        return;
+      }
+
+      container.innerHTML = users.map(user => `
+        <div class="user-item">
+          <p><strong>ID:</strong> ${user.id}</p>
+          <p><strong>Nombre:</strong> ${user.full_name}</p>
+          <p><strong>Email:</strong> ${user.email}</p>
+          <p><strong>Teléfono:</strong> ${user.phone || 'No especificado'}</p>
+          <button class="btn-verify" onclick="userVerificationModule.verifyUser(${user.id})">Verificar</button>
+          <button class="btn-reject" onclick="userVerificationModule.rejectUser(${user.id})">Rechazar</button>
+        </div>
+      `).join('');
+    } catch (error) {
+      console.error('Error loading unverified users:', error);
+      container.innerHTML = '<p>Error al cargar los usuarios no verificados.</p>';
+    }
+  }
+
+  }
 
 // Initialize module and UI wiring for user verification section
 window.userVerificationModule = new UserVerificationModule();
 document.addEventListener('DOMContentLoaded', function() {
-  if (document.getElementById('user-verification-section')) {
-    window.userVerificationModule.setupUnverifiedUsersUI();
+  const showBtn = document.getElementById('show-unverified-users-btn');
+  if (showBtn) {
+    showBtn.addEventListener('click', function() {
+      document.querySelectorAll('.admin-section').forEach(sec => sec.classList.add('d-none'));
+      document.getElementById('unverified-users-section').classList.remove('d-none');
+      window.userVerificationModule.setupUnverifiedUsersUI();
+    });
   }
 });

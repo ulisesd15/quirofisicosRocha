@@ -1,11 +1,6 @@
-<<<<<<< HEAD
-=======
 const express = require('express');
-const router = express.Router();
->>>>>>> 8afe3872e198c063100ebfc401c2dc79be5c1001
 const db = require('../config/connections');
 const requireAdmin = require('../middleware/requireAdmin');
-const express = require('express');
 const router = express.Router();
 
 // ADMIN DASHBOARD STATS ENDPOINT
@@ -13,9 +8,8 @@ const router = express.Router();
 
 router.get('/dashboard/stats', requireAdmin, async (req, res) => {
   try {
-    const stats = {};
     // User count
-    let userCount = 0, appointmentCount = 0, announcementCount = 0;
+    let totalUsers = 0, totalAppointments = 0, todayAppointments = 0, pendingUsers = 0, recentAppointments = [];
     try {
       const [users] = await new Promise((resolve, reject) => {
         db.query('SELECT COUNT(*) as count FROM users', (err, results) => {
@@ -23,11 +17,10 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
           resolve(results);
         });
       });
-      userCount = users.count || 0;
+      totalUsers = users.count || 0;
     } catch (err) {
       console.error('Error fetching user count:', err);
     }
-    // Appointment count
     try {
       const [appointments] = await new Promise((resolve, reject) => {
         db.query('SELECT COUNT(*) as count FROM appointments', (err, results) => {
@@ -35,26 +28,49 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
           resolve(results);
         });
       });
-      appointmentCount = appointments.count || 0;
+      totalAppointments = appointments.count || 0;
     } catch (err) {
       console.error('Error fetching appointment count:', err);
     }
-    // Announcement count
     try {
-      const [announcements] = await new Promise((resolve, reject) => {
-        db.query('SELECT COUNT(*) as count FROM announcements WHERE is_active = TRUE', (err, results) => {
+      const [today] = await new Promise((resolve, reject) => {
+        db.query('SELECT COUNT(*) as count FROM appointments WHERE DATE(date) = CURDATE()', (err, results) => {
           if (err) return reject(err);
           resolve(results);
         });
       });
-      announcementCount = announcements.count || 0;
+      todayAppointments = today.count || 0;
     } catch (err) {
-      console.error('Error fetching announcement count:', err);
+      console.error('Error fetching today appointments:', err);
     }
-    stats.users = userCount;
-    stats.appointments = appointmentCount;
-    stats.announcements = announcementCount;
-    res.json({ success: true, stats });
+    try {
+      const [pending] = await new Promise((resolve, reject) => {
+        db.query('SELECT COUNT(*) as count FROM appointments WHERE status = "pending"', (err, results) => {
+          if (err) return reject(err);
+          resolve(results);
+        });
+      });
+      pendingUsers = pending.count || 0;
+    } catch (err) {
+      console.error('Error fetching pending appointments:', err);
+    }
+    try {
+      recentAppointments = await new Promise((resolve, reject) => {
+        db.query('SELECT id, full_name, email, date, time, status FROM appointments ORDER BY date DESC, time DESC LIMIT 5', (err, results) => {
+          if (err) return reject(err);
+          resolve(results);
+        });
+      });
+    } catch (err) {
+      console.error('Error fetching recent appointments:', err);
+    }
+    res.json({
+      totalUsers,
+      totalAppointments,
+      todayAppointments,
+      pendingUsers,
+      recentAppointments
+    });
   } catch (error) {
     console.error('Error in dashboard stats endpoint:', error);
     res.status(500).json({ error: 'Error fetching dashboard stats' });
@@ -66,51 +82,39 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
 // SCHEDULED BUSINESS HOURS MANAGEMENT
 // =================
 
-<<<<<<< HEAD
-=======
-// ADMIN: Get all business hours
+
+// BUSINESS HOURS MANAGEMENT
+// Get business hours
 router.get('/business-hours', requireAdmin, (req, res) => {
-  db.query('SELECT * FROM business_hours WHERE is_active = TRUE', (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error obteniendo horarios'});
-    res.json({ business_hours: results });
+  db.query(`SELECT id, LOWER(day_of_week) as day_of_week, is_open, 
+           TIME_FORMAT(open_time, '%H:%i') as open_time,
+           TIME_FORMAT(close_time, '%H:%i') as close_time,
+           TIME_FORMAT(break_start, '%H:%i') as break_start,
+           TIME_FORMAT(break_end, '%H:%i') as break_end,
+           updated_at
+           FROM business_hours 
+           WHERE is_active = 1
+           ORDER BY FIELD(day_of_week, "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")`, (err, results) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    res.json({ businessHours: results });
   });
 });
 
->>>>>>> 8afe3872e198c063100ebfc401c2dc79be5c1001
-// ADMIN: Get business hours for the whole week of a given date
-router.get('/business-hours/:date', requireAdmin, (req, res) => {
-  const dayISO = req.params.date;
-  const dateObj = new Date(dayISO);
-  if (isNaN(dateObj)) return res.status(400).json({ business_hours: [] });
-  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  const promises = days.map(dow => {
-    return new Promise((resolve, reject) => {
-      db.query('SELECT * FROM scheduled_business_hours WHERE LOWER(day_of_week) = ? AND effective_date <= ? AND is_active = 1 ORDER BY effective_date DESC LIMIT 1', [dow, dayISO], (err, results) => {
-        if (err) return reject(err);
-        if (results && results.length > 0) {
-          resolve({ day_of_week: dow, ...results[0] });
-        } else {
-          db.query('SELECT * FROM business_hours WHERE LOWER(day_of_week) = ? AND is_active = 1 LIMIT 1', [dow], (err2, results2) => {
-            if (err2 || !results2 || results2.length === 0) {
-              resolve({ day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null });
-            } else {
-              resolve({ day_of_week: dow, ...results2[0] });
-            }
-          });
-        }
-      });
-    });
-  });
-  Promise.all(promises).then(weekHours => {
-    const ordered = days.map(dow => {
-      const found = weekHours.find(bh => (bh.day_of_week || '').toLowerCase() === dow);
-      if (found) return found;
-      return { day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null };
-    });
-    res.json({ business_hours: ordered });
-  }).catch(() => {
-    res.status(500).json({ business_hours: [] });
-  });
+// Update business hours
+router.put('/business-hours/:id', requireAdmin, (req, res) => {
+  const id = req.params.id;
+  const { is_open, open_time, close_time, break_start, break_end } = req.body;
+  db.query(
+    'UPDATE business_hours SET is_open = ?, open_time = ?, close_time = ?, break_start = ?, break_end = ? WHERE id = ?',
+    [is_open, open_time, close_time, break_start, break_end, id],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: 'Business hour not found' });
+      }
+      res.json({ message: 'Business hours updated successfully' });
+    }
+  );
 });
 
 
@@ -421,7 +425,7 @@ router.get('/appointments', requireAdmin, (req, res) => {
 // =================
 // ADMIN: Get all unverified users
 router.get('/users/unverified', requireAdmin, (req, res) => {
-  db.query('SELECT * FROM users WHERE is_verified = 0 AND requires_verification = 1', (err, results) => {
+  db.query('SELECT * FROM users WHERE is_verified = 0', (err, results) => {
     if (err) return res.status(500).json({ error: 'Error obteniendo usuarios no verificados' });
     res.json({ users: results });
   });
@@ -501,72 +505,20 @@ router.delete('/appointments/:id', requireAdmin, (req, res) => {
   });
 });
 
-// Approve appointment (with SMS notification)
-// ...existing code...
 
-// =================
-// USER VERIFICATION WITH SMS
-// =================
-
-
-
-// =================
-// BUSINESS HOURS MANAGEMENT
-// =================
-
-// Get business hours
-router.get('/business-hours', requireAdmin, (req, res) => {
-  db.query(`SELECT id, LOWER(day_of_week) as day_of_week, is_open, 
-           TIME_FORMAT(open_time, '%H:%i') as open_time,
-           TIME_FORMAT(close_time, '%H:%i') as close_time,
-           TIME_FORMAT(break_start, '%H:%i') as break_start,
-           TIME_FORMAT(break_end, '%H:%i') as break_end,
-           updated_at
-           FROM business_hours 
-           ORDER BY FIELD(day_of_week, "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")`, (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    res.json({ businessHours: results });
-  });
-});
-
-// Update business hours
-router.put('/business-hours/:id', requireAdmin, (req, res) => {
-  const id = req.params.id;
-  const { is_open, open_time, close_time, break_start, break_end } = req.body;
-  
-  db.query(
-    'UPDATE business_hours SET is_open = ?, open_time = ?, close_time = ?, break_start = ?, break_end = ? WHERE id = ?',
-    [is_open, open_time, close_time, break_start, break_end, id],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ error: 'Business hour not found' });
-      }
-      
-      res.json({ message: 'Business hours updated successfully' });
-    }
-  );
-});
-
-// Bulk update business hours
 router.put('/business-hours', requireAdmin, (req, res) => {
   const { businessHours } = req.body;
-  
   if (!businessHours || !Array.isArray(businessHours)) {
     return res.status(400).json({ error: 'Invalid business hours data' });
   }
-
   const updatePromises = businessHours.map(hours => {
     return new Promise((resolve, reject) => {
-      // First, find the ID for this day
       db.query(
         'SELECT id FROM business_hours WHERE LOWER(day_of_week) = LOWER(?)',
         [hours.day_of_week],
         (err, results) => {
           if (err) return reject(err);
           if (results.length === 0) {
-            // Insert new record if day doesn't exist
             db.query(
               'INSERT INTO business_hours (day_of_week, is_open, open_time, close_time, break_start, break_end) VALUES (?, ?, ?, ?, ?, ?)',
               [hours.day_of_week, hours.is_open, hours.open_time, hours.close_time, hours.break_start || null, hours.break_end || null],
@@ -576,7 +528,6 @@ router.put('/business-hours', requireAdmin, (req, res) => {
               }
             );
           } else {
-            // Update existing record
             const id = results[0].id;
             db.query(
               'UPDATE business_hours SET is_open = ?, open_time = ?, close_time = ?, break_start = ?, break_end = ?, updated_at = NOW() WHERE id = ?',
@@ -591,6 +542,15 @@ router.put('/business-hours', requireAdmin, (req, res) => {
       );
     });
   });
+  Promise.all(updatePromises)
+    .then(() => {
+      res.json({ message: 'Business hours updated successfully' });
+    })
+    .catch(err => {
+      console.error('Error updating business hours:', err);
+      res.status(500).json({ error: 'Database error updating business hours' });
+    });
+
 
   Promise.all(updatePromises)
     .then(() => {
@@ -601,7 +561,6 @@ router.put('/business-hours', requireAdmin, (req, res) => {
       res.status(500).json({ error: 'Database error updating business hours' });
     });
 });
-
 // =================
 // CLINIC SETTINGS MANAGEMENT
 // =================
@@ -721,47 +680,6 @@ router.get('/approval/recent', requireAdmin, (req, res) => {
 });
 
 
-
-// Update business hours
-router.put('/business-hours', requireAdmin, (req, res) => {
-  const { businessHours } = req.body;
-  
-  if (!businessHours || !Array.isArray(businessHours)) {
-    return res.status(400).json({ error: 'Invalid business hours data' });
-  }
-
-  // Delete existing business hours
-  db.query('DELETE FROM business_hours', (err) => {
-    if (err) {
-      console.error('Error deleting business hours:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-
-    // Insert new business hours
-    const values = businessHours.map(day => [
-      day.day_of_week,
-      day.is_open || false,
-      day.is_open ? day.open_time : null,
-      day.is_open ? day.close_time : null,
-      day.is_open ? day.break_start : null,
-      day.is_open ? day.break_end : null
-    ]);
-
-    const query = 'INSERT INTO business_hours (day_of_week, is_open, open_time, close_time, break_start, break_end) VALUES ?';
-    
-    db.query(query, [values], (err, result) => {
-      if (err) {
-        console.error('Error inserting business hours:', err);
-        return res.status(500).json({ error: 'Database error' });
-      }
-      res.json({ message: 'Business hours updated successfully', id: result.insertId });
-    });
-  });
-});
-
-// =================
-// SCHEDULE EXCEPTIONS MANAGEMENT
-// =================
 
 // Get schedule exceptions
 router.get('/schedule-exceptions', requireAdmin, (req, res) => {
@@ -1117,16 +1035,9 @@ router.post('/test-sms-notification', requireAdmin, async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
-// Debug route to confirm router is mounted
-router.get('/test', (req, res) => res.json({ ok: true }));
-
-// Debug route to verify adminRoutes mounting
-=======
 
 router.get('/test', (req, res) => res.json({ ok: true }));
 
->>>>>>> 8afe3872e198c063100ebfc401c2dc79be5c1001
 router.get('/test', (req, res) => {
   res.json({ ok: true, message: 'adminRoutes is working!' });
 });
