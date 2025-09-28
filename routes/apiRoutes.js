@@ -1,4 +1,5 @@
 
+
 const express = require('express');
 const db = require('../config/connections');
 const router = express.Router();
@@ -7,7 +8,6 @@ const jwt = require('jsonwebtoken');
 const authenticateToken = require('../middleware/authenticateToken');
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// --- Available Slots Endpoint ---
 // Returns available slots for a given date using business hours and appointments
 function generateTimeSlots(openTime, closeTime) {
   const slots = [];
@@ -110,23 +110,24 @@ router.get('/config/maps-key', (req, res) => {
 });
 
 router.get('/business-hours', (req, res) => {
-  const query = `
-    SELECT day_of_week, is_open, 
-           TIME_FORMAT(open_time, '%H:%i') as open_time,
-           TIME_FORMAT(close_time, '%H:%i') as close_time,
-           TIME_FORMAT(break_start, '%H:%i') as break_start,
-           TIME_FORMAT(break_end, '%H:%i') as break_end
+  db.query(`
+    SELECT 
+      id,
+      day_of_week,
+      is_open,
+      TIME_FORMAT(open_time, '%H:%i') as open_time,
+      TIME_FORMAT(close_time, '%H:%i') as close_time,
+      TIME_FORMAT(break_start, '%H:%i') as break_start,
+      TIME_FORMAT(break_end, '%H:%i') as break_end,
+      updated_at
     FROM business_hours 
-    ORDER BY FIELD(day_of_week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
-  `;
-  
-  db.query(query, (err, results) => {
+    ORDER BY FIELD(UPPER(day_of_week),  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
+  `, (err, results) => {
     if (err) {
-      console.error('Error getting business hours:', err);
-      return res.status(500).json({ error: 'Error getting business hours' });
+      console.error('Error fetching business hours:', err);
+      return res.status(500).json({ error: 'Database error', details: err.message });
     }
-    
-    res.json({ business_hours: results });
+    res.json({ businessHours: results });
   });
 });
 
@@ -557,6 +558,137 @@ router.post('/auth/register', async (req, res) => {
       success: false,
       message: "Error interno del servidor" 
     });
+  }
+});
+
+// --- Helper functions for calendar merging logic ---
+function getDatesInRange(start, end) {
+  const dates = [];
+  let curr = dayjs(start);
+  const last = dayjs(end);
+  while (curr.isBefore(last) || curr.isSame(last, 'day')) {
+    dates.push(curr.format('YYYY-MM-DD'));
+    curr = curr.add(1, 'day');
+  }
+  return dates;
+}
+
+function isFixedHoliday(date, template) {
+  if (template.date_type !== 'fixed') return false;
+  const d = dayjs(date);
+  return d.month() + 1 === template.month_number && d.date() === template.day_number;
+}
+
+// TODO: Add calculated holiday logic if needed
+
+function getBusinessHoursForDay(dayOfWeek, businessHours) {
+  return businessHours.find(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek.toLowerCase());
+}
+
+function getScheduledOverride(dayOfWeek, date, scheduledBusinessHours) {
+  // Find the most recent override for this day_of_week and date
+  return scheduledBusinessHours
+    .filter(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek.toLowerCase() && bh.effective_date <= date)
+    .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
+}
+
+function getExceptionForDate(date, exceptions) {
+  // Highest priority exception for this date
+  return exceptions.find(ex => {
+    if (ex.exception_type === 'single_day') return ex.start_date === date;
+    if (ex.exception_type === 'date_range') return ex.start_date <= date && ex.end_date >= date;
+    // TODO: Add recurring/special_schedule logic if needed
+    return false;
+  });
+}
+// --- CALENDAR MERGED SCHEDULE ROUTE ---
+// Returns merged business hours, scheduled overrides, holidays, and exceptions for each date in the range
+const dayjs = require('dayjs');
+
+router.get('/calendar', async (req, res) => {
+  const { start, end } = req.query;
+  if (!start || !end) return res.status(400).json({ error: 'Missing start or end date' });
+
+  try {
+    // 1. Fetch all business_hours (base template)
+    const businessHours = await new Promise((resolve, reject) => {
+      db.query('SELECT * FROM business_hours WHERE is_active = 1', (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+
+    // 2. Fetch all scheduled_business_hours with effective_date <= end
+    const scheduledBusinessHours = await new Promise((resolve, reject) => {
+      db.query('SELECT * FROM scheduled_business_hours WHERE is_active = 1 AND effective_date <= ?', [end], (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+
+    // 3. Fetch all schedule_exceptions overlapping the range
+    const scheduleExceptions = await new Promise((resolve, reject) => {
+      db.query(`SELECT * FROM schedule_exceptions WHERE is_active = 1 AND ((start_date <= ? AND (end_date IS NULL OR end_date >= ?)) OR (start_date BETWEEN ? AND ?))`, [end, start, start, end], (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+
+    // 4. Fetch all holiday_templates (active)
+    const holidayTemplates = await new Promise((resolve, reject) => {
+      db.query('SELECT * FROM holiday_templates WHERE is_active = 1', (err, results) => {
+        if (err) return reject(err);
+        resolve(results);
+      });
+    });
+
+    // --- Merging logic: build day map for each date in range ---
+    const days = getDatesInRange(start, end);
+    const result = [];
+    for (const date of days) {
+      const dayOfWeek = dayjs(date).format('dddd'); // e.g., 'Monday'
+      let base = getBusinessHoursForDay(dayOfWeek, businessHours);
+
+      // 1. Start with base
+      let dayInfo = {
+        date,
+        is_open: base ? !!base.is_open : false,
+        open_time: base ? base.open_time : null,
+        close_time: base ? base.close_time : null,
+        reason: null
+      };
+
+      // 2. Overlay scheduled_business_hours
+      const scheduled = getScheduledOverride(dayOfWeek, date, scheduledBusinessHours);
+      if (scheduled) {
+        dayInfo.is_open = !!scheduled.is_open;
+        dayInfo.open_time = scheduled.open_time;
+        dayInfo.close_time = scheduled.close_time;
+        // Optionally: dayInfo.break_start = scheduled.break_start; etc.
+      }
+
+      // 3. Overlay holiday_templates
+      const holiday = holidayTemplates.find(ht => isFixedHoliday(date, ht));
+      if (holiday) {
+        dayInfo.is_open = false;
+        dayInfo.reason = `Holiday - ${holiday.name}`;
+      }
+
+      // 4. Overlay schedule_exceptions
+      const exception = getExceptionForDate(date, scheduleExceptions);
+      if (exception) {
+        dayInfo.is_open = !exception.is_closed;
+        if (exception.custom_open_time) dayInfo.open_time = exception.custom_open_time;
+        if (exception.custom_close_time) dayInfo.close_time = exception.custom_close_time;
+        dayInfo.reason = exception.reason || 'Exception';
+      }
+
+      result.push(dayInfo);
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('Error in /api/calendar:', err);
+    res.status(500).json({ error: 'Database error', details: err.message });
   }
 });
 

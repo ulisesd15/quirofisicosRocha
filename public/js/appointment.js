@@ -3,6 +3,7 @@ let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
 let selectedDate = null;
 let businessHours = [];
+let businessHoursMap = {};
 let scheduleExceptions = [];
 
 const monthNames = [
@@ -107,7 +108,7 @@ async function autoAdvanceIfNoAvailableSlots(weekSlots, renderWeekFn, currentMon
   async function fetchBusinessHours(date) {
     try {
       const dateParam = date ? `/${formatDate(date)}` : '';
-      const response = await fetch(`/api/admin/business-hours${dateParam}`);
+  const response = await fetch(`/api/business-hours${dateParam}`);
     if (!response.ok) throw new Error('Failed to fetch business hours');
     const data = await response.json();
     let arr = Array.isArray(data)
@@ -115,6 +116,14 @@ async function autoAdvanceIfNoAvailableSlots(weekSlots, renderWeekFn, currentMon
       : (Array.isArray(data.business_hours) ? data.business_hours
         : (Array.isArray(data.businessHours) ? data.businessHours : []));
     businessHours = arr.map(bh => ({ ...bh, day_of_week: bh.day_of_week.toLowerCase() }));
+    // Build a map for robust lookup
+    businessHoursMap = {};
+    businessHours.forEach(bh => {
+      businessHoursMap[bh.day_of_week] = bh;
+    });
+    // Debug log
+    console.log('DEBUG businessHours:', businessHours);
+    console.log('DEBUG businessHoursMap:', businessHoursMap);
     return businessHours;
   } catch (e) {
     businessHours = [];
@@ -153,7 +162,7 @@ function isDayOpen(date) {
   if (!businessHours.length) return false;
   // Defensive: businessHours may have day_of_week as string or number, always compare as lowercase string
   const dayOfWeek = getDayOfWeekString(date).toLowerCase();
-  const businessDay = businessHours.find(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek);
+  const businessDay = businessHoursMap[dayOfWeek];
   if (!businessDay) return false;
   if (!businessDay.is_open) return false;
   if (!businessDay.open_time || !businessDay.close_time) return false;
@@ -276,8 +285,11 @@ async function renderWeeklyCalendar() {
   const calendarContainer = document.getElementById('weeklyCalendar');
   if (!calendarContainer) return;
   const today = new Date();
+  // Always start week on Monday
   const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - today.getDay()); // Sunday as start
+  const day = today.getDay();
+  const diff = (day === 0 ? -6 : 1) - day; // If Sunday (0), go back 6 days; else, go back to Monday
+  weekStart.setDate(today.getDate() + diff);
   await fetchBusinessHours(weekStart);
   await fetchScheduleExceptions();
   calendarContainer.innerHTML = '';
@@ -296,11 +308,10 @@ async function renderWeeklyCalendar() {
   weekRow.appendChild(prevBtn);
   // 7 day cards
   for (let d = 0; d < 7; d++) {
-    const day = new Date(weekStart);
-    day.setDate(weekStart.getDate() + d);
-  const dayOfWeek = getDayOfWeekString(day).toLowerCase();
-  const businessDay = businessHours.find(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek);
-  console.log(`DEBUG Weekly: ${formatDate(day)} maps to businessHours[${dayOfWeek}]`, businessDay);
+    const day = new Date(weekStart.getTime() + d * 24 * 60 * 60 * 1000);
+    const dayOfWeek = getDayOfWeekString(day).toLowerCase();
+    const businessDay = businessHoursMap[dayOfWeek];
+    console.log(`WEEK DEBUG: ${formatDate(day)} (${dayOfWeek}) =>`, businessDay);
   const isOpenDay = isDayOpen(day);
     const isTodayDate = isToday(day);
     const isSelectedDate = selectedDate && day.toDateString() === selectedDate.toDateString();
@@ -370,85 +381,97 @@ async function renderWeeklyCalendarForDate(date) {
   prevBtn.className = 'btn btn-light week-arrow';
   prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
   prevBtn.title = 'Semana anterior';
-  prevBtn.onclick = () => {
+  prevBtn.onclick = async () => {
     date.setDate(date.getDate() - 7);
-    renderWeeklyCalendarForDate(date);
-  };
-  weekRow.appendChild(prevBtn);
-  // 7 day cards
-  for (let d = 0; d < 7; d++) {
-    const day = new Date(date);
-    day.setDate(date.getDate() + d);
-  const dayOfWeek = getDayOfWeekString(day).toLowerCase();
-  const businessDay = businessHours.find(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek);
-  console.log(`DEBUG Weekly: ${formatDate(day)} maps to businessHours[${dayOfWeek}]`, businessDay);
-  const isOpenDay = isDayOpen(day);
-    const isTodayDate = isToday(day);
-    const isSelectedDate = selectedDate && day.toDateString() === selectedDate.toDateString();
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'btn calendar-day-btn d-flex flex-column align-items-center py-2';
-    btn.dataset.date = formatDate(day);
-    const dayLabel = document.createElement('span');
-    dayLabel.className = 'small fw-bold';
-    dayLabel.textContent = day.toLocaleDateString('es-MX', { weekday: 'short' });
-    const dateLabel = document.createElement('span');
-    dateLabel.textContent = `${String(day.getMonth() + 1).padStart(2, '0')}/${String(day.getDate()).padStart(2, '0')}`;
-    btn.appendChild(dayLabel);
-    btn.appendChild(dateLabel);
-    // Block previous days
-    const isPast = isPastDate(day);
-    if (isTodayDate && !isSelectedDate) btn.classList.add('today');
-    if (isSelectedDate) btn.classList.add('selected');
-    if (!isOpenDay || isPast) {
-      btn.classList.add('btn-secondary');
-      btn.disabled = true;
-      btn.title = !isOpenDay ? 'Cerrado' : 'No disponible';
-    } else {
-      btn.classList.add('btn-outline-primary');
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.calendar-day-btn.selected').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        selectedDate = day;
-        renderTimeSlots(day);
-      });
+    await fetchBusinessHours(date);
+    await fetchScheduleExceptions();
+    calendarContainer.innerHTML = '';
+    const weekRow = document.createElement('div');
+    weekRow.className = 'd-flex justify-content-center align-items-center gap-2';
+    // Prev arrow
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'btn btn-light week-arrow';
+    prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+    prevBtn.title = 'Semana anterior';
+    prevBtn.onclick = () => {
+      // Always go to previous Monday
+      const newDate = new Date(date);
+      newDate.setDate(date.getDate() - 7);
+      // Set to Monday
+      const newDay = newDate.getDay();
+      const newDiff = (newDay === 0 ? -6 : 1) - newDay;
+      newDate.setDate(newDate.getDate() + newDiff);
+      renderWeeklyCalendarForDate(newDate);
+    };
+    weekRow.appendChild(prevBtn);
+    // 7 day cards
+    for (let d = 0; d < 7; d++) {
+      const weekMonday = new Date(date);
+      const day = new Date(weekMonday.getTime() + d * 24 * 60 * 60 * 1000);
+      const dayOfWeek = getDayOfWeekString(day).toLowerCase();
+      const businessDay = businessHoursMap[dayOfWeek];
+      console.log(`WEEK DEBUG: ${formatDate(day)} (${dayOfWeek}) =>`, businessDay);
+      const isOpenDay = isDayOpen(day);
+      const isTodayDate = isToday(day);
+      const isSelectedDate = selectedDate && day.toDateString() === selectedDate.toDateString();
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn calendar-day-btn d-flex flex-column align-items-center py-2';
+      btn.dataset.date = formatDate(day);
+      const dayLabel = document.createElement('span');
+      dayLabel.className = 'small fw-bold';
+      dayLabel.textContent = day.toLocaleDateString('es-MX', { weekday: 'short' });
+      const dateLabel = document.createElement('span');
+      dateLabel.textContent = `${String(day.getMonth() + 1).padStart(2, '0')}/${String(day.getDate()).padStart(2, '0')}`;
+      btn.appendChild(dayLabel);
+      btn.appendChild(dateLabel);
+      // Block previous days
+      const isPast = isPastDate(day);
+      if (isTodayDate && !isSelectedDate) btn.classList.add('today');
+      if (isSelectedDate) btn.classList.add('selected');
+      if (!isOpenDay || isPast) {
+        btn.classList.add('btn-secondary');
+        btn.disabled = true;
+        btn.title = !isOpenDay ? 'Cerrado' : 'No disponible';
+      } else {
+        btn.classList.add('btn-outline-primary');
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.calendar-day-btn.selected').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          selectedDate = day;
+          renderTimeSlots(day);
+        });
+        // Auto-load slots for today on first render
+        if (isTodayDate && !selectedDate) {
+          btn.classList.add('selected');
+          selectedDate = day;
+          renderTimeSlots(day);
+        }
+      }
+      weekRow.appendChild(btn);
     }
-    weekRow.appendChild(btn);
-  }
-  // Next arrow
-  const nextBtn = document.createElement('button');
-  nextBtn.type = 'button';
-  nextBtn.className = 'btn btn-light week-arrow';
-  nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
-  nextBtn.title = 'Semana siguiente';
-  nextBtn.onclick = () => {
-    date.setDate(date.getDate() + 7);
-    renderWeeklyCalendarForDate(date);
-  };
-  weekRow.appendChild(nextBtn);
-  calendarContainer.appendChild(weekRow);
-}
-
-// --- Slot Fetching and Rendering ---
-async function fetchAvailableSlots(date) {
-  const dateStr = formatDate(date);
-  try {
-    const response = await fetch(`/api/available-slots/${dateStr}`);
-    if (!response.ok) throw new Error('Failed to fetch available slots');
-    const data = await response.json();
-    return data.availableSlots || [];
-  } catch (e) {
-    return [];
-  }
-}
-
-async function renderTimeSlots(date) {
-  const slotContainer = document.getElementById('timeCards');
-  if (!slotContainer) return;
-  slotContainer.innerHTML = '<div class="text-center">Cargando horarios...</div>';
+    // Next arrow
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'btn btn-light week-arrow';
+    nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+    nextBtn.title = 'Semana siguiente';
+    nextBtn.onclick = () => {
+      // Always go to next Monday
+      const newDate = new Date(date);
+      newDate.setDate(date.getDate() + 7);
+      // Set to Monday
+      const newDay = newDate.getDay();
+      const newDiff = (newDay === 0 ? -6 : 1) - newDay;
+      newDate.setDate(newDate.getDate() + newDiff);
+      renderWeeklyCalendarForDate(newDate);
+    };
+    weekRow.appendChild(nextBtn);
+    calendarContainer.appendChild(weekRow);
   // Find business hours for this day
   const dayOfWeek = getDayOfWeekString(date).toLowerCase();
-  const businessDay = businessHours.find(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek);
+  const businessDay = businessHoursMap[dayOfWeek];
   if (!businessDay || !businessDay.is_open || !businessDay.open_time || !businessDay.close_time) {
     slotContainer.innerHTML = '<div class="alert alert-warning text-center">Sin horarios disponibles para este día</div>';
     return;
@@ -490,7 +513,7 @@ async function renderTimeSlots(date) {
   });
   slotContainer.appendChild(row);
 }
-
+}
 // --- Slot Fetching and Rendering for Monthly View ---
 async function renderMonthlyTimeSlots(date) {
   const slotContainer = document.getElementById('timeCards');
@@ -498,7 +521,7 @@ async function renderMonthlyTimeSlots(date) {
   slotContainer.innerHTML = '<div class="text-center">Cargando horarios...</div>';
   // Find business hours for this day
   const dayOfWeek = getDayOfWeekString(date).toLowerCase();
-  const businessDay = businessHours.find(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek);
+  const businessDay = businessHoursMap[dayOfWeek];
   if (!businessDay || !businessDay.is_open || !businessDay.open_time || !businessDay.close_time) {
     slotContainer.innerHTML = '<div class="alert alert-warning text-center">Sin horarios disponibles para este día</div>';
     return;
@@ -601,6 +624,5 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-  setupCalendarViewToggle();
-  // Only render the default view (week) on load
 });
+  setupCalendarViewToggle();

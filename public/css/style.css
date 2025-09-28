@@ -1536,3 +1536,18 @@ h3 {
     margin-top: -30px;
   }
 }
+
+
+.diagnostic-card { margin: 20px 0; }
+    .status-ok { color: #28a745; }
+    .status-error { color: #dc3545; }
+    .status-warning { color: #ffc107; }
+    .log-output { 
+      background: #f8f9fa; 
+      border-radius: 8px; 
+      padding: 15px; 
+      font-family: monospace; 
+      font-size: 14px; 
+      max-height: 300px; 
+      overflow-y: auto; 
+    }

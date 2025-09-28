@@ -70,4 +70,10 @@ export class ServerStatusModule {
       </div>
     `;
   }
+  
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  const serverStatus = new ServerStatusModule();
+  serverStatus.checkServerStatus();
+});

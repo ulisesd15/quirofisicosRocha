@@ -253,7 +253,7 @@ function displayCurrentAppointmentInfo() {
 // ───────── BUSINESS HOURS LOADING ─────────
 async function loadBusinessHours() {
   try {
-    const response = await fetch('/api/admin/business-hours', {
+  const response = await fetch('/api/business-hours', {
       headers: window.authManager ? window.authManager.getAuthHeaders() : {}
     });
     if (response.ok) {

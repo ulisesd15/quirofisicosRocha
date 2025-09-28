@@ -549,6 +549,21 @@ export class ScheduleModule {
       return;
     }
 
+    // Accept both camelCase and snake_case for day_of_week and other keys
+    function normalizeHours(obj) {
+      if (!obj) return {};
+      // Accept both camelCase and snake_case keys
+      return {
+        day_of_week: obj.day_of_week || obj.dayOfWeek || '',
+        is_open: obj.is_open !== undefined ? obj.is_open : obj.isOpen,
+        open_time: obj.open_time || obj.openTime || '',
+        close_time: obj.close_time || obj.closeTime || '',
+        break_start: obj.break_start || obj.breakStart || '',
+        break_end: obj.break_end || obj.breakEnd || ''
+      };
+    }
+
+    // Accept both 'monday' and 'Monday' for day_of_week
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -562,18 +577,26 @@ export class ScheduleModule {
     console.log('Displaying business hours for days:', days);
     console.log('Business hours data:', businessHours);
 
+    // Normalize all businessHours entries for robust matching
+    const normalizedBusinessHours = Array.isArray(businessHours)
+      ? businessHours.map(normalizeHours)
+      : [];
+
     container.innerHTML = days.map((day, index) => {
-      const hours = businessHours.find(bh => bh.day_of_week === day) || {};
+      // Accept both 'monday' and 'Monday' for matching
+      const hours = normalizedBusinessHours.find(bh =>
+        (bh.day_of_week && bh.day_of_week.toLowerCase() === day)
+      ) || {};
       console.log(`Day ${day}:`, hours);
-      
+
       // Calculate the date for this day
       const dayDate = new Date(monday);
       dayDate.setDate(monday.getDate() + index);
       const formattedDate = `${String(dayDate.getMonth() + 1).padStart(2, '0')}/${String(dayDate.getDate()).padStart(2, '0')}`;
-      
+
       // Set correct default times based on your requirements
       let defaultOpenTime, defaultCloseTime, defaultBreakStart, defaultBreakEnd;
-      
+
       if (index >= 0 && index <= 4) { // Monday to Friday (weekdays)
         defaultOpenTime = '14:00'; // 2:00 PM
         defaultCloseTime = '17:30'; // 5:30 PM
@@ -590,9 +613,9 @@ export class ScheduleModule {
         defaultBreakStart = '';
         defaultBreakEnd = '';
       }
-      
+
       const isOpen = hours.is_open === 1 || hours.is_open === true;
-      
+
       return `
         <div class="business-hours-day ${!isOpen ? 'closed' : ''}" data-day="${day}">
           <div class="row align-items-center">
@@ -652,14 +675,14 @@ export class ScheduleModule {
     // Setup event delegation for business hours toggles
     this.setupBusinessHoursEventListeners();
     console.log('Business hours displayed and event listeners setup');
-    
+
     // Additional direct listeners as backup (for debugging)
     setTimeout(() => {
       const toggles = document.querySelectorAll('.business-hours-toggle');
       console.log(`Found ${toggles.length} business hours toggles`);
       toggles.forEach((toggle, index) => {
         console.log(`Toggle ${index}: ${toggle.id}, checked: ${toggle.checked}`);
-        
+
         // Add direct listener as backup
         toggle.addEventListener('change', (e) => {
           console.log(`Direct listener triggered for ${e.target.id}: ${e.target.checked}`);
@@ -805,26 +828,33 @@ export class ScheduleModule {
     try {
       this.showLoading();
       console.log('Loading business hours...');
-      
-      const response = await fetch('/api/admin/business-hours', {
+
+      const response = await fetch('/api/business-hours', {
         headers: {
           'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
 
       if (!response.ok) throw new Error('Error loading business hours');
-      
+
       const data = await response.json();
       console.log('Business hours data loaded:', data);
-      
-      // Ensure we have the businessHours array
-      if (data && data.businessHours) {
-        this.displayBusinessHours(data.businessHours);
+
+      // Accept both businessHours and business_hours from backend
+      let hoursArr = null;
+      if (data && Array.isArray(data.businessHours)) {
+        hoursArr = data.businessHours;
+      } else if (data && Array.isArray(data.business_hours)) {
+        hoursArr = data.business_hours;
+      }
+
+      if (hoursArr) {
+        this.displayBusinessHours(hoursArr);
       } else {
         console.error('Invalid business hours data format:', data);
         this.showError('Formato de datos inválido');
       }
-      
+
     } catch (error) {
       console.error('Error loading business hours:', error);
       this.showError('Error cargando los horarios');

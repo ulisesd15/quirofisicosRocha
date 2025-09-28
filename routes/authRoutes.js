@@ -44,4 +44,49 @@ router.get('/google/callback',
   }
 );
 
+
+// Traditional email/password login
+router.post('/login', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+  // Query user by email
+  db.query('SELECT * FROM users WHERE email = ?', [email], (err, results) => {
+    if (err) {
+      console.error('Login DB error:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    if (!results || results.length === 0) {
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+    }
+    const user = results[0];
+    // Compare password (assuming passwords are hashed with bcrypt)
+    const bcrypt = require('bcryptjs');
+    bcrypt.compare(password, user.password, (err, isMatch) => {
+      if (err) {
+        console.error('Bcrypt error:', err);
+        return res.status(500).json({ error: 'Error interno' });
+      }
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+      }
+      // Generate JWT
+      const payload = { id: user.id, email: user.email, role: user.role, full_name: user.full_name };
+      const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+      res.json({
+        message: 'Inicio de sesión exitoso',
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          full_name: user.full_name,
+          phone: user.phone,
+          role: user.role
+        }
+      });
+    });
+  });
+});
+
 module.exports = router;

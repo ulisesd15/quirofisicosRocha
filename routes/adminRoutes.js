@@ -82,26 +82,7 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
 // =================
 
 // Get business hours
-router.get('/business-hours', requireAdmin, (req, res) => {
-  db.query(`
-    SELECT 
-      id,
-      LOWER(day_of_week) as day_of_week,
-      is_open,
-      TIME_FORMAT(open_time, '%H:%i') as open_time,
-      TIME_FORMAT(close_time, '%H:%i') as close_time,
-      TIME_FORMAT(break_start, '%H:%i') as break_start,
-      TIME_FORMAT(break_end, '%H:%i') as break_end,
-      is_active,
-      updated_at
-    FROM business_hours 
-    WHERE is_active = 1
-    ORDER BY FIELD(day_of_week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
-  `, (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    res.json({ businessHours: results });
-  });
-});
+
 
 // Update business hours
 router.put('/business-hours/:id', requireAdmin, (req, res) => {
