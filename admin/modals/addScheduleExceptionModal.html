@@ -1,0 +1,88 @@
+<!-- Add Schedule Exception Modal extracted from adminOptions.html
+     This modal allows admins to add a schedule exception for a specific day or date range. -->
+<div class="modal fade" id="addScheduleExceptionModal" tabindex="-1" aria-labelledby="addScheduleExceptionModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addScheduleExceptionModalLabel">
+          <i class="fas fa-calendar-exclamation me-2"></i>Agregar Excepción de Horario
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="add-schedule-exception-form">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label for="exception-type-select" class="form-label fw-bold">Tipo de Excepción</label>
+              <select class="form-select" id="exception-type-select" required>
+                <option value="">Seleccionar tipo...</option>
+                <option value="single_day">Día específico</option>
+                <option value="date_range">Rango de fechas</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label for="exception-reason" class="form-label fw-bold">Motivo</label>
+              <input type="text" class="form-control" id="exception-reason" placeholder="Ej: Vacaciones, Feriado, Mantenimiento" required>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label for="schedule-exception-start-date" class="form-label fw-bold">Fecha de inicio</label>
+              <input type="date" class="form-control" id="schedule-exception-start-date" required>
+            </div>
+            <div class="col-md-6 d-none" id="end-date-container">
+              <label for="schedule-exception-end-date" class="form-label fw-bold">Fecha de fin</label>
+              <input type="date" class="form-control" id="schedule-exception-end-date">
+            </div>
+          </div>
+          <div class="card border-primary mb-3">
+            <div class="card-header bg-primary text-white">
+              <h6 class="mb-0"><i class="fas fa-cogs me-2"></i>Configuración del Horario</h6>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-12 mb-3">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="exception-is-closed">
+                    <label class="form-check-label fw-bold text-danger" for="exception-is-closed">
+                      Cerrado completamente
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div id="custom-hours-section">
+                <h6 class="text-muted mb-3">Horario personalizado:</h6>
+                <div class="row">
+                  <div class="col-md-3">
+                    <label for="exception-open-time" class="form-label">Hora apertura</label>
+                    <input type="time" class="form-control" id="exception-open-time" value="09:00">
+                  </div>
+                  <div class="col-md-3">
+                    <label for="exception-close-time" class="form-label">Hora cierre</label>
+                    <input type="time" class="form-control" id="exception-close-time" value="18:00">
+                  </div>
+                  <div class="col-md-3">
+                    <label for="exception-break-start" class="form-label">Inicio almuerzo</label>
+                    <input type="time" class="form-control" id="exception-break-start" value="13:00">
+                  </div>
+                  <div class="col-md-3">
+                    <label for="exception-break-end" class="form-label">Fin almuerzo</label>
+                    <input type="time" class="form-control" id="exception-break-end" value="14:00">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="schedule-exception-description" class="form-label">Descripción adicional (opcional)</label>
+            <textarea class="form-control" id="schedule-exception-description" rows="2" placeholder="Información adicional sobre la excepción..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="save-schedule-exception-btn">Guardar Excepción</button>
+      </div>
+    </div>
+  </div>
+</div>

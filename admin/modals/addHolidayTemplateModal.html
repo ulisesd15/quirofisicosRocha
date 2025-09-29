@@ -1,0 +1,40 @@
+<!-- Add Holiday Template Modal extracted from adminOptions.html
+     This modal allows admins to add a holiday template for recurring holidays. -->
+<div class="modal fade" id="addHolidayTemplateModal" tabindex="-1" aria-labelledby="addHolidayTemplateModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addHolidayTemplateModalLabel">
+          <i class="fas fa-calendar-star me-2"></i>Agregar Plantilla de Feriado
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="add-holiday-template-form">
+          <div class="mb-3">
+            <label for="holiday-template-title" class="form-label">Nombre del Feriado</label>
+            <input type="text" class="form-control" id="holiday-template-title" required>
+          </div>
+          <div class="mb-3">
+            <label for="holiday-template-date" class="form-label">Fecha</label>
+            <input type="date" class="form-control" id="holiday-template-date" required>
+          </div>
+          <div class="mb-3">
+            <label for="holiday-template-description" class="form-label">Descripción</label>
+            <textarea class="form-control" id="holiday-template-description" rows="2"></textarea>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="holiday-template-recurring">
+            <label class="form-check-label" for="holiday-template-recurring">
+              Repetir anualmente
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="save-holiday-template-btn">Guardar Plantilla</button>
+      </div>
+    </div>
+  </div>
+</div>

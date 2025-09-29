@@ -544,34 +544,7 @@ export class ScheduleModule {
       });
     }
 
-    // Announcements Tab
-    const announcementsTab = document.getElementById('announcements-tab');
-    if (announcementsTab) {
-      announcementsTab.addEventListener('shown.bs.tab', async () => {
-        console.log('Announcements tab activated');
-        
-        // Hide placeholder and show content
-        const placeholder = document.getElementById('announcements-placeholder');
-        const content = document.getElementById('announcements-content');
-        
-        if (placeholder) placeholder.classList.add('d-none');
-        if (content) content.classList.remove('d-none');
-        
-        // Load data
-        await this.loadAnnouncements();
-      });
-      
-      announcementsTab.addEventListener('hidden.bs.tab', () => {
-        console.log('Announcements tab deactivated');
-        
-        // Show placeholder and hide content
-        const placeholder = document.getElementById('announcements-placeholder');
-        const content = document.getElementById('announcements-content');
-        
-        if (placeholder) placeholder.classList.remove('d-none');
-        if (content) content.classList.add('d-none');
-      });
-    }
+    // Announcements Tab logic removed. Now handled by AnnouncementsModule in announcements.js and inline script in adminOptions.html.
     
     this.initializedTabListeners.schedule = true;
     console.log('Schedule tab listeners initialized');
