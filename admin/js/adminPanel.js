@@ -1,3 +1,13 @@
+/**
+ * adminPanel.js
+ *
+ * Main entry point for the Quirofísicos Rocha admin dashboard UI.
+ * - Initializes and manages all admin modules (dashboard, appointments, users, schedule, settings, etc.).
+ * - Handles tab navigation, event listeners, notifications, and section switching.
+ * - Provides utilities for business hours, closures, password management, and user verification.
+ * - Centralizes admin-side logic for maintainability and modularity.
+ */
+
 import { DashboardModule } from './modules/dashboard.js';
 import { AppointmentsModule } from './modules/appointments.js';
 import { UsersModule } from './modules/users.js';
@@ -6,7 +16,12 @@ import { SettingsModule } from './modules/settings.js';
 import { UserVerificationModule } from './modules/userVerification.js';
 import { ServerStatusModule } from './modules/serverStatus.js';
 
-// Global notification utility
+/**
+ * Displays a notification message in the admin UI.
+ * @param {string} message - The message to display.
+ * @param {string} [type='info'] - The type of notification ('info', 'success', 'error').
+ * @param {number} [timeout=3500] - How long to show the notification (ms).
+ */
 function showNotification(message, type = 'info', timeout = 3500) {
   let container = document.getElementById('notification-container');
   if (!container) {
@@ -30,14 +45,22 @@ function showNotification(message, type = 'info', timeout = 3500) {
   }, timeout);
 }
 
-// Utility to refresh all admin sections (for error recovery)
+/**
+ * Restores visibility to all admin sections (for error recovery).
+ */
 function refreshAllAdminSections() {
   const sections = document.querySelectorAll('.admin-section');
   sections.forEach(sec => sec.classList.remove('d-none'));
   showNotification('Secciones recargadas', 'info');
 }
 
+/**
+ * Main class for managing the admin panel UI and logic.
+ */
 class AdminPanel {
+  /**
+   * Initializes event listeners for the SMS tab (notification settings).
+   */
   initializeSMSTabListeners() {
     // Only initialize once to prevent duplicate listeners
     if (this.initializedTabListeners && this.initializedTabListeners.sms) {
@@ -58,6 +81,9 @@ class AdminPanel {
     this.initializedTabListeners.sms = true;
     console.log('SMS tab listeners initialized');
   }
+  /**
+   * Constructs the AdminPanel and initializes modules, event listeners, and UI state.
+   */
   constructor() {
     this.dashboard = new DashboardModule();
     this.appointments = new AppointmentsModule();
@@ -108,6 +134,9 @@ class AdminPanel {
         }
       });
   }
+  /**
+   * Loads unverified users for verification tab.
+   */
   async loadUserVerification() {
     console.log('Loading user verification data');
     // Load unverified users if this function exists globally
@@ -118,6 +147,9 @@ class AdminPanel {
     }
   }
 
+  /**
+   * Sends appointment reminders to users.
+   */
   async sendAppointmentReminders() {
     console.log('Sending appointment reminders');
     if (window.sendAppointmentReminders) {
@@ -127,6 +159,9 @@ class AdminPanel {
     }
   }
 
+  /**
+   * Loads annual closure days from the backend and displays them.
+   */
   async loadAnnualClosures(context = 'settings') {
     try {
       const response = await fetch('/api/admin/schedule/annual-closures', {
@@ -155,6 +190,9 @@ class AdminPanel {
       }
     }
   }
+  /**
+   * Adds a new annual closure day (full day, recurring or not).
+   */
   async addAnnualClosure(context = 'settings') {
     // Get form data based on context
     const suffix = `-${context}`;
@@ -202,6 +240,9 @@ class AdminPanel {
     }
   }
 
+  /**
+   * Loads yearly closures (placeholder for future backend support).
+   */
   async loadYearlyClosures(context = 'main') {
     // This function would load existing yearly closures from schedule_exceptions
     // For now, we'll show a placeholder until the backend is enhanced
@@ -217,6 +258,9 @@ class AdminPanel {
     }
   }
 
+  /**
+   * Adds a new yearly closure (supports custom hours).
+   */
   async addYearlyClosure(context = 'main') {
     // Get form data based on context
     const suffix = context === 'schedule' ? '-schedule' : '';
@@ -279,6 +323,9 @@ class AdminPanel {
     }
   }
   // New methods for scheduled business hours functionality
+  /**
+   * Saves scheduled business hours to the backend.
+   */
   async saveScheduledBusinessHours() {
     try {
       // this.showLoading();
@@ -340,6 +387,9 @@ class AdminPanel {
       this.hideLoading();
     }
   }
+  /**
+   * Changes the admin password after validating input fields.
+   */
   async changeAdminPassword() {
     const currentPassword = document.getElementById('admin-current-password').value;
     const newPassword = document.getElementById('admin-new-password').value;
@@ -389,6 +439,9 @@ class AdminPanel {
       this.showError('Error al cambiar la contraseña: ' + error.message);
     }
   }
+  /**
+   * Validates the business hours schedule data for correctness.
+   */
   validateScheduleData(scheduleData) {
     // Check if at least one day is open
     const hasOpenDays = scheduleData.some(day => day.is_open);
@@ -423,13 +476,18 @@ class AdminPanel {
 
     return true;
   }
-  // Admin Password Management
+  /**
+   * Shows the password change modal dialog.
+   */
   showPasswordChangeModal() {
     const modal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
     document.getElementById('admin-password-form').reset();
     modal.show();
   }
 
+  /**
+   * Generates HTML preview for the scheduled business hours.
+   */
   generatePreviewHTML(scheduleData, effectiveDate) {
     const dayNames = {
       monday: 'Lunes',
@@ -473,6 +531,9 @@ class AdminPanel {
     return html;
   }
 
+  /**
+   * Initializes event listeners for settings forms and date pickers.
+   */
   initializeSettingsEventListeners() {
     // Set default dates for forms
     const today = new Date().toISOString().split('T')[0];
@@ -483,6 +544,9 @@ class AdminPanel {
     }
   }
 
+  /**
+   * Initializes event listeners for yearly closures UI.
+   */
   initializeYearlyClosuresEventListeners() {
     // Add yearly closure button
     const addYearlyClosureBtn = document.getElementById('add-yearly-closure-btn');
@@ -491,6 +555,9 @@ class AdminPanel {
     }
   }
   
+  /**
+   * Displays the list of annual closures in the UI.
+   */
   displayAnnualClosures(closures, context = 'settings') {
     const containerId = `annual-closures-list-${context}`;
     const container = document.getElementById(containerId);
@@ -530,6 +597,9 @@ class AdminPanel {
     `).join('');
   }
 
+  /**
+   * Activates the first tab in a given admin section.
+   */
   activateFirstTab(sectionType) {
     let firstTabId, firstContentId;
     
@@ -582,6 +652,9 @@ class AdminPanel {
     }
   }
 
+  /**
+   * Initializes event listeners for the settings tab.
+   */
   initializeSettingsTabListeners() {
     // Only initialize once to prevent duplicate listeners
     if (this.initializedTabListeners.settings) {
@@ -615,6 +688,9 @@ class AdminPanel {
     this.initializeSettingsEventListeners();
   }
 
+  /**
+   * Initializes event listeners for annual exceptions in settings.
+   */
   initializeAnnualExceptionsSettingsEventListeners() {
     // Add yearly closure button
     const addAnnualClosureBtn = document.getElementById('add-annual-closure-btn-settings');
@@ -623,6 +699,9 @@ class AdminPanel {
     }
   }
 
+  /**
+   * Initializes all main event listeners for navigation and UI actions.
+   */
   initEventListeners() {
     // Navigation/tab switching logic here
     const tabLinks = document.querySelectorAll('.nav-link[data-section]');
@@ -675,6 +754,9 @@ class AdminPanel {
     });
   }
 
+  /**
+   * Shows the specified admin section and updates UI state.
+   */
   showSection(section) {
     // Force hide page title unless dashboard is selected
     const pageTitle = document.getElementById('page-title');
@@ -758,6 +840,9 @@ class AdminPanel {
     }
   }
 
+  /**
+   * Initializes event listeners for SMS management tab.
+   */
   initializeSMSEventListeners() {
     // Add event listener for the load unverified users button
     const loadUnverifiedBtn = document.getElementById('load-unverified-users-btn');
@@ -769,7 +854,7 @@ class AdminPanel {
     }
     
     // Add event listener for the send reminders button
-    const sendRemindersBtn = document.getElementById('send-reminders-btn');
+    const sendRemindersBtn = document.getElementById('send_reminders_btn');
     if (sendRemindersBtn && !sendRemindersBtn.hasAttribute('data-listener-added')) {
       sendRemindersBtn.addEventListener('click', () => {
         this.sendAppointmentReminders();
@@ -778,6 +863,9 @@ class AdminPanel {
     }
   }
 
+  /**
+   * Initializes send reminders tab functionality.
+   */
   initializeSendReminders() {
     console.log('Initializing send reminders functionality');
     // Any specific initialization for send reminders tab
@@ -785,6 +873,9 @@ class AdminPanel {
 }
 
 // Initialize admin panel when DOM is loaded
+/**
+ * Sets up the AdminPanel and global event listeners on DOMContentLoaded.
+ */
 document.addEventListener('DOMContentLoaded', () => {
   // Load upcoming appointments in dashboard
   try {

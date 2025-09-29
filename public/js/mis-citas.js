@@ -1,9 +1,17 @@
 /**
- * Mis Citas - User Appointments Management
- * Handles loading and displaying user appointments
+ * mis-citas.js
+ *
+ * Handles the user appointments ("Mis Citas") page logic:
+ * - Loads and displays the current user's appointments.
+ * - Supports filtering, canceling, rescheduling, and viewing appointment details.
+ * - Handles authentication and redirects to login if not authenticated.
+ * - Provides UI feedback for errors and actions.
  */
 
 class MisCitas {
+    /**
+     * Initializes MisCitas instance, sets up state, and triggers initial load.
+     */
     constructor() {
         this.appointments = [];
         this.currentFilter = 'all';
@@ -12,6 +20,9 @@ class MisCitas {
         this.init();
     }
 
+    /**
+     * Main initialization: checks auth, loads user data and appointments, sets up event listeners.
+     */
     async init() {
         // Check authentication
         if (!this.authManager.isLoggedIn()) {
@@ -25,14 +36,23 @@ class MisCitas {
         this.setupEventListeners();
     }
 
+    /**
+     * Returns the current user's auth token.
+     */
     getAuthToken() {
         return this.authManager.token;
     }
 
+    /**
+     * Redirects to the login page.
+     */
     redirectToLogin() {
         window.location.href = 'login.html';
     }
 
+    /**
+     * Loads the current user's profile data from the backend and displays it.
+     */
     async loadUserData() {
         try {
             const token = this.getAuthToken();
@@ -54,6 +74,9 @@ class MisCitas {
         }
     }
 
+    /**
+     * Updates the UI with the current user's info.
+     */
     displayUserInfo() {
         if (!this.currentUser) return;
 
@@ -67,6 +90,9 @@ class MisCitas {
         }
     }
 
+    /**
+     * Loads the user's appointments from the backend and updates the UI.
+     */
     async loadAppointments() {
         try {
             const token = this.getAuthToken();
@@ -92,11 +118,17 @@ class MisCitas {
         }
     }
 
+    /**
+     * Updates the UI with the current number of appointments.
+     */
     updateAppointmentCount() {
         const count = this.appointments.length;
         document.getElementById('appointmentCount').textContent = count;
     }
 
+    /**
+     * Renders the list of appointments in the UI, or shows a message if none exist.
+     */
     displayAppointments() {
         const container = document.getElementById('appointmentsContainer');
         const noAppointments = document.getElementById('noAppointments');
@@ -114,6 +146,9 @@ class MisCitas {
         container.innerHTML = filteredAppointments.map(appointment => this.createAppointmentCard(appointment)).join('');
     }
 
+    /**
+     * Returns the filtered list of appointments based on the current filter.
+     */
     filterAppointments() {
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -134,6 +169,9 @@ class MisCitas {
         }
     }
 
+    /**
+     * Creates the HTML for a single appointment card.
+     */
     createAppointmentCard(appointment) {
         const appointmentDate = new Date(appointment.date);
         const appointmentTime = appointment.time;
@@ -205,6 +243,9 @@ class MisCitas {
         `;
     }
 
+    /**
+     * Returns a config object for the given appointment status.
+     */
     getStatusConfig(status) {
         const configs = {
             pending: { text: 'Pendiente', class: 'warning' },
@@ -215,6 +256,9 @@ class MisCitas {
         return configs[status] || { text: 'Desconocido', class: 'secondary' };
     }
 
+    /**
+     * Formats a date as a localized string for display.
+     */
     formatDate(date) {
         return date.toLocaleDateString('es-ES', {
             weekday: 'long',
@@ -224,6 +268,9 @@ class MisCitas {
         });
     }
 
+    /**
+     * Formats a time string as a localized time for display.
+     */
     formatTime(timeString) {
         const [hours, minutes] = timeString.split(':');
         const time = new Date();
@@ -235,6 +282,9 @@ class MisCitas {
         });
     }
 
+    /**
+     * Formats a date-time string as a localized string for display.
+     */
     formatDateTime(dateTimeString) {
         const date = new Date(dateTimeString);
         return date.toLocaleDateString('es-ES', {
@@ -246,6 +296,9 @@ class MisCitas {
         });
     }
 
+    /**
+     * Sets up event listeners for appointment filter radio buttons.
+     */
     setupEventListeners() {
         // Filter buttons
         document.querySelectorAll('input[name="appointmentFilter"]').forEach(radio => {
@@ -256,6 +309,9 @@ class MisCitas {
         });
     }
 
+    /**
+     * Cancels an appointment by ID after user confirmation, then reloads appointments.
+     */
     async cancelAppointment(appointmentId) {
         if (!confirm('¿Estás seguro de que deseas cancelar esta cita?')) {
             return;
@@ -283,11 +339,17 @@ class MisCitas {
         }
     }
 
+    /**
+     * Redirects to the reschedule page for the given appointment ID.
+     */
     rescheduleAppointment(appointmentId) {
         // Redirect to reschedule page with appointment ID
         window.location.href = `reschedule.html?id=${appointmentId}`;
     }
 
+    /**
+     * Shows a modal with detailed information for the given appointment.
+     */
     async viewAppointmentDetails(appointmentId) {
         const appointment = this.appointments.find(apt => apt.id.toString() === appointmentId.toString());
         if (!appointment) return;
@@ -304,6 +366,9 @@ class MisCitas {
         });
     }
 
+    /**
+     * Creates and returns a Bootstrap modal element for appointment details.
+     */
     createDetailsModal(appointment) {
         const modal = document.createElement('div');
         modal.className = 'modal fade';
@@ -363,14 +428,23 @@ class MisCitas {
         return modal;
     }
 
+    /**
+     * Shows a success alert message in the UI.
+     */
     showSuccess(message) {
         this.showAlert(message, 'success');
     }
 
+    /**
+     * Shows an error alert message in the UI.
+     */
     showError(message) {
         this.showAlert(message, 'danger');
     }
 
+    /**
+     * Shows an alert message of the given type in the UI.
+     */
     showAlert(message, type) {
         const alertDiv = document.createElement('div');
         alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
@@ -394,12 +468,16 @@ class MisCitas {
 // Global functions for button onclick handlers
 let misCitas;
 
-// Initialize when DOM is loaded
+/**
+ * Initializes the MisCitas instance when the DOM is loaded.
+ */
 document.addEventListener('DOMContentLoaded', () => {
     misCitas = new MisCitas();
 });
 
-// Logout function (used by navigation)
+/**
+ * Logs out the user and redirects to the login page.
+ */
 function logout() {
     localStorage.removeItem('user_token');
     localStorage.removeItem('token');

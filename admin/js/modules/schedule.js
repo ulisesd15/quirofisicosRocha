@@ -1,37 +1,61 @@
-// admin/js/modules/schedule.js
-export class ScheduleModule {
-  
+/**
+ * schedule.js
+ *
+ * Handles business hours, holiday templates, and schedule exceptions for the admin panel.
+ * - Loads, displays, and saves business hours and schedule exceptions.
+ * - Manages holiday templates and yearly holiday generation.
+ * - Provides UI updates, event listeners, and error handling for schedule management.
+ * - Exports a ScheduleModule for use in the admin UI.
+ */
 
-  // --- END WEEKLY VIEW AUTO-ADVANCE FEATURE ---
+export class ScheduleModule {
+  /**
+   * Retrieves the current authentication token from localStorage.
+   */
   getAuthToken() {
-  return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+    return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
   }
 
 
+  /**
+   * Displays an error alert (currently uses alert()).
+   */
   showError(message) {
     alert(message);
   }
 
-  // showSuccess already defined above, remove duplicate
-
+  /**
+   * Shows the loading spinner for user actions.
+   */
   showLoading() {
     const spinner = document.getElementById('users-loading-spinner');
     if (spinner) spinner.style.display = 'block';
   }
 
+  /**
+   * Hides the loading spinner for user actions.
+   */
   hideLoading() {
     const spinner = document.getElementById('users-loading-spinner');
     if (spinner) spinner.style.display = 'none';
   }
 
+  /**
+   * Displays a success alert (currently uses alert()).
+   */
   showSuccess(message) {
     // Simple implementation using alert, can be replaced with a toast/notification
     alert(message);
   }
 
-  
+  /**
+   * Initializes ScheduleModule (currently empty).
+   */
   constructor() {}
 
+  /**
+   * Activates the first tab in the schedule section.
+   */
   activateFirstTab(sectionType) {
     // Example implementation: activate the first tab in the schedule section
     const firstTab = document.querySelector(`#${sectionType}-tabs .nav-link`);
@@ -45,6 +69,9 @@ export class ScheduleModule {
   }
   
 
+  /**
+   * Loads and initializes the schedule section UI and data.
+   */
   async loadScheduleSection() {
     console.log('Loading comprehensive schedule section');
 
@@ -77,6 +104,9 @@ export class ScheduleModule {
     console.log('Schedule section loading complete');
   }
 
+  /**
+   * Saves business hours to the backend.
+   */
   async saveBusinessHours() {
     // Collect business hours data from the form
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -107,7 +137,7 @@ export class ScheduleModule {
     }
     try {
       this.showLoading();
-      const response = await fetch('/admin/scheduled-business-hours', {
+  const response = await fetch('/api/admin/scheduled-business-hours', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -127,7 +157,9 @@ export class ScheduleModule {
     }
   }
 
-  
+  /**
+   * Initializes the effective date picker for business hours.
+   */
   initializeEffectiveDatePicker() {
     const datePicker = document.getElementById('schedule-effective-date');
     if (!datePicker) return;
@@ -150,6 +182,9 @@ export class ScheduleModule {
     this.updateScheduleStatus();
   }
 
+  /**
+   * Initializes event listeners for schedule-specific UI elements.
+   */
   initializeScheduleSpecificEventListeners() {
     // Generate holidays button for schedule section
     const generateBtnSchedule = document.getElementById('generate-holidays-btn-schedule');
@@ -180,6 +215,9 @@ export class ScheduleModule {
   }
 
 
+  /**
+   * Loads holiday templates from the backend.
+   */
   async loadHolidayTemplates(context = 'main') {
     try {
       const response = await fetch('/admin/schedule/holiday-templates', {
@@ -196,6 +234,9 @@ export class ScheduleModule {
     }
   }
 
+  /**
+   * Renders holiday templates in the UI.
+   */
   renderHolidayTemplates(templates, context = 'main') {
     const containerId = context === 'schedule' ? 'holiday-templates-list-schedule' : 'holiday-templates-list';
     const container = document.getElementById(containerId);
@@ -278,7 +319,9 @@ export class ScheduleModule {
     }).join('');
   }
 
-  
+  /**
+   * Generates yearly holidays and creates schedule exceptions.
+   */
   async generateYearlyHolidays() {
     const year = document.getElementById('holiday-year-select').value;
     
@@ -318,6 +361,9 @@ export class ScheduleModule {
     }
   }
 
+  /**
+   * Activates the first tab in the schedule section (duplicate for UI consistency).
+   */
   activateFirstTab() {
     const firstTab = document.querySelector('.nav-tabs .nav-item:first-child .nav-link');
     if (firstTab) {
@@ -325,6 +371,9 @@ export class ScheduleModule {
     }
   }
 
+  /**
+   * Sets up event listeners for holiday template actions.
+   */
   setupHolidayTemplateListeners() {
     // Save holiday template button
     const saveBtn = document.getElementById('save-holiday-template');
@@ -360,6 +409,9 @@ export class ScheduleModule {
     }
   }
 
+  /**
+   * Initializes main event listeners for schedule features.
+   */
   initScheduleEventListeners() {
     // Schedule Exceptions
     document.getElementById('save-schedule-exception')?.addEventListener('click', () => this.saveScheduleException());
@@ -391,6 +443,9 @@ export class ScheduleModule {
     document.getElementById('save-announcement')?.addEventListener('click', () => this.saveAnnouncement());
   }
 
+  /**
+   * Updates the schedule status badge and text based on selected date.
+   */
   updateScheduleStatus() {
     const datePicker = document.getElementById('schedule-effective-date');
     const statusBadge = document.getElementById('current-schedule-status');
@@ -419,6 +474,9 @@ export class ScheduleModule {
     }
   }
 
+  /**
+   * Initializes tab listeners for schedule section (prevents duplicates).
+   */
   initScheduleTabListeners() {
     // Only initialize once to prevent duplicate listeners
     if (this.initScheduleEventListeners) {
@@ -519,6 +577,9 @@ export class ScheduleModule {
     console.log('Schedule tab listeners initialized');
   }
 
+  /**
+   * Initializes subtab listeners for annual holidays.
+   */
   initializeAnnualHolidaysSubtabListeners() {
     // Holiday Templates Subtab
     const holidayTemplatesSubtab = document.getElementById('holiday-templates-subtab');
@@ -542,6 +603,9 @@ export class ScheduleModule {
     this.initializeScheduleSpecificEventListeners();
   }
 
+  /**
+   * Renders the business hours form in the UI.
+   */
   displayBusinessHours(businessHours) {
     const container = document.getElementById('business-hours-container');
     if (!container) {
@@ -695,6 +759,9 @@ export class ScheduleModule {
     }, 100);
   }
 
+  /**
+   * Sets up event listeners for business hours toggles.
+   */
   setupBusinessHoursEventListeners() {
     const container = document.getElementById('business-hours-container');
     if (!container) {
@@ -741,6 +808,9 @@ export class ScheduleModule {
     console.log('Business hours event listeners setup complete');
   }
 
+  /**
+   * Updates the UI for a specific day's business hours.
+   */
   updateBusinessHoursUI(day, isOpen, checkbox) {
     // Get related elements
     const startTime = document.getElementById(`start-${day}`);
@@ -790,6 +860,9 @@ export class ScheduleModule {
     console.log(`Business hours UI updated for ${day}: ${isOpen ? 'OPEN' : 'CLOSED'}`);
   }
 
+  /**
+   * Sets up event listeners for notification toggles.
+   */
   setupNotificationToggles() {
     // Email notifications toggle
     const emailToggle = document.getElementById('email_notifications');
@@ -824,6 +897,9 @@ export class ScheduleModule {
     }
   }
 
+  /**
+   * Loads business hours from the backend and displays them.
+   */
   async loadBusinessHours() {
     try {
       this.showLoading();
@@ -864,7 +940,9 @@ export class ScheduleModule {
   }
 
 
-  
+  /**
+   * Saves a schedule exception to the backend.
+   */
   async saveScheduleException() {
     console.log('saveScheduleException called');
     
@@ -929,6 +1007,9 @@ export class ScheduleModule {
     }
   }
 
+  /**
+   * Deletes a schedule exception by ID.
+   */
   async deleteScheduleException(id) {
     console.log('Delete schedule exception called with ID:', id);
     
@@ -955,6 +1036,9 @@ export class ScheduleModule {
     }
   }
 
+  /**
+   * Renders the list of schedule exceptions in the UI.
+   */
   renderScheduleExceptions(exceptions) {
     const container = document.getElementById('schedule-exceptions-list');
     if (!container) return;
@@ -999,7 +1083,9 @@ export class ScheduleModule {
     `).join('');
   }
 
-  
+  /**
+   * Saves a holiday template to the backend.
+   */
   async saveHolidayTemplate() {
     try {
       const templateId = document.getElementById('holiday-template-id').value;
@@ -1069,6 +1155,9 @@ export class ScheduleModule {
     }
   }
 
+  /**
+   * Loads a holiday template for editing and populates the form.
+   */
   async editHolidayTemplate(id) {
     try {
       // Get template data from the rendered list (or fetch from API if needed)
@@ -1123,6 +1212,9 @@ export class ScheduleModule {
     }
   }
 
+  /**
+   * Deletes a holiday template by ID.
+   */
   async deleteHolidayTemplate(id) {
     if (!confirm('¿Está seguro de que desea eliminar esta plantilla de feriado?')) {
       return;
@@ -1150,6 +1242,9 @@ export class ScheduleModule {
   }
 
 
+  /**
+   * Generates holidays for a given year and context.
+   */
   async generateHolidaysForYear(context = 'main') {
     const yearSelectId = context === 'schedule' ? 'holiday-year-select-schedule' : 'holiday-year-select-main';
     const year = document.getElementById(yearSelectId)?.value;
@@ -1180,6 +1275,9 @@ export class ScheduleModule {
     }
   }
 
+  /**
+   * Loads schedule exceptions for the manual exceptions tab.
+   */
   async loadScheduleExceptions() {
     // Load schedule exceptions for the manual exceptions tab
     try {
@@ -1210,6 +1308,9 @@ export class ScheduleModule {
   }
 
 
+  /**
+   * Resets the holiday template form to its default state.
+   */
   resetHolidayTemplateForm() {
     document.getElementById('holidayTemplateForm').reset();
     document.getElementById('holiday-template-id').value = '';

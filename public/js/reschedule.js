@@ -1,15 +1,15 @@
 /**
- * Quirofísicos Rocha - Appointment Reschedule System
- * Based on appointment booking system with reschedule modifications
- * 
- * Features:
- * - Responsive 7-day week view calendar
- * - Business hours integration with admin panel
- * - AM/PM time format for user-friendly display
- * - Timezone-safe date handling
- * - Current appointment display and prevention
- * - Real-time availability checking
+ * reschedule.js
+ *
+ * Handles the appointment rescheduling page logic for Quirofísicos Rocha:
+ * - Integrates the shared Calendar class for calendar and slot rendering.
+ * - Loads and displays the current appointment.
+ * - Prevents selecting the same date/time as the current appointment.
+ * - Handles form submission for rescheduling.
+ * - Provides user feedback and error handling.
  */
+
+import { Calendar } from './calendar.js';
 
 // ───────── DOM REFERENCES ─────────
 let calendarEl, timeCardsEl, bookingForm, selectedDateInput, selectedTimeInput;
@@ -19,63 +19,46 @@ let currentAppointmentAlert, currentAppointmentInfo;
 let currentAppointment = null;
 let appointmentId = null;
 
-// ───────── TIME CONSTANTS ─────────
-// This will be replaced by dynamic business hours from admin panel
-let BUSINESS_HOURS = [];
-let BUSINESS_DAYS = [];
-
-// Timezone-safe date formatting function
-const iso = d => {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const startOfWeek = (offset = 0) => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  // Adjust to start from Monday (1) instead of Sunday (0)
-  const dayOfWeek = d.getDay();
-  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // If Sunday, go back 6 days, otherwise go to previous Monday
-  d.setDate(d.getDate() + mondayOffset + (offset * 7));
-  return d;
-};
-
 // ───────── HELPER FUNCTIONS ─────────
+/**
+ * Returns the appointment date (ISO string) from an appointment object.
+ */
 function getAppointmentDate(appointment) {
   if (!appointment) return null;
   return appointment.appointment_date || appointment.date;
 }
-
+/**
+ * Returns the appointment time from an appointment object.
+ */
 function getAppointmentTime(appointment) {
   if (!appointment) return null;
   return appointment.appointment_time || appointment.time;
 }
-
+/**
+ * Returns the appointment date in ISO format (yyyy-mm-dd).
+ */
 function getAppointmentDateISO(appointment) {
   if (!appointment) return null;
   const dateStr = getAppointmentDate(appointment);
   if (!dateStr) return null;
-  
-  // If it's already an ISO string with time, extract just the date part
   if (dateStr.includes('T')) {
     return dateStr.split('T')[0];
   }
   return dateStr;
 }
 
-// ───────── USER LOGIC ─────────
-let weekOffset = 0, currentDateISO = null;
-
 // ───────── DOM INITIALIZATION ─────────
+/**
+ * Initializes the reschedule system on DOMContentLoaded:
+ * - Loads appointment, calendar, and sets up event handlers.
+ */
 document.addEventListener('DOMContentLoaded', async function() {
   console.log('🔄 Reschedule system loading...');
-  
+
   // Get appointment ID from URL
   const urlParams = new URLSearchParams(window.location.search);
   appointmentId = urlParams.get('id');
-  
+
   if (!appointmentId) {
     showNotification('ID de cita no encontrado', 'error');
     setTimeout(() => {
@@ -83,157 +66,103 @@ document.addEventListener('DOMContentLoaded', async function() {
     }, 2000);
     return;
   }
-  
+
   // Initialize DOM references
   initializeDOMReferences();
-  
+
   // Wait for AuthManager
   if (window.authManager) {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  
   // Load current appointment
   await loadCurrentAppointment();
-  
-  // Load business hours
-  await loadBusinessHours();
-  
-  // Initialize calendar system
-  initializeCalendarSystem();
-  
+  // Initialize Calendar instance
+  window.rescheduleCalendar = new Calendar();
+  // Render weekly calendar in the reschedule context
+  window.rescheduleCalendar.renderWeeklyCalendar('calendar');
+  // Override slot selection to prevent current appointment date/time
+  overrideCalendarSlotSelection();
   // Setup form submission
   setupFormSubmission();
-  
-  // Auto-select today's date for better UX (unless it's the current appointment date)
-  const today = new Date();
-  const todayISO = iso(today);
-  const currentAppointmentDate = currentAppointment ? getAppointmentDateISO(currentAppointment) : null;
-  
-  // If today isn't the current appointment date, auto-select it
-  if (todayISO !== currentAppointmentDate) {
-    setTimeout(() => {
-      const todayBtn = document.querySelector(`[data-date="${todayISO}"]`);
-      if (todayBtn && !todayBtn.disabled) {
-        console.log('🔄 Auto-selecting today:', todayISO);
-        selectDate(todayISO);
-      }
-    }, 1000);
-  }
-  
   console.log('🔄 Reschedule system ready');
 });
 
-function initializeDOMReferences() {
-  calendarEl = document.getElementById('calendar');
-  timeCardsEl = document.getElementById('timeCards');
-  bookingForm = document.getElementById('bookingForm');
-  selectedDateInput = document.getElementById('selectedDate');
-  selectedTimeInput = document.getElementById('selectedTime');
-  currentAppointmentAlert = document.getElementById('currentAppointmentAlert');
-  currentAppointmentInfo = document.getElementById('currentAppointmentInfo');
+/**
+ * Overrides Calendar slot selection to prevent selecting the current appointment's date/time.
+ */
+function overrideCalendarSlotSelection() {
+  const calendar = window.rescheduleCalendar;
+  if (!calendar) return;
+  // Patch the selectTimeSlot method
+  const originalSelectTimeSlot = calendar.selectTimeSlot.bind(calendar);
+  calendar.selectTimeSlot = function(time, btnElement) {
+    // Prevent selecting the current appointment's date/time
+    const selectedDate = this.selectedDate ? this.formatDate(this.selectedDate) : null;
+    if (
+      currentAppointment &&
+      getAppointmentDateISO(currentAppointment) === selectedDate &&
+      getAppointmentTime(currentAppointment) === time + ':00'
+    ) {
+      showNotification('No puedes seleccionar la misma fecha y hora de tu cita actual. Por favor elige otra.', 'warning');
+      return;
+    }
+    originalSelectTimeSlot(time, btnElement);
+    // Set the selected date/time in the form
+    if (selectedDateInput) selectedDateInput.value = selectedDate;
+    if (selectedTimeInput) selectedTimeInput.value = time;
+    // Enable form submission
+    const submitBtn = bookingForm?.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = false;
+  };
 }
 
 // ───────── CURRENT APPOINTMENT LOADING ─────────
+/**
+ * Loads the current appointment from the backend and displays info.
+ */
 async function loadCurrentAppointment() {
   try {
-    console.log('🔄 Loading current appointment:', appointmentId);
-    
-    const authToken = window.authManager && window.authManager.isLoggedIn() 
-      ? window.authManager.getToken() 
-      : (localStorage.getItem('user_token') || localStorage.getItem('token'));
-    
-    const headers = {
-      'Content-Type': 'application/json'
-    };
-    
-    if (authToken) {
-      headers['Authorization'] = `Bearer ${authToken}`;
-    }
-    
-    const response = await fetch(`/api/appointments-test/${appointmentId}`, {
-      headers: headers
+    const response = await fetch(`/api/appointments/${appointmentId}`, {
+      headers: window.authManager ? window.authManager.getAuthHeaders() : {}
     });
-
-    if (!response.ok) {
-      throw new Error('Error loading appointment');
-    }
-
-    currentAppointment = await response.json();
-    console.log('🔄 Current appointment loaded:', currentAppointment);
-    console.log('🔄 Appointment date field:', currentAppointment.date);
-    console.log('🔄 Appointment time field:', currentAppointment.time);
+    if (!response.ok) throw new Error('Error al cargar la cita actual');
     
+    const data = await response.json();
+    currentAppointment = data.appointment;
+    console.log('🔄 Current appointment loaded:', currentAppointment);
+    
+    // Display appointment info
     displayCurrentAppointmentInfo();
     
+    // Pre-fill date and time if rescheduling
+    if (currentAppointment) {
+      const dateISO = getAppointmentDateISO(currentAppointment);
+      const time = getAppointmentTime(currentAppointment);
+      selectedDateInput.value = dateISO;
+      selectedTimeInput.value = time;
+      
+      // Select the date in the calendar
+      selectDate(dateISO);
+      
+      // Load available time slots for the current appointment date
+      await loadTimeSlots(dateISO);
+    }
   } catch (error) {
     console.error('🔄 Error loading current appointment:', error);
-    showNotification('Error cargando la cita: ' + error.message, 'error');
+    showNotification('Error cargando la cita actual: ' + error.message, 'error');
   }
 }
-
+/**
+ * Displays the current appointment info in the UI.
+ */
 function displayCurrentAppointmentInfo() {
-  console.log('🔄 Attempting to display appointment info');
-  console.log('🔄 currentAppointment:', currentAppointment);
-  console.log('🔄 currentAppointmentInfo element:', currentAppointmentInfo);
-  
-  if (!currentAppointment) {
-    console.log('🔄 No current appointment data');
-    if (currentAppointmentInfo) {
-      currentAppointmentInfo.innerHTML = 'No se pudo cargar la información de la cita';
-    }
-    return;
-  }
-  
-  if (!currentAppointmentInfo) {
-    console.log('🔄 currentAppointmentInfo element not found');
-    return;
-  }
+  if (!currentAppointmentInfo) return;
   
   try {
-    // Handle different field names - the API returns 'date' and 'time', not 'appointment_date' and 'appointment_time'
-    const appointmentDateStr = currentAppointment.appointment_date || currentAppointment.date;
-    const appointmentTimeStr = currentAppointment.appointment_time || currentAppointment.time;
-    
-    console.log('🔄 Date string:', appointmentDateStr);
-    console.log('🔄 Time string:', appointmentTimeStr);
-    
-    // Parse the date properly (handle ISO date format)
-    let appointmentDate;
-    let formattedTime;
-    
-    if (appointmentDateStr.includes('T')) {
-      // ISO format with time - extract date part and use separate time
-      const dateOnly = appointmentDateStr.split('T')[0];
-      appointmentDate = new Date(dateOnly + 'T00:00:00');
-      
-      // Format time from the time field (e.g., "14:00:00" -> "14:00")  
-      if (appointmentTimeStr) {
-        const timeParts = appointmentTimeStr.split(':');
-        const hour = parseInt(timeParts[0]);
-        const minute = timeParts[1];
-        
-        // Convert to 12-hour format
-        const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        formattedTime = `${hour12}:${minute} ${ampm}`;
-      } else {
-        formattedTime = 'Hora no disponible';
-      }
-    } else {
-      // Date string format
-      appointmentDate = new Date(appointmentDateStr + 'T' + appointmentTimeStr);
-      formattedTime = appointmentDate.toLocaleTimeString('es-ES', {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    }
-    
-    const formattedDate = appointmentDate.toLocaleDateString('es-ES', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    const date = new Date(currentAppointment.appointment_date);
+    const time = currentAppointment.appointment_time || currentAppointment.time;
+    const formattedDate = date.toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+    const formattedTime = formatTime(time);
     
     currentAppointmentInfo.innerHTML = `
       <strong>Fecha actual:</strong> ${formattedDate}<br>
@@ -250,405 +179,10 @@ function displayCurrentAppointmentInfo() {
   }
 }
 
-// ───────── BUSINESS HOURS LOADING ─────────
-async function loadBusinessHours() {
-  try {
-  const response = await fetch('/api/business-hours', {
-      headers: window.authManager ? window.authManager.getAuthHeaders() : {}
-    });
-    if (response.ok) {
-      const data = await response.json();
-      BUSINESS_HOURS = data.business_hours || [];
-      BUSINESS_DAYS = BUSINESS_HOURS.filter(bh => bh.is_open).map(bh => bh.day_of_week);
-      console.log('✅ Business hours loaded:', BUSINESS_HOURS);
-    } else {
-      console.warn('⚠️ Could not load business hours, using defaults');
-      useDefaultBusinessHours();
-    }
-  } catch (error) {
-    console.error('❌ Error loading business hours:', error);
-    useDefaultBusinessHours();
-  }
-}
-
-function useDefaultBusinessHours() {
-  BUSINESS_HOURS = [
-    { day_of_week: 'monday', is_open: true, open_time: '09:00', close_time: '17:00' },
-    { day_of_week: 'tuesday', is_open: true, open_time: '09:00', close_time: '17:00' },
-    { day_of_week: 'wednesday', is_open: true, open_time: '09:00', close_time: '17:00' },
-    { day_of_week: 'thursday', is_open: true, open_time: '09:00', close_time: '17:00' },
-    { day_of_week: 'friday', is_open: true, open_time: '09:00', close_time: '17:00' },
-    { day_of_week: 'saturday', is_open: false, open_time: null, close_time: null },
-    { day_of_week: 'sunday', is_open: false, open_time: null, close_time: null }
-  ];
-  BUSINESS_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-}
-
-// ───────── CALENDAR SYSTEM ─────────
-function initializeCalendarSystem() {
-  // Initialize week view first
-  renderWeek();
-  
-  // Setup view switching
-  const weekViewRadio = document.getElementById('weekView');
-  const monthViewRadio = document.getElementById('monthView');
-  const weekViewContainer = document.getElementById('weekViewContainer');
-  const monthViewContainer = document.getElementById('monthViewContainer');
-  
-  if (weekViewRadio && monthViewRadio) {
-    weekViewRadio.addEventListener('change', function() {
-      if (this.checked) {
-        weekViewContainer.style.display = 'block';
-        monthViewContainer.style.display = 'none';
-      }
-    });
-    
-    monthViewRadio.addEventListener('change', function() {
-      if (this.checked) {
-        weekViewContainer.style.display = 'none';
-        monthViewContainer.style.display = 'block';
-        // Initialize monthly calendar if not already done
-        if (typeof initMonthlyCalendar === 'function') {
-          initMonthlyCalendar();
-        }
-      }
-    });
-  }
-}
-
-function renderWeek() {
-  if (!calendarEl) {
-    console.error('❌ Calendar element not found!');
-    return;
-  }
-  if (!BUSINESS_HOURS || BUSINESS_HOURS.length === 0) {
-    console.warn('⚠️ Business hours not loaded yet, using defaults');
-    BUSINESS_HOURS = getDefaultBusinessHours();
-  }
-  // --- Week navigation state ---
-  if (typeof window._WEEK_VIEW_OFFSET === 'undefined') window._WEEK_VIEW_OFFSET = 0;
-  let weekViewOffset = window._WEEK_VIEW_OFFSET;
-
-  // Helper: get Monday of week, offset by weekViewOffset
-  const getMondayOfWeek = (date, offset = 0) => {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = (day === 0 ? -6 : 1 - day); // Monday as start
-    d.setDate(d.getDate() + diff + offset * 7);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  };
-  // Helper: check if a day is fully booked
-  async function isFullyBooked(dayISO) {
-    const available = await fetchAvailableSlots(dayISO);
-    return available.length === 0;
-  }
-  // Helper: find if week has any available day
-  async function weekHasAvailable(monday) {
-    for (let d = 0; d < 7; d++) {
-      const day = new Date(monday);
-      day.setDate(monday.getDate() + d);
-      const dayISO = iso(day);
-      const dayOfWeek = getDayOfWeekString(day);
-      const businessDay = BUSINESS_HOURS.find(bh => bh.day_of_week === dayOfWeek);
-      if (!businessDay || !businessDay.is_open) continue;
-      if (!(await isFullyBooked(dayISO))) return true;
-    }
-    return false;
-  }
-  // --- Main rendering logic ---
-  (async () => {
-    let weekStart = getMondayOfWeek(new Date(), weekViewOffset);
-    // If this week is fully closed/booked, skip to next available week
-    let maxWeeks = 12, checked = 0;
-    while (!(await weekHasAvailable(weekStart)) && checked < maxWeeks) {
-      weekViewOffset++;
-      weekStart = getMondayOfWeek(new Date(), weekViewOffset);
-      checked++;
-    }
-    window._WEEK_VIEW_OFFSET = weekViewOffset;
-    // Build meta for 7 days
-    let daysMeta = [];
-    for (let d = 0; d < 7; d++) {
-      const day = new Date(weekStart);
-      day.setDate(weekStart.getDate() + d);
-      const dayISO = iso(day);
-      const dayOfWeek = getDayOfWeekString(day);
-      const businessDay = BUSINESS_HOURS.find(bh => bh.day_of_week === dayOfWeek);
-      let closed = !businessDay || !businessDay.is_open;
-      let fullyBooked = false;
-      if (!closed) fullyBooked = await isFullyBooked(dayISO);
-      daysMeta.push({ day, dayISO, dayOfWeek, closed, fullyBooked });
-    }
-    // --- Render 9 cards: < prev | 7 days | next > ---
-    const todayISO = iso(new Date());
-    const weekRow = document.createElement('div');
-    weekRow.className = 'd-flex justify-content-center align-items-center gap-2';
-
-    // Prev arrow
-    const prevBtn = document.createElement('button');
-    prevBtn.type = 'button';
-    prevBtn.className = 'btn btn-light week-arrow';
-    prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
-    prevBtn.title = 'Semana anterior';
-    prevBtn.disabled = weekViewOffset <= 0;
-    prevBtn.onclick = () => {
-      window._WEEK_VIEW_OFFSET = Math.max(0, weekViewOffset - 1);
-      renderWeek();
-    };
-    weekRow.appendChild(prevBtn);
-
-    // 7 day cards
-    daysMeta.forEach(({ day, dayISO, closed, fullyBooked, dayOfWeek }) => {
-      // Card wrapper
-      const card = document.createElement('div');
-      card.className = 'd-flex flex-column align-items-center';
-      // Button for date and day
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn calendar-day-btn d-flex flex-column align-items-center py-2';
-      btn.dataset.date = dayISO;
-      // Day of week abbreviation (short, Spanish)
-      const dayLabel = document.createElement('span');
-      dayLabel.className = 'small fw-bold';
-      dayLabel.textContent = day.toLocaleDateString('es-MX', { weekday: 'short' });
-      // Date MM/DD
-      const dateLabel = document.createElement('span');
-      dateLabel.textContent = `${String(day.getMonth() + 1).padStart(2, '0')}/${String(day.getDate()).padStart(2, '0')}`;
-      btn.appendChild(dayLabel);
-      btn.appendChild(dateLabel);
-      if (dayISO === todayISO) btn.classList.add('today');
-      if (closed) {
-        btn.classList.add('btn-secondary');
-        btn.disabled = true;
-        btn.title = 'Cerrado';
-      } else if (fullyBooked) {
-        btn.classList.add('btn-outline-secondary');
-        btn.disabled = true;
-        btn.title = 'Sin horarios disponibles';
-      } else {
-        btn.classList.add('btn-outline-primary');
-        btn.addEventListener('click', () => selectDay(dayISO));
-      }
-      if (currentDateISO === dayISO) btn.classList.add('selected');
-      // Assemble card
-      card.appendChild(btn);
-      weekRow.appendChild(card);
-    });
-
-    // Next arrow
-    const nextBtn = document.createElement('button');
-    nextBtn.type = 'button';
-    nextBtn.className = 'btn btn-light week-arrow';
-    nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
-    nextBtn.title = 'Semana siguiente';
-    nextBtn.onclick = () => {
-      window._WEEK_VIEW_OFFSET = weekViewOffset + 1;
-      renderWeek();
-    };
-    weekRow.appendChild(nextBtn);
-
-    calendarEl.innerHTML = '';
-    calendarEl.appendChild(weekRow);
-  })().catch(error => {
-    console.error('Error rendering week:', error);
-    calendarEl.innerHTML = '<div class="alert alert-danger text-center">Error al cargar el calendario semanal</div>';
-  });
-}
-// ...existing code...
-
-// ───────── WEEK NAVIGATION ─────────
-function changeWeek(direction) {
-  weekOffset += direction;
-  renderWeek();
-}
-
-// ───────── DATE SELECTION ─────────
-async function selectDate(dayISO) {
-  console.log('🔄 Date selected:', dayISO);
-  
-  // Check if this is the current appointment date
-  if (currentAppointment && getAppointmentDateISO(currentAppointment) === dayISO) {
-    showNotification('No puedes seleccionar la misma fecha de tu cita actual. Por favor elige una fecha diferente.', 'warning');
-    return;
-  }
-  
-  currentDateISO = dayISO;
-  selectedDateInput.value = dayISO;
-  
-  // Update visual selection - use the new button structure
-  document.querySelectorAll('.calendar-day-btn').forEach(btn => {
-    btn.classList.remove('selected', 'btn-primary');
-    if (!btn.disabled && !btn.classList.contains('bg-warning')) {
-      btn.classList.add('btn-outline-primary');
-    }
-  });
-  
-  // Find and select the clicked button
-  const selectedBtn = document.querySelector(`[data-date="${dayISO}"]`);
-  if (selectedBtn && !selectedBtn.disabled) {
-    selectedBtn.classList.remove('btn-outline-primary');
-    selectedBtn.classList.add('selected', 'btn-primary');
-  }
-  
-  // Load time slots
-  await loadTimeSlots(dayISO);
-}
-
-// ───────── TIME SLOTS ─────────
-async function loadTimeSlots(dayISO) {
-  if (!timeCardsEl) {
-    console.error('🔄 timeCardsEl not found');
-    return;
-  }
-  
-  console.log('🔄 Loading time slots for:', dayISO);
-  
-  try {
-    timeCardsEl.innerHTML = '<div class="col-12"><p class="text-muted mb-0">Cargando horarios disponibles...</p></div>';
-    
-    // Get available slots
-    const availableSlots = await fetchAvailableSlots(dayISO);
-    console.log('🔄 Available slots received:', availableSlots);
-    
-    if (availableSlots.length === 0) {
-      timeCardsEl.innerHTML = '<div class="col-12"><p class="text-muted mb-0">No hay horarios disponibles para esta fecha</p></div>';
-      return;
-    }
-    
-    let timeSlotsHTML = '';
-    availableSlots.forEach(timeSlot => {
-      console.log('🔄 Processing time slot:', timeSlot);
-      
-      // Check if this is the current appointment time
-      const isCurrentAppointmentTime = currentAppointment && 
-        getAppointmentDateISO(currentAppointment) === dayISO && 
-        getAppointmentTime(currentAppointment) === timeSlot + ':00';
-      
-      let btnClass = 'btn btn-outline-primary';
-      let disabled = '';
-      let warningText = '';
-      
-      if (isCurrentAppointmentTime) {
-        btnClass = 'btn btn-warning';
-        disabled = 'disabled';
-        warningText = '<br><small>Hora actual</small>';
-      }
-      
-      timeSlotsHTML += `
-        <div class="col-6 col-md-4 col-lg-3">
-          <button type="button" 
-                  class="${btnClass} w-100 time-slot" 
-                  onclick="selectTime('${timeSlot}')"
-                  ${disabled}>
-            ${formatTime(timeSlot)}${warningText}
-          </button>
-        </div>
-      `;
-    });
-    
-    timeCardsEl.innerHTML = timeSlotsHTML;
-    console.log('🔄 Time slots loaded, HTML updated:', timeSlotsHTML);
-    
-  } catch (error) {
-    console.error('🔄 Error loading time slots:', error);
-    timeCardsEl.innerHTML = '<div class="col-12"><p class="text-danger mb-0">Error cargando horarios disponibles</p></div>';
-  }
-}
-
-function selectTime(timeSlot) {
-  // Check if this is the current appointment time
-  if (currentAppointment && 
-      getAppointmentDateISO(currentAppointment) === currentDateISO && 
-      getAppointmentTime(currentAppointment) === timeSlot + ':00') {
-    showNotification('No puedes seleccionar la misma hora de tu cita actual. Por favor elige una hora diferente.', 'warning');
-    return;
-  }
-  
-  console.log('🔄 Time selected:', timeSlot);
-  
-  selectedTimeInput.value = timeSlot;
-  
-  // Update visual selection
-  document.querySelectorAll('.time-slot').forEach(btn => {
-    btn.classList.remove('btn-primary');
-    btn.classList.add('btn-outline-primary');
-  });
-  event.target.classList.remove('btn-outline-primary');
-  event.target.classList.add('btn-primary');
-  
-  // Enable form submission
-  const submitBtn = bookingForm.querySelector('button[type="submit"]');
-  if (submitBtn) {
-    submitBtn.disabled = false;
-  }
-}
-
-// ───────── AVAILABILITY FETCHING ─────────
-async function fetchAvailableSlots(dayISO) {
-  try {
-    console.log('🔄 Fetching available slots for:', dayISO);
-    const response = await fetch(`/api/available-slots/${dayISO}`);
-    if (!response.ok) {
-      console.error('Error fetching available slots, falling back to basic method');
-      return await fetchBasicAvailability(dayISO);
-    }
-    
-    const data = await response.json();
-    console.log('🔄 Available slots response:', data);
-    return data.availableSlots || [];
-  } catch (error) {
-    console.error('Error fetching available slots:', error);
-    return await fetchBasicAvailability(dayISO);
-  }
-}
-
-async function fetchBasicAvailability(dayISO) {
-  const selectedDate = new Date(dayISO);
-  const dayOfWeek = getDayOfWeekString(selectedDate);
-  
-  const businessDay = BUSINESS_HOURS.find(bh => bh.day_of_week === dayOfWeek);
-  
-  if (!businessDay || !businessDay.is_open) {
-    return [];
-  }
-
-  const allSlots = generateTimeSlots(businessDay.open_time, businessDay.close_time);
-  const taken = await fetchAppointments(dayISO);
-  let available = allSlots.filter(t => !taken.includes(t));
-  
-  // Filter out slots that are less than 30 minutes from now (only for today)
-  const now = new Date();
-  const today = now.toISOString().split('T')[0];
-  const thirtyMinutesFromNow = new Date(now.getTime() + (30 * 60 * 1000));
-  
-  if (dayISO === today) {
-    available = available.filter(timeSlot => {
-      const slotDateTime = new Date(`${dayISO}T${timeSlot}:00`);
-      return slotDateTime >= thirtyMinutesFromNow;
-    });
-  }
-  
-  return available;
-}
-
-async function fetchAppointments(dayISO) {
-  try {
-    const response = await fetch(`/api/appointments/date/${dayISO}`);
-    if (!response.ok) return [];
-    
-    const data = await response.json();
-    return data.appointments?.map(apt => {
-      const timeStr = apt.appointment_time || apt.time;
-      return timeStr?.substring(0, 5);
-    }) || [];
-  } catch (error) {
-    console.error('Error fetching appointments:', error);
-    return [];
-  }
-}
-
 // ───────── FORM SUBMISSION ─────────
+/**
+ * Sets up the form submission handler for rescheduling.
+ */
 function setupFormSubmission() {
   if (!bookingForm) return;
   
@@ -718,12 +252,210 @@ function setupFormSubmission() {
   });
 }
 
-// ───────── UTILITY FUNCTIONS ─────────
-function changeWeek(direction) {
-  weekOffset += direction;
-  renderWeek();
+// ───────── DATE SELECTION ─────────
+/**
+ * Handles selecting a date in the calendar and loads available slots.
+ */
+async function selectDate(dayISO) {
+  console.log('🔄 Date selected:', dayISO);
+  
+  // Check if this is the current appointment date
+  if (currentAppointment && getAppointmentDateISO(currentAppointment) === dayISO) {
+    showNotification('No puedes seleccionar la misma fecha de tu cita actual. Por favor elige una fecha diferente.', 'warning');
+    return;
+  }
+  
+  currentDateISO = dayISO;
+  selectedDateInput.value = dayISO;
+  
+  // Update visual selection - use the new button structure
+  document.querySelectorAll('.calendar-day-btn').forEach(btn => {
+    btn.classList.remove('selected', 'btn-primary');
+    if (!btn.disabled && !btn.classList.contains('bg-warning')) {
+      btn.classList.add('btn-outline-primary');
+    }
+  });
+  
+  // Find and select the clicked button
+  const selectedBtn = document.querySelector(`[data-date="${dayISO}"]`);
+  if (selectedBtn && !selectedBtn.disabled) {
+    selectedBtn.classList.remove('btn-outline-primary');
+    selectedBtn.classList.add('selected', 'btn-primary');
+  }
+  
+  // Load time slots
+  await loadTimeSlots(dayISO);
 }
 
+// ───────── TIME SLOTS ─────────
+/**
+ * Loads available time slots for a given date.
+ */
+async function loadTimeSlots(dayISO) {
+  if (!timeCardsEl) {
+    console.error('🔄 timeCardsEl not found');
+    return;
+  }
+  
+  console.log('🔄 Loading time slots for:', dayISO);
+  
+  try {
+    timeCardsEl.innerHTML = '<div class="col-12"><p class="text-muted mb-0">Cargando horarios disponibles...</p></div>';
+    
+    // Get available slots
+    const availableSlots = await fetchAvailableSlots(dayISO);
+    console.log('🔄 Available slots received:', availableSlots);
+    
+    if (availableSlots.length === 0) {
+      timeCardsEl.innerHTML = '<div class="col-12"><p class="text-muted mb-0">No hay horarios disponibles para esta fecha</p></div>';
+      return;
+    }
+    
+    let timeSlotsHTML = '';
+    availableSlots.forEach(timeSlot => {
+      console.log('🔄 Processing time slot:', timeSlot);
+      
+      // Check if this is the current appointment time
+      const isCurrentAppointmentTime = currentAppointment && 
+        getAppointmentDateISO(currentAppointment) === dayISO && 
+        getAppointmentTime(currentAppointment) === timeSlot + ':00';
+      
+      let btnClass = 'btn btn-outline-primary';
+      let disabled = '';
+      let warningText = '';
+      
+      if (isCurrentAppointmentTime) {
+        btnClass = 'btn btn-warning';
+        disabled = 'disabled';
+        warningText = '<br><small>Hora actual</small>';
+      }
+      
+      timeSlotsHTML += `
+        <div class="col-6 col-md-4 col-lg-3">
+          <button type="button" 
+                  class="${btnClass} w-100 time-slot" 
+                  onclick="selectTime('${timeSlot}')"
+                  ${disabled}>
+            ${formatTime(timeSlot)}${warningText}
+          </button>
+        </div>
+      `;
+    });
+    
+    timeCardsEl.innerHTML = timeSlotsHTML;
+    console.log('🔄 Time slots loaded, HTML updated:', timeSlotsHTML);
+    
+  } catch (error) {
+    console.error('🔄 Error loading time slots:', error);
+    timeCardsEl.innerHTML = '<div class="col-12"><p class="text-danger mb-0">Error cargando horarios disponibles</p></div>';
+  }
+}
+/**
+ * Handles selecting a time slot.
+ */
+function selectTime(timeSlot) {
+  // Check if this is the current appointment time
+  if (currentAppointment && 
+      getAppointmentDateISO(currentAppointment) === currentDateISO && 
+      getAppointmentTime(currentAppointment) === timeSlot + ':00') {
+    showNotification('No puedes seleccionar la misma hora de tu cita actual. Por favor elige una hora diferente.', 'warning');
+    return;
+  }
+  
+  console.log('🔄 Time selected:', timeSlot);
+  
+  selectedTimeInput.value = timeSlot;
+  
+  // Update visual selection
+  document.querySelectorAll('.time-slot').forEach(btn => {
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn-outline-primary');
+  });
+  event.target.classList.remove('btn-outline-primary');
+  event.target.classList.add('btn-primary');
+  
+  // Enable form submission
+  const submitBtn = bookingForm.querySelector('button[type="submit"]');
+  if (submitBtn) {
+    submitBtn.disabled = false;
+  }
+}
+
+// ───────── AVAILABILITY FETCHING ─────────
+/**
+ * Fetches available slots for a given date from the backend.
+ */
+async function fetchAvailableSlots(dayISO) {
+  try {
+    console.log('🔄 Fetching available slots for:', dayISO);
+    const response = await fetch(`/api/available-slots/${dayISO}`);
+    if (!response.ok) {
+      console.error('Error fetching available slots, falling back to basic method');
+      return await fetchBasicAvailability(dayISO);
+    }
+    
+    const data = await response.json();
+    console.log('🔄 Available slots response:', data);
+    return data.availableSlots || [];
+  } catch (error) {
+    console.error('Error fetching available slots:', error);
+    return await fetchBasicAvailability(dayISO);
+  }
+}
+/**
+ * Fallback: fetches available slots using basic logic if backend fails.
+ */
+async function fetchBasicAvailability(dayISO) {
+  const selectedDate = new Date(dayISO);
+  const dayOfWeek = getDayOfWeekString(selectedDate);
+  
+  const businessDay = BUSINESS_HOURS.find(bh => bh.day_of_week === dayOfWeek);
+  
+  if (!businessDay || !businessDay.is_open) {
+    return [];
+  }
+
+  const allSlots = generateTimeSlots(businessDay.open_time, businessDay.close_time);
+  const taken = await fetchAppointments(dayISO);
+  let available = allSlots.filter(t => !taken.includes(t));
+  
+  // Filter out slots that are less than 30 minutes from now (only for today)
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const thirtyMinutesFromNow = new Date(now.getTime() + (30 * 60 * 1000));
+  
+  if (dayISO === today) {
+    available = available.filter(timeSlot => {
+      const slotDateTime = new Date(`${dayISO}T${timeSlot}:00`);
+      return slotDateTime >= thirtyMinutesFromNow;
+    });
+  }
+  
+  return available;
+}
+/**
+ * Fetches all appointments for a given date.
+ */
+async function fetchAppointments(dayISO) {
+  try {
+    const response = await fetch(`/api/appointments/date/${dayISO}`);
+    if (!response.ok) return [];
+    
+    const data = await response.json();
+    return data.appointments?.map(apt => {
+      const timeStr = apt.appointment_time || apt.time;
+      return timeStr?.substring(0, 5);
+    }) || [];
+  } catch (error) {
+    console.error('Error fetching appointments:', error);
+    return [];
+  }
+}
+
+// ───────── UTILITY FUNCTIONS ─────────
+/**
+ * Generates 30-minute time slots between open and close times.
+ */
 function generateTimeSlots(openTime, closeTime) {
   const slots = [];
   const [openHour, openMinute] = openTime.split(':').map(Number);
@@ -745,12 +477,16 @@ function generateTimeSlots(openTime, closeTime) {
   
   return slots;
 }
-
+/**
+ * Returns the day of week string for a JS Date.
+ */
 function getDayOfWeekString(date) {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   return days[date.getDay()];
 }
-
+/**
+ * Formats a time string as AM/PM.
+ */
 function formatTime(timeString) {
   const [hours, minutes] = timeString.split(':');
   const hour24 = parseInt(hours);
@@ -758,7 +494,9 @@ function formatTime(timeString) {
   const ampm = hour24 >= 12 ? 'PM' : 'AM';
   return `${hour12}:${minutes} ${ampm}`;
 }
-
+/**
+ * Shows a notification message in the UI.
+ */
 function showNotification(message, type = 'info') {
   console.log(`🔄 Notification (${type}):`, message);
   

@@ -1,5 +1,19 @@
+/**
+ * userVerification.js
+ *
+ * Handles user verification logic for the admin panel.
+ * - Fetches and displays unverified users.
+ * - Allows admin to verify or reject users.
+ * - Provides UI updates for verification actions.
+ * - Includes appointment management for pending approvals.
+ * - Exports a singleton instance for use in the admin UI.
+ */
+
 export class UserVerificationModule {
-  // Verify a user and refresh the list
+  /**
+   * Verifies a user by ID and refreshes the unverified users list.
+   * @param {number} id - The ID of the user to verify.
+   */
   async verifyUser(id) {
     if (!confirm('¿Estás seguro de que quieres verificar este usuario?')) return;
     try {
@@ -17,7 +31,9 @@ export class UserVerificationModule {
       this.showNotification('Error verificando el usuario', 'error');
     }
   }
-  // Fetch and display unverified users
+  /**
+   * Fetches and displays the list of unverified users.
+   */
   async loadUnverifiedUsers() {
     try {
       const response = await fetch('/api/admin/users/unverified', {
@@ -34,7 +50,10 @@ export class UserVerificationModule {
     }
   }
 
-  // Render unverified users list in the correct container
+  /**
+   * Renders the unverified users list in the UI container.
+   * @param {Array} users - The list of unverified users.
+   */
   displayUnverifiedUsers(users) {
     const container = document.getElementById('unverified-users');
     if (!container) return;
@@ -71,7 +90,9 @@ export class UserVerificationModule {
     `;
     container.appendChild(table);
   }
-  // Setup button and auto-refresh for unverified users
+  /**
+   * Sets up UI for unverified users, including refresh button and auto-refresh.
+   */
   setupUnverifiedUsersUI() {
     const refreshBtn = document.getElementById('load-unverified-users-btn');
     if (refreshBtn) {
@@ -86,14 +107,20 @@ export class UserVerificationModule {
     // Initial load
     this.loadUnverifiedUsers();
   }
-  // Dynamically update the send-reminders-dynamic container
+  /**
+   * Updates the send-reminders-dynamic container with provided HTML.
+   * @param {string} html - The HTML content to update the container with.
+   */
   updateSendRemindersContent(html) {
     const container = document.getElementById('send-reminders-dynamic');
     if (container) {
       container.innerHTML = html;
     }
   }
-  // Render appointments table
+  /**
+   * Renders the appointments table in the UI.
+   * @param {Array} appointments - The list of appointments to display.
+   */
   displayAppointments(appointments) {
     const tbody = document.getElementById('appointments-table');
     
@@ -135,6 +162,10 @@ export class UserVerificationModule {
     `).join('');
   }
 
+  /**
+   * Deletes an appointment by ID and refreshes the section.
+   * @param {number} id - The ID of the appointment to delete.
+   */
   async deleteAppointment(id) {
     if (!confirm('¿Estás seguro de que quieres eliminar esta cita?')) return;
 
@@ -157,6 +188,9 @@ export class UserVerificationModule {
     }
   }
 
+  /**
+   * Fetches and displays pending appointments for approval.
+   */
   async displayPendingAppointments() {
     try {
       const response = await fetch('/api/admin/appointments/pending', {
@@ -214,6 +248,9 @@ export class UserVerificationModule {
     }
   }
 
+  /**
+   * Sets up the UI for unverified users (alternative version).
+   */
   async setupUnverifiedUsersUI() {
     const container = document.getElementById('unverified-users');
     if (!container) return;
@@ -249,9 +286,12 @@ export class UserVerificationModule {
     }
   }
 
-  }
+}
 
 // Initialize module and UI wiring for user verification section
+/**
+ * Sets up the userVerificationModule and event listeners on DOMContentLoaded.
+ */
 window.userVerificationModule = new UserVerificationModule();
 document.addEventListener('DOMContentLoaded', function() {
   const showBtn = document.getElementById('show-unverified-users-btn');

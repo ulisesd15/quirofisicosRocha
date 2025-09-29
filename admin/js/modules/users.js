@@ -1,4 +1,17 @@
+/**
+ * users.js
+ *
+ * Handles user management logic for the admin panel.
+ * - Fetches, displays, edits, verifies, and deletes users.
+ * - Supports pagination, filtering, and role-based access control.
+ * - Provides UI updates for user actions and error handling.
+ * - Exports a singleton UsersModule for use in the admin UI.
+ */
+
 export class UsersModule {
+  /**
+   * Loads unverified users and displays them in the UI.
+   */
   async loadUnverifiedUsers() {
     if (!this.isAdmin()) {
       this.showError('Acceso denegado. Solo administradores pueden ver usuarios no verificados.');
@@ -19,6 +32,9 @@ export class UsersModule {
     }
   }
 
+  /**
+   * Renders the unverified users table in the UI.
+   */
   displayUnverifiedUsers(users) {
     const tableBody = document.getElementById('unverified-users-table');
     if (!tableBody) return;
@@ -38,6 +54,9 @@ export class UsersModule {
     });
   }
 
+  /**
+   * Verifies a user by ID and refreshes the unverified users list.
+   */
   async verifyUser(id) {
     if (!this.isAdmin()) {
       this.showError('Acceso denegado. Solo administradores pueden verificar usuarios.');
@@ -58,31 +77,52 @@ export class UsersModule {
       this.showError('Error verificando el usuario');
     }
   }
+  /**
+   * Initializes UsersModule with default pagination settings.
+   */
   constructor() {
     this.currentPage = 1;
     this.itemsPerPage = 10;
   }
 
+  /**
+   * Retrieves the current authentication token from localStorage.
+   */
   getAuthToken() {
     return localStorage.getItem('token') || localStorage.getItem('token') || '';
   }
 
+  /**
+   * Retrieves the current user's role from localStorage.
+   */
   getUserRole() {
     return localStorage.getItem('user_role') || '';
   }
 
+  /**
+   * Checks if the current user is an admin.
+   */
   isAdmin() {
     return this.getUserRole() === 'admin';
   }
 
+  /**
+   * Displays an error alert message in the UI.
+   */
   showError(message) {
     this.showAlert(message, 'danger');
   }
 
+  /**
+   * Displays a success alert message in the UI.
+   */
   showSuccess(message) {
     this.showAlert(message, 'success');
   }
 
+  /**
+   * Displays an alert message of a given type in the UI.
+   */
   showAlert(message, type = 'info') {
     let alertContainer = document.getElementById('users-alert-container');
     if (!alertContainer) {
@@ -100,16 +140,25 @@ export class UsersModule {
     }, 3000);
   }
 
+  /**
+   * Shows the loading spinner for user actions.
+   */
   showLoading() {
     const spinner = document.getElementById('users-loading-spinner');
     if (spinner) spinner.style.display = 'block';
   }
 
+  /**
+   * Hides the loading spinner for user actions.
+   */
   hideLoading() {
     const spinner = document.getElementById('users-loading-spinner');
     if (spinner) spinner.style.display = 'none';
   }
 
+  /**
+   * Deletes a user by ID and refreshes the users list.
+   */
   async deleteUser(id) {
     if (!this.isAdmin()) {
       this.showError('Acceso denegado. Solo administradores pueden eliminar usuarios.');
@@ -132,6 +181,9 @@ export class UsersModule {
     }
   }
 
+  /**
+   * Saves changes to a user after editing.
+   */
   async saveUserChanges() {
     if (!this.isAdmin()) {
       this.showError('Acceso denegado. Solo administradores pueden actualizar usuarios.');
@@ -164,6 +216,9 @@ export class UsersModule {
     }
   }
 
+  /**
+   * Loads a user's data into the edit modal for editing.
+   */
   async editUser(id) {
     if (!this.isAdmin()) {
       this.showError('Acceso denegado. Solo administradores pueden editar usuarios.');
@@ -191,6 +246,9 @@ export class UsersModule {
     }
   }
 
+  /**
+   * Loads users with pagination and filtering, and displays them in the UI.
+   */
   async loadUsers() {
     if (!this.isAdmin()) {
       this.showError('Acceso denegado. Solo administradores pueden ver usuarios.');
@@ -221,6 +279,9 @@ export class UsersModule {
     }
   }
 
+  /**
+   * Renders the users table in the UI.
+   */
   displayUsers(users) {
     const usersTableBody = document.getElementById('users-table');
     if (!usersTableBody) return;
@@ -249,6 +310,9 @@ export class UsersModule {
     });
   }
 
+  /**
+   * Updates the displayed total user count in the UI.
+   */
   updateUsersCount(count) {
     const countElement = document.getElementById('users-total-count');
     if (countElement) {
@@ -256,10 +320,16 @@ export class UsersModule {
     }
   }
 
+  /**
+   * Shows the add user modal (not yet implemented).
+   */
   showAddUserModal() {
     alert('Funcionalidad de agregar usuario - pendiente de implementar');
   }
 
+  /**
+   * Clears user search filters and reloads the users list.
+   */
   clearUsersFilters() {
     const searchInput = document.getElementById('users-search');
     if (searchInput) searchInput.value = '';

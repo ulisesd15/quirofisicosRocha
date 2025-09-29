@@ -1,14 +1,21 @@
-
+/**
+ * apiRoutes.js
+ *
+ * Handles all public and authenticated API endpoints for the Quirofísicos Rocha backend.
+ * - Provides business hours, slot availability, appointments, schedule exceptions, and calendar merging logic.
+ * - Supports both authenticated and guest users for appointment creation and queries.
+ * - Implements robust merging of business hours, overrides, holidays, and exceptions for calendar display.
+ * - Exports an Express router for use in the main server.
+ */
 
 const express = require('express');
 const db = require('../config/connections');
 const router = express.Router();
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const authenticateToken = require('../middleware/authenticateToken');
-const JWT_SECRET = process.env.JWT_SECRET;
 
-// Returns available slots for a given date using business hours and appointments
+/**
+ * Generates 30-minute time slots between open and close times.
+ */
 function generateTimeSlots(openTime, closeTime) {
   const slots = [];
   const [openHour, openMin] = openTime.split(':').map(Number);
@@ -27,7 +34,85 @@ function generateTimeSlots(openTime, closeTime) {
   return slots;
 }
 
-// Get public clinic settings for display (name, address, phone, email)
+/**
+ * Returns available slots for a week (Monday-Sunday) given a week_start date (YYYY-MM-DD).
+ */
+router.get('/slots', async (req, res) => {
+  const weekStart = req.query.week_start;
+  if (!weekStart) return res.status(400).json({ error: 'Missing week_start' });
+  const startDate = new Date(weekStart);
+  if (isNaN(startDate)) return res.status(400).json({ error: 'Invalid week_start' });
+  // Build array of 7 dates (Mon-Sun)
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(startDate);
+    d.setDate(startDate.getDate() + i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  // Get day names for each date
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  try {
+    // 1. Get scheduled business hours for all days in week
+    const weekDayNames = days.map(d => dayNames[new Date(d).getDay()]);
+    const placeholders = weekDayNames.map(() => '?').join(',');
+    const bhQuery = `
+      SELECT * FROM scheduled_business_hours
+      WHERE LOWER(day_of_week) IN (${placeholders})
+        AND effective_date <= ?
+        AND is_active = 1
+      ORDER BY effective_date DESC
+    `;
+    db.query(bhQuery, [...weekDayNames, days[6]], (err, results) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      // Map most recent override for each day
+      const bhMap = {};
+      for (const dow of weekDayNames) {
+        const overrides = results.filter(r => (r.day_of_week || '').toLowerCase() === dow);
+        if (overrides.length > 0) bhMap[dow] = overrides[0];
+      }
+      // 2. Get all appointments for the week
+      db.query(
+        'SELECT date, time FROM appointments WHERE date IN (?) AND status IN ("pending", "confirmed")',
+        [days],
+        (err2, appts) => {
+          if (err2) return res.status(500).json({ error: 'Database error' });
+          // 3. Build slots for each day
+          const slotsByDay = {};
+          for (let i = 0; i < days.length; i++) {
+            const date = days[i];
+            const dow = weekDayNames[i];
+            const bh = bhMap[dow];
+            if (!bh || !bh.is_open) {
+              slotsByDay[date] = [];
+              continue;
+            }
+            const allSlots = generateTimeSlots(bh.open_time, bh.close_time);
+            const taken = appts.filter(a => a.date === date).map(a => a.time);
+            let available = allSlots.filter(t => !taken.includes(t));
+            // Filter out slots less than 30 min from now (if today)
+            const now = new Date();
+            const todayISO = now.toISOString().split('T')[0];
+            if (date === todayISO) {
+              const thirtyMinFromNow = new Date(now.getTime() + 30 * 60 * 1000);
+              available = available.filter(timeSlot => {
+                const slotDateTime = new Date(`${date}T${timeSlot}:00`);
+                return slotDateTime >= thirtyMinFromNow;
+              });
+            }
+            slotsByDay[date] = available;
+          }
+          res.json({ slots: slotsByDay });
+        }
+      );
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * Returns public clinic settings (name, address, phone, email).
+ */
 router.get('/clinic-settings', (req, res) => {
   const keys = ['clinic_name', 'clinic_address', 'clinic_phone', 'clinic_email', 'clinic_description'];
   const placeholders = keys.map(() => '?').join(',');
@@ -45,12 +130,18 @@ router.get('/clinic-settings', (req, res) => {
   });
 });
 
+/**
+ * Returns available slots for a specific date.
+ */
 router.get('/available-slots/:date', async (req, res) => {
   const dayISO = req.params.date;
-  const dateObj = new Date(dayISO);
+  // Parse as local date to avoid timezone issues
+  const [year, month, day] = dayISO.split('-').map(Number);
+  const dateObj = new Date(year, month - 1, day);
   if (isNaN(dateObj)) return res.status(400).json({ availableSlots: [] });
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const dayOfWeek = days[dateObj.getDay()];
+  console.log(`[API] /available-slots/${dayISO} | dayOfWeek: ${dayOfWeek}`);
   try {
     // Get the most recent scheduled business hours for this day_of_week and date
     const bhQuery = `
@@ -62,14 +153,26 @@ router.get('/available-slots/:date', async (req, res) => {
       LIMIT 1
     `;
     db.query(bhQuery, [dayOfWeek, dayISO], (err, results) => {
-      if (err || !results || results.length === 0) return res.json({ availableSlots: [] });
+      if (err || !results || results.length === 0) {
+        console.log(`[API] No business hours found for ${dayOfWeek} on ${dayISO}`);
+        return res.json({ availableSlots: [] });
+      }
       const bh = results[0];
-      if (!bh.is_open) return res.json({ availableSlots: [] });
+      console.log(`[API] Business hours for ${dayOfWeek} on ${dayISO}:`, bh);
+      if (!bh.is_open) {
+        console.log(`[API] Day is closed (is_open=0) for ${dayOfWeek} on ${dayISO}`);
+        return res.json({ availableSlots: [] });
+      }
       const allSlots = generateTimeSlots(bh.open_time, bh.close_time);
+      console.log(`[API] All possible slots:`, allSlots);
       // Get taken appointments
       db.query('SELECT time FROM appointments WHERE date = ? AND status IN ("pending", "confirmed")', [dayISO], (err2, takenRows) => {
-        if (err2) return res.json({ availableSlots: [] });
+        if (err2) {
+          console.log(`[API] Error fetching appointments for ${dayISO}:`, err2);
+          return res.json({ availableSlots: [] });
+        }
         const taken = takenRows.map(r => r.time);
+        console.log(`[API] Taken slots for ${dayISO}:`, taken);
         // Filter out taken slots
         let available = allSlots.filter(t => !taken.includes(t));
         // Filter out slots less than 30 min from now (if today)
@@ -81,7 +184,9 @@ router.get('/available-slots/:date', async (req, res) => {
             const slotDateTime = new Date(`${dayISO}T${timeSlot}:00`);
             return slotDateTime >= thirtyMinFromNow;
           });
+          console.log(`[API] Available slots after 30min filter:`, available);
         }
+        console.log(`[API] Final available slots for ${dayISO}:`, available);
         res.json({ availableSlots: available });
       });
     });
@@ -90,8 +195,9 @@ router.get('/available-slots/:date', async (req, res) => {
   }
 });
 
-// --- ROUTES ---
-// Public endpoint: Get active schedule exceptions for calendar/frontend
+/**
+ * Returns all active schedule exceptions for the calendar/frontend.
+ */
 router.get('/schedule-exceptions', (req, res) => {
   db.query('SELECT * FROM schedule_exceptions WHERE is_active = TRUE ORDER BY start_date', (err, results) => {
     if (err) {
@@ -102,13 +208,18 @@ router.get('/schedule-exceptions', (req, res) => {
   });
 });
 
-// Get Google Maps API key for frontend
+/**
+ * Returns the Google Maps API key for the frontend.
+ */
 router.get('/config/maps-key', (req, res) => {
   res.json({ 
     apiKey: process.env.GOOGLE_MAPS_API_KEY || null 
   });
 });
 
+/**
+ * Returns all business hours (for admin/configuration).
+ */
 router.get('/business-hours', (req, res) => {
   db.query(`
     SELECT 
@@ -131,7 +242,9 @@ router.get('/business-hours', (req, res) => {
   });
 });
 
-// Get business hours for a specific date (uses scheduled-business-hours if available)
+/**
+ * Returns business hours for a specific date (uses scheduled-business-hours if available).
+ */
 router.get('/business-hours/:date', (req, res) => {
   const dayISO = req.params.date;
   const dateObj = new Date(dayISO);
@@ -183,7 +296,9 @@ router.get('/business-hours/:date', (req, res) => {
   });
 });
 
-//get all appointments
+/**
+ * Returns all appointments (authenticated).
+ */
 router.get('/appointments', authenticateToken, (req, res) => {
   db.query('SELECT * FROM appointments', (err, results) => {
     if (err) return res.status(500).json(err);
@@ -191,7 +306,9 @@ router.get('/appointments', authenticateToken, (req, res) => {
   });
 }); 
 
-// Create new appointment (allow both authenticated and guest users)
+/**
+ * Creates a new appointment (supports guest and authenticated users).
+ */
 router.post('/appointments', (req, res) => {
   let { full_name, email, phone, date, time, note, user_id } = req.body;
 
@@ -247,8 +364,10 @@ router.post('/appointments', (req, res) => {
   });
 });
 
-// Update appointment
-router.put('/appointments/:id', authenticateToken,(req, res) => {
+/**
+ * Updates an appointment (authenticated, user or admin).
+ */
+router.put('/appointments/:id', authenticateToken, (req, res) => {
   const { full_name, email, phone, date, time, note } = req.body;
   const appointmentId = req.params.id;
   const userId = req.user.id;
@@ -283,7 +402,9 @@ router.put('/appointments/:id', authenticateToken,(req, res) => {
   });
 });
 
-// Get user's own appointments (for "Mis Citas" page) - MUST come before :id route
+/**
+ * Returns the authenticated user's own appointments.
+ */
 router.get('/appointments/my-appointments', authenticateToken, (req, res) => {
   const userId = req.user.id;
   const query = `
@@ -303,7 +424,9 @@ router.get('/appointments/my-appointments', authenticateToken, (req, res) => {
   });
 });
 
-// Get single appointment by ID (for authenticated users)
+/**
+ * Returns a single appointment by ID (authenticated, user or admin).
+ */
 router.get('/appointments/:id', authenticateToken, (req, res) => {
   const appointmentId = req.params.id;
   const userId = req.user.id;
@@ -327,7 +450,9 @@ router.get('/appointments/:id', authenticateToken, (req, res) => {
   });
 });
 
-// Test endpoint for reschedule (temporarily without auth for debugging)
+/**
+ * Test endpoint for reschedule (no auth, for debugging).
+ */
 router.get('/appointments-test/:id', (req, res) => {
   const appointmentId = req.params.id;
   
@@ -341,9 +466,9 @@ router.get('/appointments-test/:id', (req, res) => {
   });
 });
 
-// Reschedule an appointment
-
-// Get appointments by date (public endpoint for checking availability)
+/**
+ * Returns minimal info for appointments by date (public, for availability checking).
+ */
 router.get('/appointments/date/:date', (req, res) => {
   const date = req.params.date;
   // Only return minimal info needed for availability checking
@@ -353,7 +478,9 @@ router.get('/appointments/date/:date', (req, res) => {
   });
 });
 
-// Get full appointments by date (admin/authenticated endpoint)
+/**
+ * Returns full appointments by date (authenticated).
+ */
 router.get('/appointments/date/:date/full', authenticateToken, (req, res) => {
   const date = req.params.date;
   db.query('SELECT * FROM appointments WHERE date = ?', [date], (err, results) => {
@@ -362,8 +489,10 @@ router.get('/appointments/date/:date/full', authenticateToken, (req, res) => {
   });
 });
 
-// Get appointments by user ID
-router.get('/appointments/user/:userId', authenticateToken,(req, res) => {
+/**
+ * Returns appointments by user ID (authenticated).
+ */
+router.get('/appointments/user/:userId', authenticateToken, (req, res) => {
   const userId = req.params.userId;
   db.query('SELECT * FROM appointments WHERE user_id = ?', [userId], (err, results) => {
     if (err) return res.status(500).json(err);
@@ -371,8 +500,10 @@ router.get('/appointments/user/:userId', authenticateToken,(req, res) => {
   });
 });
 
-// Get appointments by user ID and date
-router.get('/appointments/user/:userId/date/:date', authenticateToken,(req, res) => {
+/**
+ * Returns appointments by user ID and date (authenticated).
+ */
+router.get('/appointments/user/:userId/date/:date', authenticateToken, (req, res) => {
   const userId = req.params.userId;
   const date = req.params.date;
   db.query('SELECT * FROM appointments WHERE user_id = ? AND date = ?', [userId, date], (err, results) => {
@@ -381,8 +512,10 @@ router.get('/appointments/user/:userId/date/:date', authenticateToken,(req, res)
   });
 });
 
-// Get appointments by date and time
-router.get('/appointments/date/:date/time/:time', authenticateToken,(req, res) => {
+/**
+ * Returns appointments by date and time (authenticated).
+ */
+router.get('/appointments/date/:date/time/:time', authenticateToken, (req, res) => {
   const date = req.params.date;
   const time = req.params.time;
   db.query('SELECT * FROM appointments WHERE date = ? AND time = ?', [date, time], (err, results) => {
@@ -391,7 +524,9 @@ router.get('/appointments/date/:date/time/:time', authenticateToken,(req, res) =
   });
 });
 
-// Cancel appointment (user can cancel their own appointments) - MUST come before :id route
+/**
+ * Cancels an appointment (user can cancel their own appointments).
+ */
 router.put('/appointments/:id/cancel', authenticateToken, (req, res) => {
   const appointmentId = req.params.id;
   const userId = req.user.id;
@@ -421,147 +556,20 @@ router.put('/appointments/:id/cancel', authenticateToken, (req, res) => {
   });
 });
 
-// Delete appointment
-router.delete('/appointments/:id', authenticateToken,(req, res) => {
+/**
+ * Deletes an appointment (authenticated).
+ */
+router.delete('/appointments/:id', authenticateToken, (req, res) => {
   db.query('DELETE FROM appointments WHERE id = ?', [req.params.id], (err) => {
     if (err) return res.status(500).json(err);
     res.sendStatus(204);
   });
 });
 
-// Replace the existing /login route with /auth/login
-router.post('/auth/login', (req, res) => {
-  const { email, password } = req.body;
-  
-  console.log('🔐 Login attempt for:', email);
-
-  db.query(
-    'SELECT * FROM users WHERE email = ?',
-    [email],
-    (err, results) => {
-      if (err) {
-        console.error('Database error during login:', err);
-        return res.status(500).json({ 
-          success: false,
-          message: 'Error del servidor' 
-        });
-      }
-      
-      if (results.length === 0) {
-        console.log('❌ No user found with email:', email);
-        return res.status(401).json({ 
-          success: false,
-          message: 'Credenciales inválidas' 
-        });
-      }
-      
-      const user = results[0];
-      console.log('✅ User found:', { id: user.id, email: user.email, role: user.role });
-
-      bcrypt.compare(password, user.password, (err, isMatch) => {
-        if (err) {
-          console.error('Bcrypt error:', err);
-          return res.status(500).json({ 
-            success: false,
-            message: 'Error del servidor' 
-          });
-        }
-
-        if (!isMatch) {
-          console.log('❌ Password mismatch for user:', email);
-          return res.status(401).json({ 
-            success: false,
-            message: 'Credenciales inválidas' 
-          });
-        }
-
-        const token = jwt.sign({ 
-          id: user.id, 
-          email: user.email, 
-          role: user.role || 'user' 
-  }, JWT_SECRET, { expiresIn: '2h' });
-        
-        console.log('✅ Login successful for:', email);
-
-        res.status(200).json({
-          success: true,
-          message: 'Inicio de sesión exitoso',
-          user: {
-            id: user.id,
-            email: user.email,
-            full_name: user.full_name,
-            role: user.role || 'user'
-          },
-          token: token
-        });
-      });
-    }
-  );
-});
-
-// Also add the register route with proper structure
-router.post('/auth/register', async (req, res) => {
-  const { full_name, phone, email, password } = req.body;
-
-  if (!full_name || !phone || !email || !password) {
-    return res.status(400).json({ 
-      success: false,
-      message: "Faltan campos requeridos" 
-    });
-  }
-
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const insertUserSql = `
-      INSERT INTO users (full_name, email, phone, password, role, auth_provider, created_at) 
-      VALUES (?, ?, ?, ?, 'user', 'local', NOW())
-    `;
-
-    db.query(insertUserSql, [full_name, email, phone, hashedPassword], (err, results) => {
-      if (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-          return res.status(400).json({ 
-            success: false,
-            message: 'El correo ya está registrado' 
-          });
-        }
-        console.error("Error al registrar el usuario:", err);
-        return res.status(500).json({ 
-          success: false,
-          message: "Error al registrar el usuario" 
-        });
-      }
-
-      const token = jwt.sign({ 
-        id: results.insertId, 
-        email,
-        role: 'user'
-  }, JWT_SECRET, { expiresIn: '2h' });
-
-      res.status(201).json({
-        success: true,
-        message: "Usuario registrado exitosamente",
-        user: {
-          id: results.insertId,
-          email: email,
-          full_name: full_name,
-          role: 'user'
-        },
-        token: token
-      });
-    });
-
-  } catch (err) {
-    console.error("Error hashing password:", err);
-    res.status(500).json({ 
-      success: false,
-      message: "Error interno del servidor" 
-    });
-  }
-});
-
 // --- Helper functions for calendar merging logic ---
+/**
+ * Returns an array of dates in YYYY-MM-DD format between start and end (inclusive).
+ */
 function getDatesInRange(start, end) {
   const dates = [];
   let curr = dayjs(start);
@@ -573,6 +581,9 @@ function getDatesInRange(start, end) {
   return dates;
 }
 
+/**
+ * Checks if a date matches a fixed holiday template.
+ */
 function isFixedHoliday(date, template) {
   if (template.date_type !== 'fixed') return false;
   const d = dayjs(date);
@@ -581,10 +592,16 @@ function isFixedHoliday(date, template) {
 
 // TODO: Add calculated holiday logic if needed
 
+/**
+ * Gets business hours for a given day of week.
+ */
 function getBusinessHoursForDay(dayOfWeek, businessHours) {
   return businessHours.find(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek.toLowerCase());
 }
 
+/**
+ * Gets the most recent scheduled override for a day and date.
+ */
 function getScheduledOverride(dayOfWeek, date, scheduledBusinessHours) {
   // Find the most recent override for this day_of_week and date
   return scheduledBusinessHours
@@ -592,6 +609,9 @@ function getScheduledOverride(dayOfWeek, date, scheduledBusinessHours) {
     .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
 }
 
+/**
+ * Gets the highest priority exception for a date.
+ */
 function getExceptionForDate(date, exceptions) {
   // Highest priority exception for this date
   return exceptions.find(ex => {
@@ -601,10 +621,10 @@ function getExceptionForDate(date, exceptions) {
     return false;
   });
 }
-// --- CALENDAR MERGED SCHEDULE ROUTE ---
-// Returns merged business hours, scheduled overrides, holidays, and exceptions for each date in the range
-const dayjs = require('dayjs');
 
+/**
+ * Returns merged business hours, overrides, holidays, and exceptions for each date in the range.
+ */
 router.get('/calendar', async (req, res) => {
   const { start, end } = req.query;
   if (!start || !end) return res.status(400).json({ error: 'Missing start or end date' });

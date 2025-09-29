@@ -1,26 +1,48 @@
-// admin/js/modules/appointments.js
+/**
+ * appointments.js
+ *
+ * Handles appointment management for the admin panel.
+ * - Loads, displays, edits, approves, and deletes appointments.
+ * - Provides UI updates, error handling, and status formatting.
+ * - Supports pagination, filtering, and reminders.
+ * - Exports an AppointmentsModule for use in the admin UI.
+ */
+
 export class AppointmentsModule {
+  /**
+   * Displays an error alert (currently uses alert()).
+   */
   showError(message) {
     alert(message);
   }
 
-  // showSuccess already defined above, remove duplicate
-
+  /**
+   * Shows the loading spinner for user actions.
+   */
   showLoading() {
     const spinner = document.getElementById('users-loading-spinner');
     if (spinner) spinner.style.display = 'block';
   }
 
+  /**
+   * Hides the loading spinner for user actions.
+   */
   hideLoading() {
     const spinner = document.getElementById('users-loading-spinner');
     if (spinner) spinner.style.display = 'none';
   }
 
+  /**
+   * Displays a success alert (currently uses alert()).
+   */
   showSuccess(message) {
     // Simple implementation using alert, can be replaced with a toast/notification
     alert(message);
   }
 
+  /**
+   * Loads and displays the next 10 upcoming appointments.
+   */
   async loadUpcomingAppointments() {
     try {
       const response = await fetch('/api/admin/appointments?limit=10&sort=upcoming', {
@@ -50,9 +72,15 @@ export class AppointmentsModule {
       if (tbody) tbody.innerHTML = '<tr><td colspan="7">Error al cargar citas pendientes.</td></tr>';
     }
   }
+  /**
+   * Updates the pagination UI (placeholder).
+   */
   updatePagination(section, pagination) {
     // No-op fallback. Implement pagination UI here if needed.
   }
+  /**
+   * Formats a date string for display.
+   */
   formatDate(dateStr) {
     if (!dateStr) return '';
     const d = new Date(dateStr);
@@ -60,6 +88,9 @@ export class AppointmentsModule {
     return d.toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' });
   }
 
+  /**
+   * Formats a time string for display.
+   */
   formatTime(timeStr) {
     if (!timeStr) return '';
     // If timeStr is already in HH:mm, return as is
@@ -70,6 +101,9 @@ export class AppointmentsModule {
     return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
   }
 
+  /**
+   * Returns a human-readable status string for an appointment.
+   */
   getStatusText(status) {
     switch (status) {
       case 'pending': return 'Pendiente';
@@ -78,30 +112,39 @@ export class AppointmentsModule {
       default: return status;
     }
   }
+  /**
+   * Retrieves the current authentication token from localStorage.
+   */
   getAuthToken() {
     return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
   }
 
-  showError(message) {
-    // Simple fallback: show error in a visible div, alert, or console
-    alert(message);
-  }
+  /**
+   * Initializes AppointmentsModule (optionally accepts a loading element).
+   */
   constructor() {
     // Optionally, you can pass a loading element or selector
   }
 
+  /**
+   * Shows the loading spinner for appointments actions.
+   */
   showLoading() {
     // Simple fallback: show a spinner if present, or do nothing
     const spinner = document.getElementById('appointments-loading-spinner');
     if (spinner) spinner.style.display = 'block';
   }
 
+  /**
+   * Hides the loading spinner for appointments actions.
+   */
   hideLoading() {
     const spinner = document.getElementById('appointments-loading-spinner');
     if (spinner) spinner.style.display = 'none';
   }
-  // Add citas/appointments logic here
-
+  /**
+   * Renders the appointments table in the UI.
+   */
   displayAppointments(appointments) {
     const tbody = document.getElementById('appointments-table');
     
@@ -143,6 +186,9 @@ export class AppointmentsModule {
     `).join('');
   }
 
+  /**
+   * Loads appointments with pagination and filtering, and displays them in the UI.
+   */
   async loadAppointments() {
     try {
       this.showLoading();
@@ -196,6 +242,9 @@ export class AppointmentsModule {
     }
   }
 
+  /**
+   * Saves changes to an appointment after editing.
+   */
   async saveAppointmentChanges() {
     try {
       const id = document.getElementById('edit-appointment-id').value;
@@ -234,6 +283,9 @@ export class AppointmentsModule {
     }
   }
 
+  /**
+   * Loads an appointment's data into the edit modal for editing.
+   */
   async editAppointment(id) {
     try {
       const response = await fetch(`/api/admin/appointments/${id}`, {
@@ -267,10 +319,16 @@ export class AppointmentsModule {
     }
   }
 
+  /**
+   * Deletes an appointment by ID and refreshes the section.
+   */
   async deleteAppointment(id) {
     await this.appointments.delete(id);
   }
 
+  /**
+   * Saves changes to an appointment after editing.
+   */
   async saveAppointmentChanges() {
     try {
       const id = document.getElementById('edit-appointment-id').value;
@@ -309,7 +367,10 @@ export class AppointmentsModule {
     }
   }
 
-   async editAppointment(id) {
+   /**
+   * Loads an appointment's data into the edit modal for editing.
+   */
+  async editAppointment(id) {
     try {
       const response = await fetch(`/api/admin/appointments/${id}`, {
         headers: {
@@ -340,6 +401,9 @@ export class AppointmentsModule {
     }
   }
 
+  /**
+   * Deletes an appointment by ID and refreshes the section.
+   */
   async deleteAppointment(id) {
     if (!confirm('¿Estás seguro de que quieres eliminar esta cita?')) return;
 
@@ -362,148 +426,94 @@ export class AppointmentsModule {
     }
   }
 
+  /**
+   * Reschedules an appointment (opens edit modal).
+   */
   rescheduleAppointment(appointmentId) {
     // This could open a modal or redirect to edit appointment
     this.editAppointment(appointmentId);
   }
 
-    displayAppointments(appointments) {
-    const tbody = document.getElementById('appointments-table');
-    
-    if (appointments.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="7" class="empty-state">
-            <i class="fas fa-calendar-times"></i>
-            <h5>No hay citas</h5>
-            <p>No se encontraron citas que coincidan con los criterios de búsqueda.</p>
-          </td>
-        </tr>
-      `;
-      return;
-    }
-
-    tbody.innerHTML = appointments.map(apt => `
-      <tr>
-        <td>${apt.id}</td>
-        <td>${this.formatDate(apt.appointment_date)}</td>
-        <td>${this.formatTime(apt.appointment_time)}</td>
-        <td>${apt.name}</td>
-        <td>
-          ${apt.email ? `<div>${apt.email}</div>` : ''}
-          ${apt.phone ? `<div class="text-muted">${apt.phone}</div>` : ''}
-        </td>
-        <td><span class="badge bg-${apt.status}">${this.getStatusText(apt.status)}</span></td>
-        <td>
-          <div class="action-buttons">
-            <button class="btn btn-outline-primary btn-sm" onclick="adminPanel.appointments.editAppointment(${apt.id})" title="Editar">
-              <i class="fas fa-edit"></i>
-            </button>
-            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.appointments.deleteAppointment(${apt.id})" title="Eliminar">
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>
-        </td>
-      </tr>
-    `).join('');
-  }
-
-  async deleteAppointment(id) {
-    if (!confirm('¿Estás seguro de que quieres eliminar esta cita?')) return;
-
+  /**
+   * Displays the list of pending appointments for approval.
+   */
+  async displayPendingAppointments() {
     try {
-      const response = await fetch(`/api/admin/appointments/${id}`, {
-        method: 'DELETE',
+      const response = await fetch('/api/admin/appointments/pending', {
         headers: {
-          'Authorization': `Bearer ${this.getAuthToken()}`
+          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
         }
       });
-
-      if (!response.ok) throw new Error('Error deleting appointment');
-
-      await this.refreshCurrentSection();
-      this.showSuccess('Cita eliminada correctamente');
-
-    } catch (error) {
-      console.error('Error deleting appointment:', error);
-      this.showError('Error eliminando la cita');
-    }
-  }
-
-async displayPendingAppointments() {
-  try {
-    const response = await fetch('/api/admin/appointments/pending', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
+      
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
       }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-    
-    const appointments = await response.json();
-    
-    const container = document.getElementById('pending-appointments');
-    if (!container) {
-      console.error('Pending appointments container not found');
-      return;
-    }
-    
-    container.innerHTML = '';
-    
-    if (appointments.length === 0) {
-      container.innerHTML = '<p>No hay citas pendientes de aprobación.</p>';
-      return;
-    }
-    
-    appointments.forEach(appointment => {
-      const appointmentDiv = document.createElement('div');
-      appointmentDiv.className = 'appointment-item';
-      // Defensive: handle both user_name and name, service and type, etc.
-      const userName = appointment.user_name || appointment.name || 'Sin nombre';
-      const email = appointment.email || appointment.user_email || '';
-      const phone = appointment.phone || appointment.user_phone || 'No especificado';
-      const service = appointment.service || appointment.type || 'Sin servicio';
-      const notes = appointment.notes || appointment.note || 'Sin notas';
-      const appointmentDate = appointment.appointment_date || appointment.date || '';
-      const appointmentTime = appointment.appointment_time || appointment.time || '';
-      const createdAt = appointment.created_at || appointment.created || '';
-      appointmentDiv.innerHTML = `
-        <div class="appointment-details">
-          <h4>Cita #${appointment.id || ''}</h4>
-          <p><strong>Cliente:</strong> ${userName}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Teléfono:</strong> ${phone}</p>
-          <p><strong>Fecha:</strong> ${appointmentDate}</p>
-          <p><strong>Hora:</strong> ${typeof formatTimeToAMPM === 'function' ? formatTimeToAMPM(appointmentTime) : appointmentTime}</p>
-          <p><strong>Servicio:</strong> ${service}</p>
-          <p><strong>Notas:</strong> ${notes}</p>
-          <p><strong>Fecha de solicitud:</strong> ${createdAt ? new Date(createdAt).toLocaleString() : ''}</p>
-        </div>
-        <div class="appointment-actions">
-          <button class="btn-approve" onclick="approveAppointment(${appointment.id})">
-            Aprobar y Enviar SMS
-          </button>
-          <button class="btn-reject" onclick="rejectAppointment(${appointment.id})">
-            Rechazar
-          </button>
-        </div>
-      `;
-      container.appendChild(appointmentDiv);
-    });
-    
-  } catch (error) {
-    console.error('Error loading pending appointments:', error);
-    const container = document.getElementById('pending-appointments');
-    if (container) {
-      container.innerHTML = '<p>Error al cargar las citas pendientes.</p>';
+      
+      const appointments = await response.json();
+      
+      const container = document.getElementById('pending-appointments');
+      if (!container) {
+        console.error('Pending appointments container not found');
+        return;
+      }
+      
+      container.innerHTML = '';
+      
+      if (appointments.length === 0) {
+        container.innerHTML = '<p>No hay citas pendientes de aprobación.</p>';
+        return;
+      }
+      
+      appointments.forEach(appointment => {
+        const appointmentDiv = document.createElement('div');
+        appointmentDiv.className = 'appointment-item';
+        // Defensive: handle both user_name and name, service and type, etc.
+        const userName = appointment.user_name || appointment.name || 'Sin nombre';
+        const email = appointment.email || appointment.user_email || '';
+        const phone = appointment.phone || appointment.user_phone || 'No especificado';
+        const service = appointment.service || appointment.type || 'Sin servicio';
+        const notes = appointment.notes || appointment.note || 'Sin notas';
+        const appointmentDate = appointment.appointment_date || appointment.date || '';
+        const appointmentTime = appointment.appointment_time || appointment.time || '';
+        const createdAt = appointment.created_at || appointment.created || '';
+        appointmentDiv.innerHTML = `
+          <div class="appointment-details">
+            <h4>Cita #${appointment.id || ''}</h4>
+            <p><strong>Cliente:</strong> ${userName}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Teléfono:</strong> ${phone}</p>
+            <p><strong>Fecha:</strong> ${appointmentDate}</p>
+            <p><strong>Hora:</strong> ${typeof formatTimeToAMPM === 'function' ? formatTimeToAMPM(appointmentTime) : appointmentTime}</p>
+            <p><strong>Servicio:</strong> ${service}</p>
+            <p><strong>Notas:</strong> ${notes}</p>
+            <p><strong>Fecha de solicitud:</strong> ${createdAt ? new Date(createdAt).toLocaleString() : ''}</p>
+          </div>
+          <div class="appointment-actions">
+            <button class="btn-approve" onclick="approveAppointment(${appointment.id})">
+              Aprobar y Enviar SMS
+            </button>
+            <button class="btn-reject" onclick="rejectAppointment(${appointment.id})">
+              Rechazar
+            </button>
+          </div>
+        `;
+        container.appendChild(appointmentDiv);
+      });
+      
+    } catch (error) {
+      console.error('Error loading pending appointments:', error);
+      const container = document.getElementById('pending-appointments');
+      if (container) {
+        container.innerHTML = '<p>Error al cargar las citas pendientes.</p>';
+      }
     }
   }
-}
 
-async approveAppointment(appointmentId) {
+  /**
+   * Approves an appointment and sends SMS notification.
+   */
+  async approveAppointment(appointmentId) {
     try {
         const response = await fetch(`/api/admin/appointments/${appointmentId}/approve`, {
         method: 'POST',
@@ -529,15 +539,17 @@ async approveAppointment(appointmentId) {
             console.error('Error approving appointment:', error);
             this.showNotification('Error al aprobar la cita', 'error');
         }
-}
-
-// Function to reject an appointment (placeholder for future implementation)
-async rejectAppointment(appointmentId) {
-  if (!confirm('¿Está seguro de que desea rechazar esta cita?')) {
-    return;
   }
 
-  async function sendAppointmentReminders() {
+  /**
+   * Rejects an appointment (placeholder for future implementation).
+   */
+  async rejectAppointment(appointmentId) {
+    if (!confirm('¿Está seguro de que desea rechazar esta cita?')) {
+      return;
+    }
+
+    async function sendAppointmentReminders() {
   try {
     const confirmSend = confirm('¿Desea enviar recordatorios SMS a todos los pacientes con citas para mañana?');
     if (!confirmSend) return;
@@ -568,5 +580,4 @@ async rejectAppointment(appointmentId) {
   // TODO: Implement appointment rejection endpoint
   this.showNotification('Función de rechazo en desarrollo', 'warning');
 }
-
 }

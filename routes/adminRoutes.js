@@ -1,11 +1,32 @@
+
+/**
+ * adminRoutes.js
+ *
+ * Express router for all admin-related endpoints in the medical appointment system.
+ * Handles dashboard stats, business hours, schedule exceptions, user management, appointment management,
+ * clinic settings, announcements, and notification testing. All routes are protected by requireAdmin middleware.
+ *
+ * Key Features:
+ * - Dashboard statistics for admin panel
+ * - CRUD for business hours and scheduled business hours
+ * - Schedule exceptions (e.g., holidays, special hours)
+ * - User management (CRUD, verification)
+ * - Appointment management (CRUD, approval/rejection)
+ * - Clinic settings management
+ * - Announcements (CRUD, public display)
+ * - Notification testing endpoints (email/SMS)
+ */
+
 const express = require('express');
 const db = require('../config/connections');
 const requireAdmin = require('../middleware/requireAdmin');
 const router = express.Router();
 
-// ADMIN DASHBOARD STATS ENDPOINT
-// =================
 
+/**
+ * GET /dashboard/stats
+ * Returns statistics for the admin dashboard: user count, appointment counts, and recent appointments.
+ */
 router.get('/dashboard/stats', requireAdmin, async (req, res) => {
   try {
     // User count
@@ -85,6 +106,11 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
 
 
 // Update business hours
+
+/**
+ * PUT /business-hours/:id
+ * Updates a single business hour entry by ID.
+ */
 router.put('/business-hours/:id', requireAdmin, (req, res) => {
   const id = req.params.id;
   const { is_open, open_time, close_time, break_start, break_end } = req.body;
@@ -102,6 +128,11 @@ router.put('/business-hours/:id', requireAdmin, (req, res) => {
 });
 
 
+
+/**
+ * PUT /business-hours
+ * Bulk update or insert business hours for all days of the week.
+ */
 router.put('/business-hours', requireAdmin, (req, res) => {
   const { businessHours } = req.body;
   if (!businessHours || !Array.isArray(businessHours)) {
@@ -159,6 +190,11 @@ router.put('/business-hours', requireAdmin, (req, res) => {
 });
 
 
+
+/**
+ * GET /scheduled-business-hours
+ * Returns all scheduled business hours, ordered by effective date and day of week.
+ */
 router.get('/scheduled-business-hours', requireAdmin, (req, res) => {
   db.query('SELECT * FROM scheduled_business_hours ORDER BY effective_date DESC, day_of_week', (err, results) => {
     if (err) return res.status(500).json({ error: 'Database error' });
@@ -167,6 +203,11 @@ router.get('/scheduled-business-hours', requireAdmin, (req, res) => {
 });
 
 // Get single scheduled business hour by ID
+
+/**
+ * GET /scheduled-business-hours/:id
+ * Returns a single scheduled business hour entry by ID.
+ */
 router.get('/scheduled-business-hours/:id', requireAdmin, (req, res) => {
   const id = req.params.id;
   db.query('SELECT * FROM scheduled_business_hours WHERE id = ?', [id], (err, results) => {
@@ -177,6 +218,11 @@ router.get('/scheduled-business-hours/:id', requireAdmin, (req, res) => {
 });
 
 // Create new scheduled business hours
+
+/**
+ * POST /scheduled-business-hours
+ * Creates a new set of scheduled business hours for a given effective date.
+ */
 router.post('/scheduled-business-hours', requireAdmin, (req, res) => {
   const { businessHours, effective_date } = req.body;
   if (!businessHours || !Array.isArray(businessHours) || !effective_date) {
@@ -193,6 +239,7 @@ router.post('/scheduled-business-hours', requireAdmin, (req, res) => {
     1 // is_active
   ]);
 
+  
   const sql = `
     INSERT INTO scheduled_business_hours
       (day_of_week, is_open, open_time, close_time, break_start, break_end, effective_date, is_active)
@@ -210,6 +257,11 @@ router.post('/scheduled-business-hours', requireAdmin, (req, res) => {
 
 
 // Get schedule exceptions
+
+/**
+ * GET /schedule-exceptions
+ * Returns all active schedule exceptions (e.g., holidays, special hours).
+ */
 router.get('/schedule-exceptions', requireAdmin, (req, res) => {
   db.query(`
     SELECT 
@@ -237,6 +289,11 @@ router.get('/schedule-exceptions', requireAdmin, (req, res) => {
 });
 
 // Add schedule exception
+
+/**
+ * POST /schedule-exceptions
+ * Adds a new schedule exception (e.g., holiday, special hours).
+ */
 router.post('/schedule-exceptions', requireAdmin, (req, res) => {
   const {
     exception_type,
@@ -283,6 +340,11 @@ router.post('/schedule-exceptions', requireAdmin, (req, res) => {
 });
 
 // Update schedule exception
+
+/**
+ * PUT /schedule-exceptions/:id
+ * Updates an existing schedule exception by ID.
+ */
 router.put('/schedule-exceptions/:id', requireAdmin, (req, res) => {
   const exceptionId = req.params.id;
   const {
@@ -340,6 +402,11 @@ router.put('/schedule-exceptions/:id', requireAdmin, (req, res) => {
 });
 
 // Delete schedule exception
+
+/**
+ * DELETE /schedule-exceptions/:id
+ * Soft-deletes a schedule exception by setting is_active to false.
+ */
 router.delete('/schedule-exceptions/:id', requireAdmin, (req, res) => {
   const exceptionId = req.params.id;
   
@@ -362,6 +429,11 @@ router.delete('/schedule-exceptions/:id', requireAdmin, (req, res) => {
 // =================
 
 // Get all users (paginated)
+
+/**
+ * GET /users
+ * Returns a paginated list of users, with optional search and role filtering.
+ */
 router.get('/users', requireAdmin, (req, res) => {
   console.log('DEBUG: /api/admin/users route hit');
   const page = parseInt(req.query.page) || 1;
@@ -426,6 +498,11 @@ router.get('/users', requireAdmin, (req, res) => {
 });
 
 // Get single user
+
+/**
+ * GET /users/:id
+ * Returns a single user by ID.
+ */
 router.get('/users/:id', requireAdmin, (req, res) => {
   const userId = req.params.id;
   
@@ -448,6 +525,11 @@ router.get('/users/:id', requireAdmin, (req, res) => {
 });
 
 // Update user
+
+/**
+ * PUT /users/:id
+ * Updates a user's information by ID.
+ */
 router.put('/users/:id', requireAdmin, (req, res) => {
   const userId = req.params.id;
   const { name, full_name, email, phone, role } = req.body;
@@ -476,6 +558,11 @@ router.put('/users/:id', requireAdmin, (req, res) => {
 });
 
 // Delete user
+
+/**
+ * DELETE /users/:id
+ * Deletes a user by ID (cannot delete admin users).
+ */
 router.delete('/users/:id', requireAdmin, (req, res) => {
   const userId = req.params.id;
   
@@ -486,11 +573,15 @@ router.delete('/users/:id', requireAdmin, (req, res) => {
       return res.status(404).json({ error: 'User not found or cannot delete admin' });
     }
     
-    // res.json({ message: 'User deleted successfully' });
   });
 });
 
 // ADMIN: Verify a user
+
+/**
+ * PUT /users/:id/verify
+ * Verifies a user (sets is_verified to true).
+ */
 router.put('/users/:id/verify', requireAdmin, (req, res) => {
   const userId = req.params.id;
   db.query('UPDATE users SET is_verified = 1, requires_verification = 0 WHERE id = ?', [userId], (err, result) => {
@@ -621,6 +712,11 @@ router.get('/appointments', requireAdmin, (req, res) => {
 });
 
 // ADMIN: Get all unverified users
+
+/**
+ * GET /users/unverified
+ * Returns all users who are not yet verified.
+ */
 router.get('/users/unverified', requireAdmin, (req, res) => {
   db.query('SELECT * FROM users WHERE is_verified = 0', (err, results) => {
     if (err) return res.status(500).json({ error: 'Error obteniendo usuarios no verificados' });
@@ -629,6 +725,11 @@ router.get('/users/unverified', requireAdmin, (req, res) => {
 });
 
 // Get single appointment
+
+/**
+ * GET /appointments/:id
+ * Returns a single appointment by ID.
+ */
 router.get('/appointments/:id', requireAdmin, (req, res) => {
   const appointmentId = req.params.id;
   
@@ -657,6 +758,11 @@ router.get('/appointments/:id', requireAdmin, (req, res) => {
   });
 
 // Update appointment
+
+/**
+ * PUT /appointments/:id
+ * Updates an appointment's details by ID.
+ */
 router.put('/appointments/:id', requireAdmin, (req, res) => {
   const appointmentId = req.params.id;
   const { name, full_name, email, phone, date, time, note, status } = req.body;
@@ -696,6 +802,11 @@ router.delete('/appointments/:id', requireAdmin, (req, res) => {
 
 
 // Get all pending appointments
+
+/**
+ * GET /appointments/pending
+ * Returns all appointments with status 'pending'.
+ */
 router.get('/appointments/pending', requireAdmin, (req, res) => {
   db.query('SELECT * FROM appointments WHERE status = "pending"', (err, results) => {
     if (err) return res.status(500).json({ error: 'Error obteniendo citas pendientes' });
@@ -704,6 +815,11 @@ router.get('/appointments/pending', requireAdmin, (req, res) => {
 });
 
 // Approve appointment (set status to confirmed)
+
+/**
+ * PUT /appointments/:id/approve
+ * Approves an appointment (sets status to confirmed).
+ */
 router.put('/appointments/:id/approve', requireAdmin, (req, res) => {
   const appointmentId = req.params.id;
   db.query('UPDATE appointments SET status = "confirmed", updated_at = CURRENT_TIMESTAMP WHERE id = ?', [appointmentId], (err, result) => {
@@ -805,6 +921,11 @@ router.put('/settings/:key', requireAdmin, (req, res) => {
 });
 
 // Server status endpoint for admin dashboard
+
+/**
+ * GET /server/status
+ * Returns server health and resource usage for the admin dashboard.
+ */
 router.get('/server/status', requireAdmin, (req, res) => {
   res.json({
     is_healthy: true,
@@ -815,6 +936,11 @@ router.get('/server/status', requireAdmin, (req, res) => {
 });
 
 // Get recent approvals for admin dashboard
+
+/**
+ * GET /approval/recent
+ * Returns recent user registrations for admin approval dashboard.
+ */
 router.get('/approval/recent', requireAdmin, (req, res) => {
   // For now, return recent user registrations as a placeholder
   db.query(`

@@ -1,4 +1,17 @@
+/**
+ * login.js
+ *
+ * Handles the login page logic for user authentication.
+ * - Redirects users to the appointment page if already logged in.
+ * - Handles login form submission, authenticates via API, and redirects based on user role.
+ * - Supports Google OAuth login.
+ * - Manages navigation menu toggle visibility for mobile/offcanvas UI.
+ */
+
 document.addEventListener('DOMContentLoaded', () => {
+  /**
+   * Redirects to the appointment page if a valid token is found in localStorage.
+   */
   // Redirect if already logged in
   const token = localStorage.getItem('token') || localStorage.getItem('user_token');
   if (token) {
@@ -9,6 +22,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginForm = document.getElementById('loginForm');
   
   if (loginForm) {
+    /**
+     * Handles login form submission:
+     * - Sends credentials to backend API.
+     * - On success, stores token and user info, redirects by role.
+     * - On failure, displays error message.
+     */
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
@@ -55,8 +74,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-
-
+  /**
+   * Handles Google OAuth login button click by redirecting to the backend Google auth endpoint.
+   */
   // Google login handler
   const googleLoginBtn = document.getElementById('google-login');
   if (googleLoginBtn) {
@@ -65,6 +85,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  /**
+   * Manages navigation menu toggle visibility for offcanvas UI:
+   * - Hides toggle button when menu opens.
+   * - Shows toggle button when menu closes.
+   */
   // Navigation menu handlers
   const menuToggle = document.getElementById('menu_toggle');
   const offcanvas = document.getElementById('sideNav');

@@ -1,13 +1,28 @@
-// admin/js/modules/serverStatus.js
+/**
+ * serverStatus.js
+ *
+ * Handles server health/status monitoring for the admin panel.
+ * - Fetches and displays server health, uptime, CPU, and memory usage.
+ * - Updates the UI with status cards.
+ * - Exports a ServerStatusModule for use in the admin UI.
+ */
+
 export class ServerStatusModule {
+  /**
+   * Loads and checks the current server status.
+   */
   load() {
     this.checkServerStatus();
   }
+  /**
+   * Initializes ServerStatusModule (currently empty).
+   */
   constructor() {}
 
-  
-
- async checkServerStatus() {
+  /**
+   * Fetches server status from the backend and renders the results.
+   */
+  async checkServerStatus() {
     try {
       // Wait for section to be visible (DOM update)
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -29,6 +44,9 @@ export class ServerStatusModule {
     }
   }
 
+  /**
+   * Renders the server status cards in the UI.
+   */
   renderServerStatus(status) {
     const container = document.getElementById('server-header-cards');
     if (!container) return;
@@ -70,9 +88,11 @@ export class ServerStatusModule {
       </div>
     `;
   }
-  
 }
 
+/**
+ * Initializes the ServerStatusModule and checks server status on DOMContentLoaded.
+ */
 document.addEventListener('DOMContentLoaded', () => {
   const serverStatus = new ServerStatusModule();
   serverStatus.checkServerStatus();

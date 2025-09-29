@@ -1,3 +1,13 @@
+/**
+ * navigation.js
+ *
+ * Handles the navigation bar and sidebar logic for all public pages:
+ * - Dynamically renders the navigation bar and updates auth/user links.
+ * - Supports mobile sidebar, smooth scrolling, and section navigation.
+ * - Integrates with AuthManager for login/logout and user info.
+ * - Periodically checks and updates navigation state.
+ */
+
 // DEBUG: Log if navbar disappears
 setInterval(() => {
     const nav = document.getElementById('main-navigation');
@@ -5,14 +15,20 @@ setInterval(() => {
         console.warn('DEBUG: #main-navigation is hidden or removed!');
     }
 }, 1000);
+
 // Navigation Component for all public pages
 class NavigationManager {
+    /**
+     * Initializes NavigationManager and renders navigation.
+     */
     constructor() {
         this.currentPage = this.getCurrentPage();
         this.initializeNavigation();
     }
 
-    // Get the current page based on the URL
+    /**
+     * Determines the current page based on the URL path.
+     */
     getCurrentPage() {
         const path = window.location.pathname;
         if (path === '/' || path.endsWith('/index.html')) return 'home';
@@ -22,7 +38,9 @@ class NavigationManager {
         return 'other';
     }
 
-    // Create the navigation bar
+    /**
+     * Returns the HTML for the main navigation bar.
+     */
     createNavbar() {
         return `
             <nav class="navbar navbar-expand-lg main-navbar shadow-sm bg-white py-3 custom-navbar">
@@ -68,6 +86,9 @@ class NavigationManager {
         `;
     }
 
+    /**
+     * Returns the HTML for the auth/user nav item (desktop).
+     */
     getAuthNavItem() {
         if (window.authManager && typeof window.authManager.isLoggedIn === 'function' && window.authManager.isLoggedIn()) {
             const user = window.authManager.getCurrentUser();
@@ -100,6 +121,9 @@ class NavigationManager {
         }
     }
 
+    /**
+     * Returns the HTML for the auth/user nav items (mobile sidebar).
+     */
     getMobileAuthItems() {
         if (window.authManager && typeof window.authManager.isLoggedIn === 'function' && window.authManager.isLoggedIn()) {
             const user = window.authManager.getCurrentUser();
@@ -140,6 +164,9 @@ class NavigationManager {
         }
     }
 
+    /**
+     * Scrolls smoothly to a section by ID, or navigates to home if not on home page.
+     */
     scrollToSection(sectionId) {
         // If we're not on the home page, navigate there first
         if (this.currentPage !== 'home') {
@@ -154,6 +181,9 @@ class NavigationManager {
         }
     }
 
+    /**
+     * Sets up event listeners for scroll links and handles hash navigation.
+     */
     handleScrollLinks() {
         // Handle scroll links in navigation
         document.addEventListener('click', (e) => {
@@ -178,6 +208,9 @@ class NavigationManager {
         }
     }
 
+    /**
+     * Toggles the mobile sidebar open/closed.
+     */
     toggleMobileSidebar() {
         const sidebar = document.getElementById('mobileSidebar');
         const overlay = document.getElementById('sidebarOverlay');
@@ -186,6 +219,9 @@ class NavigationManager {
         overlay.classList.toggle('show');
     }
 
+    /**
+     * Closes the mobile sidebar if open.
+     */
     closeMobileSidebar() {
         const sidebar = document.getElementById('mobileSidebar');
         const overlay = document.getElementById('sidebarOverlay');
@@ -193,6 +229,9 @@ class NavigationManager {
         if (overlay) overlay.classList.remove('show');
     }
 
+    /**
+     * Initializes navigation rendering and visibility on DOM ready.
+     */
     initializeNavigation() {
         // Wait for DOM to be ready
         if (document.readyState === 'loading') {
@@ -202,6 +241,9 @@ class NavigationManager {
         }
     }
 
+    /**
+     * Renders the navigation bar and sets up visibility.
+     */
     setupNavigationVisibility() {
         this.renderNavigation();
         const navContainer = document.getElementById('main-navigation');
@@ -211,6 +253,9 @@ class NavigationManager {
         }
     }
 
+    /**
+     * Renders the navigation bar and sets up scroll/auth handlers.
+     */
     renderNavigation() {
         // Render the main navbar as before
         const navContainer = document.getElementById('main-navigation');
@@ -218,14 +263,15 @@ class NavigationManager {
             navContainer.innerHTML = this.createNavbar();
         }
 
-    // ...existing code...
-
         // Initialize scroll link handlers
         this.handleScrollLinks();
         // Update auth nav item periodically
         this.authNavInterval = setInterval(() => this.updateAuthNavigation(), 5000);
     }
 
+    /**
+     * Updates the auth/user nav item (desktop) periodically.
+     */
     updateAuthNavigation() {
         const authNavItem = document.getElementById('authNavItem');
         if (authNavItem) {
@@ -234,5 +280,7 @@ class NavigationManager {
     }
 }
 
-// Initialize navigation when the script loads
+/**
+ * Initializes the NavigationManager and exposes it globally.
+ */
 window.navigationManager = new NavigationManager();

@@ -1,3 +1,14 @@
+/**
+ * script.js
+ *
+ * Handles the main landing page and shared UI logic for Quirofísicos Rocha:
+ * - Initializes Google Maps, announcements, business hours, and clinic info.
+ * - Manages navigation and button events for login, register, and guest access.
+ * - Loads and displays announcements and business hours in the UI.
+ * - Updates the footer with clinic and business info.
+ * - Provides utility functions for formatting and displaying data.
+ */
+
 document.addEventListener('DOMContentLoaded', () => {
   // Initialize Google Maps
   if (window.MapsManager) {
@@ -40,7 +51,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = '/appointment.html';
   });
 });
-// Fetch and display clinic settings in the footer
+
+/**
+ * Fetches and displays clinic settings in the footer.
+ */
 async function loadClinicSettingsFooter() {
   try {
     const response = await fetch('/api/clinic-settings');
@@ -75,8 +89,9 @@ async function loadClinicSettingsFooter() {
   }
 }
 
-
-// Announcements Management
+/**
+ * Loads and displays public announcements.
+ */
 async function loadAnnouncements() {
   try {
   const response = await fetch('/api/admin/announcements/public');
@@ -91,6 +106,9 @@ async function loadAnnouncements() {
   }
 }
 
+/**
+ * Renders the announcements banner in the UI.
+ */
 function displayAnnouncements(announcements) {
   const container = document.getElementById('announcements-banner');
   if (!container) return;
@@ -123,6 +141,9 @@ function displayAnnouncements(announcements) {
   container.style.display = 'block';
 }
 
+/**
+ * Returns the CSS class for an announcement type.
+ */
 function getAnnouncementTypeClass(type) {
   const classes = {
     'info': 'info',
@@ -133,6 +154,9 @@ function getAnnouncementTypeClass(type) {
   return classes[type] || 'info';
 }
 
+/**
+ * Returns the icon class for an announcement type.
+ */
 function getAnnouncementIcon(type) {
   const icons = {
     'info': 'fa-info-circle',
@@ -143,8 +167,9 @@ function getAnnouncementIcon(type) {
   return icons[type] || 'fa-info-circle';
 }
 
-
-
+/**
+ * Dismisses an announcement banner and hides the container if empty.
+ */
 function dismissAnnouncement(id) {
   const banner = document.querySelector(`[data-id="${id}"]`);
   if (banner) {
@@ -169,7 +194,9 @@ function dismissAnnouncement(id) {
   }
 }
 
-// Load and display business hours
+/**
+ * Loads and displays business hours in the info and footer sections.
+ */
 async function loadBusinessHours() {
   try {
   const response = await fetch('/api/business-hours', {
@@ -214,6 +241,9 @@ async function loadBusinessHours() {
   }
 }
 
+/**
+ * Formats business hours for the info section.
+ */
 function formatBusinessHoursForInfo(businessHours) {
   if (!Array.isArray(businessHours)) {
     console.error('formatBusinessHoursForInfo: businessHours is not an array', businessHours);
@@ -277,6 +307,9 @@ function formatBusinessHoursForInfo(businessHours) {
   return `<p class="mb-0">${lines.join('<br><br>')}</p>`;
 }
 
+/**
+ * Formats business hours for the footer section.
+ */
 function formatBusinessHoursForFooter(businessHours) {
   const dayNames = {
     'Monday': 'Lunes',

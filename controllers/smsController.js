@@ -1,3 +1,13 @@
+/**
+ * smsController.js
+ *
+ * Handles all SMS sending logic for Quirofísicos Rocha using the Vonage API.
+ * - Sends appointment confirmations, reminders, and change notifications.
+ * - Supports test/dev mode (logs instead of sending SMS in non-production).
+ * - Centralizes SMS formatting and error handling.
+ * - Exports a singleton instance for use in routes/controllers.
+ */
+
 const Vonage = require('@vonage/server-sdk');
 
 // Initialize Vonage with environment variables
@@ -7,11 +17,17 @@ const vonage = new Vonage({
 });
 
 class SMSController {
+  /**
+   * Initializes SMSController with config from environment variables.
+   */
   constructor() {
     this.fromNumber = process.env.VONAGE_FROM_NUMBER || '16303298763';
     this.isProduction = process.env.NODE_ENV === 'production';
   }
 
+  /**
+   * Sends a test SMS (logs in dev mode, sends in production).
+   */
   async sendTestSMS(to, message) {
     try {
       console.log('📱 Sending test SMS...');
@@ -59,24 +75,36 @@ class SMSController {
     }
   }
 
+  /**
+   * Sends an appointment confirmation SMS to the user.
+   */
   async sendAppointmentConfirmation(to, appointmentDetails) {
     const message = `Hola ${appointmentDetails.name}, tu cita en Quirofísicos Rocha ha sido confirmada para el ${appointmentDetails.date} a las ${appointmentDetails.time}. ¡Te esperamos!`;
     
     return await this.sendSMS(to, message);
   }
 
+  /**
+   * Sends an appointment reminder SMS to the user.
+   */
   async sendAppointmentReminder(to, appointmentDetails) {    
     const message = `Recordatorio: Tienes una cita en Quirofísicos Rocha mañana ${appointmentDetails.date} a las ${appointmentDetails.time}. ¡Te esperamos!`;
     
     return await this.sendSMS(to, message);
   }
 
+  /**
+   * Sends an appointment change notification SMS to the user.
+   */
   async sendAppointmentChange(to, appointmentDetails) {
     const message = `Tu cita en Quirofísicos Rocha ha sido modificada. Nueva fecha: ${appointmentDetails.date} a las ${appointmentDetails.time}. Para más información llama al consultorio.`;
     
     return await this.sendSMS(to, message);
   }
 
+  /**
+   * Sends a generic SMS (logs in dev mode, sends in production).
+   */
   async sendSMS(to, message) {
     try {
       console.log('📱 Sending SMS...');
@@ -123,4 +151,7 @@ class SMSController {
   }
 }
 
+/**
+ * Exports a singleton instance of SMSController for use in the app.
+ */
 module.exports = new SMSController();

@@ -1,39 +1,69 @@
-// admin/js/modules/settings.js
+/**
+ * settings.js
+ *
+ * Handles clinic and appointment settings management for the admin panel.
+ * - Loads, displays, and saves clinic and appointment configuration.
+ * - Provides UI updates for loading, errors, and saving.
+ * - Exports a SettingsModule for use in the admin UI.
+ */
+
 export class SettingsModule {
+  /**
+   * Sets up event listeners for notification toggles (placeholder).
+   */
   setupNotificationToggles() {
     // Optionally, add code to handle notification toggle event listeners
   }
+  /**
+   * Retrieves the current authentication token from localStorage.
+   */
   getAuthToken() {
     return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
   }
-
+  /**
+   * Displays an error alert (currently uses alert()).
+   */
   showError(message) {
     alert(message);
   }
-
+  /**
+   * Shows the loading spinner for user actions (users spinner).
+   */
   showLoading() {
     const spinner = document.getElementById('users-loading-spinner');
     if (spinner) spinner.style.display = 'block';
   }
-
+  /**
+   * Hides the loading spinner for user actions (users spinner).
+   */
   hideLoading() {
     const spinner = document.getElementById('users-loading-spinner');
     if (spinner) spinner.style.display = 'none';
   }
-
+  /**
+   * Initializes SettingsModule (currently empty).
+   */
   constructor() {}
 
+  /**
+   * Shows the loading spinner for settings actions.
+   */
   showLoading() {
     const spinner = document.getElementById('settings-loading-spinner');
     if (spinner) spinner.style.display = 'block';
   }
 
+  /**
+   * Hides the loading spinner for settings actions.
+   */
   hideLoading() {
     const spinner = document.getElementById('settings-loading-spinner');
     if (spinner) spinner.style.display = 'none';
   }
 
-  
+  /**
+   * Loads clinic settings from the backend and displays them in the form.
+   */
   async loadClinicSettings() {
     try {
       this.showLoading();
@@ -58,7 +88,9 @@ export class SettingsModule {
     }
   }
 
-
+  /**
+   * Renders the clinic settings form and handles save logic.
+   */
   displayClinicSettings(settings) {
     const form = document.getElementById('clinic-settings-form');
 
