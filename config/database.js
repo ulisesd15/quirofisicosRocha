@@ -1,6 +1,21 @@
+
+/**
+ * database.js
+ *
+ * Configures and exports a MySQL connection pool for the app.
+ * Supports both local development and Heroku JawsDB (production) environments.
+ * - Parses JawsDB URL for production
+ * - Uses connection pooling for performance
+ * - Tests connection on startup
+ */
+
 const mysql = require('mysql2');
 
-// Parse JawsDB URL for production
+/**
+ * Parses a JawsDB MySQL URL into a config object for mysql2.
+ * @param {string} url - The JawsDB connection URL
+ * @returns {object|null} Parsed config or null if invalid
+ */
 function parseDbUrl(url) {
   const match = url.match(/mysql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
   if (match) {
@@ -11,15 +26,16 @@ function parseDbUrl(url) {
       database: match[5],
       port: match[4],
       ssl: { rejectUnauthorized: false }, // Required for JawsDB
-    timezone: 'UTC',
-    charset: 'utf8mb4'
+      timezone: 'UTC',
+      charset: 'utf8mb4'
     };
   }
   return null;
 }
 
-let dbConfig;
 
+// Select DB config based on environment
+let dbConfig;
 if (process.env.NODE_ENV === 'production' && process.env.JAWSDB_URL) {
   // Production with JawsDB on Heroku
   console.log('🔗 Using JawsDB MySQL on Heroku');
@@ -37,7 +53,8 @@ if (process.env.NODE_ENV === 'production' && process.env.JAWSDB_URL) {
   };
 }
 
-// Add connection pooling for better performance
+
+// Create a MySQL connection pool for efficient query handling
 const poolConfig = {
   ...dbConfig,
   charset: 'utf8mb4',
@@ -51,7 +68,9 @@ const poolConfig = {
 
 const pool = mysql.createPool(poolConfig);
 
-// Test connection
+/**
+ * Tests the database connection on startup and logs the result.
+ */
 pool.getConnection((err, connection) => {
   if (err) {
     console.error('❌ Database connection failed:', err.message);

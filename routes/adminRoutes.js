@@ -18,7 +18,7 @@
  */
 
 const express = require('express');
-const db = require('../config/connections');
+const db = require('../config/database');
 const requireAdmin = require('../middleware/requireAdmin');
 const router = express.Router();
 
@@ -245,7 +245,7 @@ router.post('/scheduled-business-hours', requireAdmin, (req, res) => {
       (day_of_week, is_open, open_time, close_time, break_start, break_end, effective_date, is_active)
     VALUES ?
   `;
-  req.db = req.db || require('../config/connections');
+  req.db = req.db || require('../config/database');
   req.db.query(sql, [values], (err, result) => {
     if (err) {
       console.error('Error saving scheduled business hours:', err);

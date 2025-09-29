@@ -13,7 +13,7 @@ const router = express.Router();
 const passport = require('passport');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const db = require('../config/connections');
+const db = require('../config/database');
 const authenticateToken = require('../middleware/authenticateToken');
 const JWT_SECRET = process.env.JWT_SECRET;
 

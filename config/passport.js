@@ -1,7 +1,7 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const jwt = require('jsonwebtoken');
-const db = require('../config/connections');
+const db = require('../config/database');
 const secretKey = process.env.SECRET_KEY;
 const JWT_SECRET = process.env.JWT_SECRET;
 

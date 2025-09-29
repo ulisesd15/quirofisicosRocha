@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const db = require('../config/connections');
+const db = require('../config/database');
 const JWT_SECRET = process.env.JWT_SECRET;
 
 // Register new user (traditional signup)

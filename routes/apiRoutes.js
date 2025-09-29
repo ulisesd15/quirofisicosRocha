@@ -9,7 +9,7 @@
  */
 
 const express = require('express');
-const db = require('../config/connections');
+const db = require('../config/database');
 const router = express.Router();
 const authenticateToken = require('../middleware/authenticateToken');
 
