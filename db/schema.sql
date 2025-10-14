@@ -63,7 +63,7 @@ CREATE TABLE clinic_settings (
 -- SCHEDULING TABLES
 CREATE TABLE scheduled_business_hours (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  day_of_week ENUM('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') NOT NULL,
+  day_of_week ENUM('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday') NOT NULL,
   is_open BOOLEAN DEFAULT TRUE,
   open_time TIME,
   close_time TIME,

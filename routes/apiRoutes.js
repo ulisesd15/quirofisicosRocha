@@ -143,7 +143,7 @@ router.get('/available-slots/:date', async (req, res) => {
   const dayOfWeek = days[dateObj.getDay()];
   console.log(`[API] /available-slots/${dayISO} | dayOfWeek: ${dayOfWeek}`);
   try {
-    // Get the most recent scheduled business hours for this day_of_week and date
+    // Try scheduled_business_hours first
     const bhQuery = `
       SELECT * FROM scheduled_business_hours
       WHERE LOWER(day_of_week) = ?
@@ -153,42 +153,61 @@ router.get('/available-slots/:date', async (req, res) => {
       LIMIT 1
     `;
     db.query(bhQuery, [dayOfWeek, dayISO], (err, results) => {
-      if (err || !results || results.length === 0) {
-        console.log(`[API] No business hours found for ${dayOfWeek} on ${dayISO}`);
+      if (err) {
+        console.log(`[API] Error fetching scheduled_business_hours for ${dayOfWeek} on ${dayISO}:`, err);
         return res.json({ availableSlots: [] });
       }
-      const bh = results[0];
-      console.log(`[API] Business hours for ${dayOfWeek} on ${dayISO}:`, bh);
-      if (!bh.is_open) {
-        console.log(`[API] Day is closed (is_open=0) for ${dayOfWeek} on ${dayISO}`);
-        return res.json({ availableSlots: [] });
+      let bh = null;
+      if (results && results.length > 0) {
+        bh = results[0];
       }
-      const allSlots = generateTimeSlots(bh.open_time, bh.close_time);
-      console.log(`[API] All possible slots:`, allSlots);
-      // Get taken appointments
-      db.query('SELECT time FROM appointments WHERE date = ? AND status IN ("pending", "confirmed")', [dayISO], (err2, takenRows) => {
-        if (err2) {
-          console.log(`[API] Error fetching appointments for ${dayISO}:`, err2);
+      // If not found, fall back to business_hours
+      const useBusinessHours = (cb) => {
+        db.query('SELECT * FROM business_hours WHERE LOWER(day_of_week) = ? AND is_active = 1 LIMIT 1', [dayOfWeek], (err2, results2) => {
+          if (err2 || !results2 || results2.length === 0) {
+            console.log(`[API] No business hours found for ${dayOfWeek} on ${dayISO}`);
+            return res.json({ availableSlots: [] });
+          }
+          cb(results2[0]);
+        });
+      };
+      const processBH = (bhObj) => {
+        if (!bhObj.is_open) {
+          console.log(`[API] Day is closed (is_open=0) for ${dayOfWeek} on ${dayISO}`);
           return res.json({ availableSlots: [] });
         }
-        const taken = takenRows.map(r => r.time);
-        console.log(`[API] Taken slots for ${dayISO}:`, taken);
-        // Filter out taken slots
-        let available = allSlots.filter(t => !taken.includes(t));
-        // Filter out slots less than 30 min from now (if today)
-        const now = new Date();
-        const todayISO = now.toISOString().split('T')[0];
-        if (dayISO === todayISO) {
-          const thirtyMinFromNow = new Date(now.getTime() + 30 * 60 * 1000);
-          available = available.filter(timeSlot => {
-            const slotDateTime = new Date(`${dayISO}T${timeSlot}:00`);
-            return slotDateTime >= thirtyMinFromNow;
-          });
-          console.log(`[API] Available slots after 30min filter:`, available);
-        }
-        console.log(`[API] Final available slots for ${dayISO}:`, available);
-        res.json({ availableSlots: available });
-      });
+        const allSlots = generateTimeSlots(bhObj.open_time, bhObj.close_time);
+        console.log(`[API] All possible slots:`, allSlots);
+        // Get taken appointments
+        db.query('SELECT time FROM appointments WHERE date = ? AND status IN ("pending", "confirmed")', [dayISO], (err2, takenRows) => {
+          if (err2) {
+            console.log(`[API] Error fetching appointments for ${dayISO}:`, err2);
+            return res.json({ availableSlots: [] });
+          }
+          const taken = takenRows.map(r => r.time);
+          console.log(`[API] Taken slots for ${dayISO}:`, taken);
+          // Filter out taken slots
+          let available = allSlots.filter(t => !taken.includes(t));
+          // Filter out slots less than 30 min from now (if today)
+          const now = new Date();
+          const todayISO = now.toISOString().split('T')[0];
+          if (dayISO === todayISO) {
+            const thirtyMinFromNow = new Date(now.getTime() + 30 * 60 * 1000);
+            available = available.filter(timeSlot => {
+              const slotDateTime = new Date(`${dayISO}T${timeSlot}:00`);
+              return slotDateTime >= thirtyMinFromNow;
+            });
+            console.log(`[API] Available slots after 30min filter:`, available);
+          }
+          console.log(`[API] Final available slots for ${dayISO}:`, available);
+          res.json({ availableSlots: available });
+        });
+      };
+      if (bh) {
+        processBH(bh);
+      } else {
+        useBusinessHours(processBH);
+      }
     });
   } catch (e) {
     res.json({ availableSlots: [] });
@@ -396,7 +415,7 @@ router.put('/appointments/:id', authenticateToken, (req, res) => {
         if (updateResult.affectedRows === 0) {
           return res.status(404).json({ error: 'Cita no encontrada' });
         }
-        // res.json({ message: 'Cita actualizada exitosamente' });
+        // res.json({ messagecd: 'Cita actualizada exitosamente' });
       }
     );
   });

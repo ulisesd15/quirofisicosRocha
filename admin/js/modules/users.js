@@ -247,6 +247,43 @@ export class UsersModule {
   }
 
   /**
+   * updates user inside of edit modal
+   */
+  /**
+   * Updates user info from the edit modal using the given id.
+   */
+  async updateUser(id) {
+    if (!this.isAdmin()) {
+      this.showError('Acceso denegado. Solo administradores pueden actualizar usuarios.');
+      return;
+    }
+    try {
+      const data = {
+        name: document.getElementById('edit-user-name').value,
+        email: document.getElementById('edit-user-email').value,
+        phone: document.getElementById('edit-user-phone').value,
+        role: document.getElementById('edit-user-role').value
+      };
+      const response = await fetch(`/api/admin/users/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error('Error updating user');
+      const modal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
+      if (modal) modal.hide();
+      await this.loadUsers();
+      this.showSuccess('Usuario actualizado correctamente');
+    } catch (error) {
+      console.error('Error updating user:', error);
+      this.showError('Error guardando los cambios');
+    }
+  }
+
+  /**
    * Loads users with pagination and filtering, and displays them in the UI.
    */
   async loadUsers() {

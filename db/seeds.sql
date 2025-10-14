@@ -37,12 +37,12 @@ VALUES
 -- Default business hours (Monday to Friday 9 AM - 6 PM, with lunch break)
 INSERT INTO business_hours (day_of_week, is_open, open_time, close_time, break_start, break_end)
 VALUES
-('Monday', TRUE, '09:00:00', '18:00:00', '13:00:00', '14:00:00'),
-('Tuesday', TRUE, '09:00:00', '18:00:00', '13:00:00', '14:00:00'),
-('Wednesday', TRUE, '09:00:00', '18:00:00', '13:00:00', '14:00:00'),
-('Thursday', TRUE, '09:00:00', '18:00:00', '13:00:00', '14:00:00'),
-('Friday', TRUE, '09:00:00', '18:00:00', '13:00:00', '14:00:00'),
-('Saturday', FALSE, NULL, NULL, NULL, NULL),
+('Monday', TRUE, '14:00:00', '17:30:00', '15:00:00', '16:00:00'),
+('Tuesday', TRUE, '14:00:00', '17:30:00', '15:00:00', '16:00:00'),
+('Wednesday', TRUE, '14:00:00', '17:30:00', '15:00:00', '16:00:00'),
+('Thursday', TRUE, '14:00:00', '17:30:00', '15:00:00', '16:00:00'),
+('Friday', TRUE, '14:00:00', '17:30:00', '15:00:00', '16:00:00'),
+('Saturday', TRUE, '12:00:00', '17:30:00', NULL, NULL),
 ('Sunday', FALSE, NULL, NULL, NULL, NULL);
 
 -- Essential schedule exceptions (major holidays)

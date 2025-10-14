@@ -50,7 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
             window.authManager.login(data.token, data.user);
           }
           
-          alert(data.message);
           
           // Redirect based on user role
           if (data.user.role === 'admin') {

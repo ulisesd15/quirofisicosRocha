@@ -98,7 +98,8 @@ app.use(passport.initialize());
 if (typeof authRoutes !== 'function' && typeof authRoutes !== 'object') {
   console.error('authRoutes is not a valid router. Check your export in routes/authRoutes.js');
 } else {
-  app.use('/api/auth', authLimiter, authRoutes);
+  // app.use('/api/auth', authLimiter, authRoutes);
+  app.use('/api/auth', authRoutes);
 }
 if (typeof adminRoutes !== 'function' && typeof adminRoutes !== 'object') {
   console.error('adminRoutes is not a valid router. Check your export in routes/adminRoutes.js');

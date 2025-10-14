@@ -218,7 +218,8 @@ export class Calendar {
     await this.fetchScheduleExceptions();
 
     // Fetch slots for the current week
-    const weekSlots = await this.fetchSlotsForWeek(weekMonday);
+        const weekSlots = await this.fetchSlotsForWeek(weekMonday);
+        console.log('[renderWeeklyCalendar] weekSlots:', weekSlots);
     let advanced = false;
     await this.autoAdvanceIfNoAvailableSlots(
       weekSlots,
@@ -567,6 +568,7 @@ export class Calendar {
     const mm = String(mondayDate.getMonth() + 1).padStart(2, '0');
     const dd = String(mondayDate.getDate()).padStart(2, '0');
     const weekStart = `${yyyy}-${mm}-${dd}`;
+        console.log('[fetchSlotsForWeek] Fetching slots for week starting:', weekStart);
     try {
       const resp = await fetch(`/api/slots?week_start=${weekStart}`);
       if (!resp.ok) throw new Error('Error fetching slots');

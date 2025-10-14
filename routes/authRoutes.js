@@ -66,7 +66,7 @@ router.get('/google/callback',
 /**
  * Authenticates a user with email and password, returns JWT on success.
  */
-router.post('/auth/login', (req, res) => {
+router.post('/login', (req, res) => {
   const { email, password } = req.body;
   console.log('🔐 Login attempt for:', email);
   db.query(
