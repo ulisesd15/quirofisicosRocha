@@ -175,11 +175,13 @@ class MisCitas {
     createAppointmentCard(appointment) {
         const appointmentDate = new Date(appointment.date);
         const appointmentTime = appointment.time;
+        const dateTimeString = `${appointment.date}T${appointmentTime}:00`;
+        const appointmentDateTime = new Date(dateTimeString);
         const now = new Date();
-        const isUpcoming = appointmentDate >= now && appointment.status !== 'cancelled' && appointment.status !== 'completed';
-        
+        const isUpcoming = appointmentDateTime > now && appointment.status !== 'cancelled' && appointment.status !== 'completed';
+
         const statusConfig = this.getStatusConfig(appointment.status);
-        const formattedDate = this.formatDate(appointmentDate);
+        const formattedDate = this.formatDate(appointmentDateTime);
         const formattedTime = this.formatTime(appointmentTime);
 
         return `

@@ -329,7 +329,7 @@ router.get('/appointments', authenticateToken, (req, res) => {
  * Creates a new appointment (supports guest and authenticated users).
  */
 router.post('/appointments', (req, res) => {
-  let { full_name, email, phone, date, time, note, user_id } = req.body;
+  let { full_name, email, phone, date, time, note = '', user_id } = req.body;
 
   // Normalize empty user_id to null
   user_id = user_id ? user_id : null;

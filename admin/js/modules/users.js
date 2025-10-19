@@ -319,33 +319,64 @@ export class UsersModule {
   /**
    * Renders the users table in the UI.
    */
-  displayUsers(users) {
-    const usersTableBody = document.getElementById('users-table');
-    if (!usersTableBody) return;
-    usersTableBody.innerHTML = '';
+  async displayUsers(users) {
+    const usersList = document.getElementById('usersList');
+    usersList.innerHTML = ''; // Clear current list
+
     users.forEach(user => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${user.id}</td>
-        <td>${user.name}</td>
-        <td>${user.email}</td>
-        <td>${user.phone || 'N/A'}</td>
-        <td>${user.role}</td>
-        <td>${user.created_at ? new Date(user.created_at).toLocaleDateString('es-MX') : 'N/A'}</td>
-        <td>
-          <div class="action-buttons">
-            <button class="btn btn-outline-primary btn-sm" onclick="usersModule.editUser(${user.id})" title="Editar">
-              <i class="fas fa-edit"></i>
-            </button>
-            <button class="btn btn-outline-danger btn-sm" onclick="usersModule.deleteUser(${user.id})" title="Eliminar">
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>
-        </td>
-      `;
-      usersTableBody.appendChild(row);
+        const userDiv = document.createElement('div');
+        userDiv.className = 'user-entry';
+        
+        // Add a button only if the user is not already an admin
+        const promoteButton = user.role !== 'admin'
+            ? `<button class="btn btn-sm btn-outline-primary promote-admin-btn" data-user-id="${user.id}">Make Admin</button>`
+            : '';
+
+        userDiv.innerHTML = `
+            <p><strong>${user.full_name}</strong> (${user.email})</p>
+            <p>Role: ${user.role} ${promoteButton}</p>
+            <p>Verified: ${user.is_verified ? 'Yes' : 'No'}</p>
+        `;
+        usersList.appendChild(userDiv);
     });
-  }
+
+    // Add event listeners after all buttons are in the DOM
+    document.querySelectorAll('.promote-admin-btn').forEach(button => {
+        button.addEventListener('click', handlePromoteUser);
+    });
+}
+
+// Add this new handler function in the same file
+async handlePromoteUser(event) {
+    const userId = event.target.dataset.userId;
+    const token = localStorage.getItem('token');
+
+    if (!confirm('Are you sure you want to make this user an admin?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/users/${userId}/role`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ role: 'admin' })
+        });
+
+        if (response.ok) {
+            alert('User promoted successfully!');
+            loadUsers(); // Reload the user list to show the change
+        } else {
+            const result = await response.json();
+            alert(`Promotion failed: ${result.error}`);
+        }
+    } catch (error) {
+        console.error('Error promoting user:', error);
+        alert('A client-side error occurred.');
+    }
+}
 
   /**
    * Updates the displayed total user count in the UI.

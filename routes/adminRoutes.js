@@ -557,6 +557,35 @@ router.put('/users/:id', requireAdmin, (req, res) => {
   );
 });
 
+
+
+// Update user role
+
+/**
+ * PUT /users/:id/role
+ * Updates a user's role by ID.
+ */
+router.put('/users/:id/role', requireAdmin, (req, res) => {
+    const { role } = req.body;
+    const userId = req.params.id;
+
+    if (!role || (role !== 'user' && role !== 'admin')) {
+        return res.status(400).json({ error: 'Invalid role specified.' });
+    }
+
+    const query = 'UPDATE users SET role = ? WHERE id = ?';
+    db.query(query, [role, userId], (err, result) => {
+        if (err) {
+            console.error("Error updating user role:", err);
+            return res.status(500).json({ error: 'Database error while updating role.' });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+        res.json({ message: 'User role updated successfully.' });
+    });
+});
+
 // Delete user
 
 /**
