@@ -836,9 +836,27 @@ router.delete('/appointments/:id', requireAdmin, (req, res) => {
  * Returns all appointments with status 'pending'.
  */
 router.get('/appointments/pending', requireAdmin, (req, res) => {
-  db.query('SELECT * FROM appointments WHERE status = "pending"', (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error obteniendo citas pendientes' });
-    res.json({ appointments: results });
+  const query = `
+    SELECT 
+      a.id, 
+      a.full_name, 
+      a.date, 
+      a.time, 
+      a.note,
+      a.created_at,
+      a.status as appointment_status, 
+      u.id as user_id, 
+      u.email, 
+      u.phone,
+      u.is_verified 
+    FROM appointments a 
+    JOIN users u ON a.user_id = u.id 
+    WHERE a.status = 'pending' AND u.is_verified = false 
+    ORDER BY a.date, a.time;
+  `;
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error obteniendo citas pendientes de usuarios no verificados' });
+    res.json(results);
   });
 });
 
@@ -850,10 +868,61 @@ router.get('/appointments/pending', requireAdmin, (req, res) => {
  */
 router.put('/appointments/:id/approve', requireAdmin, (req, res) => {
   const appointmentId = req.params.id;
-  db.query('UPDATE appointments SET status = "confirmed", updated_at = CURRENT_TIMESTAMP WHERE id = ?', [appointmentId], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Error aprobando cita' });
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Cita no encontrada' });
-    res.json({ message: 'Cita aprobada correctamente' });
+
+  // Start a transaction to ensure atomicity
+  db.beginTransaction(err => {
+    if (err) {
+      console.error('Error starting transaction:', err);
+      return res.status(500).json({ error: 'Error del servidor al iniciar la transacción.' });
+    }
+
+    // 1. Get the user_id from the appointment
+    db.query('SELECT user_id FROM appointments WHERE id = ?', [appointmentId], (err, appointments) => {
+      if (err || appointments.length === 0) {
+        return db.rollback(() => {
+          res.status(404).json({ error: 'Cita no encontrada.' });
+        });
+      }
+
+      const userId = appointments[0].user_id;
+
+      // 2. Update the appointment status to 'confirmed'
+      db.query('UPDATE appointments SET status = "confirmed", updated_at = CURRENT_TIMESTAMP WHERE id = ?', [appointmentId], (err, result) => {
+        if (err || result.affectedRows === 0) {
+          return db.rollback(() => {
+            res.status(500).json({ error: 'Error al aprobar la cita.' });
+          });
+        }
+
+        // 3. If there's a user associated, verify them
+        if (userId) {
+          db.query('UPDATE users SET is_verified = 1 WHERE id = ?', [userId], (err, userResult) => {
+            if (err) {
+              return db.rollback(() => {
+                res.status(500).json({ error: 'Error al verificar al usuario.' });
+              });
+            }
+
+            // All good, commit the transaction
+            db.commit(err => {
+              if (err) {
+                return db.rollback(() => {
+                  res.status(500).json({ error: 'Error al finalizar la transacción.' });
+                });
+              }
+              // TODO: Add notification logic here (SMS/Email)
+              res.json({ message: 'Cita aprobada y usuario verificado correctamente.' });
+            });
+          });
+        } else {
+          // No user to verify, just commit the appointment approval
+          db.commit(err => {
+            if (err) return db.rollback(() => res.status(500).json({ error: 'Error al finalizar la transacción.' }));
+            res.json({ message: 'Cita de invitado aprobada correctamente.' });
+          });
+        }
+      });
+    });
   });
 });
 

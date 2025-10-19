@@ -372,13 +372,18 @@ router.post('/appointments', (req, res) => {
           }
           const isVerified = userRows[0].is_verified;
           if (isVerified) {
-            createAppointmentWithStatus('pending'); // or 'confirmed' if you want to auto-confirm
+            // User is verified, auto-confirm the appointment
+            console.log(`User ${user_id} is verified. Setting appointment status to 'confirmed'.`);
+            createAppointmentWithStatus('confirmed');
           } else {
-            createAppointmentWithStatus('pending'); // stays pending for admin review
+            // User is not verified, appointment requires admin approval
+            console.log(`User ${user_id} is not verified. Setting appointment status to 'pending'.`);
+            createAppointmentWithStatus('pending');
           }
         });
       } else {
         // Guest user, always pending
+        console.log("Guest user appointment. Setting status to 'pending'.");
         createAppointmentWithStatus('pending');
       }
   });

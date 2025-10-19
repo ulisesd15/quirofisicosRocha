@@ -9,6 +9,7 @@
  * - Exports a singleton instance for use in the admin UI.
  */
 
+
 /**
  * userVerification.js
  *
@@ -25,7 +26,33 @@ export class UserVerificationModule {
    * Main entry point to load the module's data.
    */
   load() {
+    this.setupEventListeners();
     this.loadUnverifiedUsers();
+  }
+
+  /**
+   * Retrieves the current authentication token from localStorage.
+   */
+  getAuthToken() {
+    return localStorage.getItem('user_token') || localStorage.getItem('token') || '';
+  }
+
+  /**
+   * Sets up delegated event listeners for the module.
+   */
+  setupEventListeners() {
+    const container = document.getElementById('pending-appointments');
+    if (container && !container.dataset.listenerAttached) {
+      container.addEventListener('click', (event) => {
+        const approveButton = event.target.closest('.btn-approve');
+        if (approveButton) {
+          event.preventDefault();
+          const appointmentId = approveButton.dataset.appointmentId;
+          this.approveAppointmentAndVerifyUser(appointmentId, approveButton.closest('.appointment-item'));
+        }
+      });
+      container.dataset.listenerAttached = 'true';
+    }
   }
 
   /**
@@ -38,7 +65,7 @@ export class UserVerificationModule {
       const response = await fetch(`/api/admin/users/${id}/verify`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
       if (!response.ok) throw new Error('Error verificando usuario');
@@ -56,7 +83,7 @@ export class UserVerificationModule {
     try {
       const response = await fetch('/api/admin/users/unverified', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`
+          'Authorization': `Bearer ${this.getAuthToken()}`
         }
       });
       if (!response.ok) throw new Error('Error cargando usuarios no verificados');
@@ -213,7 +240,7 @@ export class UserVerificationModule {
     try {
       const response = await fetch('/api/admin/appointments/pending', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${this.getAuthToken()}`,
           'Content-Type': 'application/json'
         }
       });
@@ -221,6 +248,8 @@ export class UserVerificationModule {
         throw new Error(`Error: ${response.status}`);
       }
       const appointments = await response.json();
+      // Log raw data received from the backend for debugging
+      console.log('Pending appointments data from API:', appointments);
       const container = document.getElementById('pending-appointments');
       if (!container) {
         console.error('Pending appointments container not found');
@@ -247,10 +276,10 @@ export class UserVerificationModule {
             <p><strong>Fecha de solicitud:</strong> ${new Date(appointment.created_at).toLocaleString()}</p>
           </div>
           <div class="appointment-actions">
-            <button class="btn-approve" onclick="userVerificationModule.approveAppointment(${appointment.id})">
+            <button class="btn-approve" data-appointment-id="${appointment.id}">
               Aprobar y Enviar SMS
             </button>
-            <button class="btn-reject" onclick="userVerificationModule.rejectAppointment(${appointment.id})">
+            <button class="btn-reject" data-appointment-id="${appointment.id}">
               Rechazar
             </button>
           </div>
@@ -267,43 +296,35 @@ export class UserVerificationModule {
   }
 
   /**
-   * Sets up the UI for unverified users (alternative version).
+   * Approves an appointment and verifies the associated user.
+   * @param {number} appointmentId - The ID of the appointment to approve.
+   * @param {HTMLElement} itemElement - The DOM element for the list item to be removed on success.
    */
-  async setupUnverifiedUsersUI() {
-    const container = document.getElementById('unverified-users');
-    if (!container) return;
+  async approveAppointmentAndVerifyUser(appointmentId, itemElement) {
+    if (!confirm('¿Estás seguro de que quieres aprobar esta cita? El usuario asociado también será verificado.')) return;
 
     try {
-      const response = await fetch('/api/admin/users/unverified', {
+      const response = await fetch(`/api/admin/appointments/${appointmentId}/approve`, {
+        method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${this.getAuthToken()}`,
           'Content-Type': 'application/json'
         }
       });
-      if (!response.ok) throw new Error(`Error: ${response.status}`);
 
-      const { users } = await response.json();
-      if (!Array.isArray(users)) {
-        console.error('Unexpected response format:', users);
-        return;
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al aprobar la cita.');
       }
 
-      container.innerHTML = users.map(user => `
-        <div class="user-item">
-          <p><strong>ID:</strong> ${user.id}</p>
-          <p><strong>Nombre:</strong> ${user.full_name}</p>
-          <p><strong>Email:</strong> ${user.email}</p>
-          <p><strong>Teléfono:</strong> ${user.phone || 'No especificado'}</p>
-          <button class="btn-verify" onclick="userVerificationModule.verifyUser(${user.id})">Verificar</button>
-          <button class="btn-reject" onclick="userVerificationModule.rejectUser(${user.id})">Rechazar</button>
-        </div>
-      `).join('');
+      this.showNotification(result.message || 'Cita aprobada y usuario verificado.', 'success');
+      itemElement.remove(); // Remove the item from the list
+
     } catch (error) {
-      console.error('Error loading unverified users:', error);
-      container.innerHTML = '<p>Error al cargar los usuarios no verificados.</p>';
+      console.error('Error approving appointment and verifying user:', error);
+      this.showNotification(error.message, 'error');
     }
   }
-
 }
 
 // Initialize module and UI wiring for user verification section
