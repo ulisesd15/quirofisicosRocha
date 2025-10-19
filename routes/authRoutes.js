@@ -21,12 +21,22 @@ const JWT_SECRET = process.env.JWT_SECRET;
  * Returns the authenticated user's profile (requires JWT).
  */
 router.get('/profile', authenticateToken, (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  // Return basic user info
-  const { id, email, role } = req.user;
-  res.json({ id, email, role });
+    if (!req.user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const userId = req.user.id;
+    db.query('SELECT id, full_name, email, phone, role, auth_provider, is_verified, created_at FROM users WHERE id = ?', [userId], (err, results) => {
+        if (err) {
+            console.error('Error fetching user profile:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        // Return the full user profile
+        res.json(results[0]);
+    });
 });
 
 // Traditional authentication routes
@@ -146,6 +156,53 @@ router.post('/auth/register', async (req, res) => {
     console.error('Error hashing password:', err);
     res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
+});
+
+/**
+ * PUT /auth/change-password
+ * Allows a logged-in user to change their password.
+ */
+router.put('/auth/change-password', authenticateToken, (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'Todos los campos son requeridos.' });
+    }
+
+    // 1. Get the user's current password hash and auth provider
+    db.query('SELECT password, auth_provider FROM users WHERE id = ?', [userId], async (err, results) => {
+        if (err) {
+            console.error('Error fetching user for password change:', err);
+            return res.status(500).json({ error: 'Error del servidor.' });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado.' });
+        }
+
+        const user = results[0];
+
+        // 2. Disallow password change for non-local users (e.g., Google)
+        if (user.auth_provider !== 'local') {
+            return res.status(400).json({ error: 'No se puede cambiar la contraseña para cuentas de Google.' });
+        }
+
+        // 3. Compare the current password
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ error: 'La contraseña actual es incorrecta.' });
+        }
+
+        // 4. Hash the new password and update the database
+        const newHashedPassword = await bcrypt.hash(newPassword, 10);
+        db.query('UPDATE users SET password = ? WHERE id = ?', [newHashedPassword, userId], (updateErr) => {
+            if (updateErr) {
+                console.error('Error updating password:', updateErr);
+                return res.status(500).json({ error: 'Error al actualizar la contraseña.' });
+            }
+            res.json({ message: 'Contraseña actualizada correctamente.' });
+        });
+    });
 });
 
 module.exports = router;

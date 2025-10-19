@@ -32,9 +32,6 @@ class UserSettings {
         
         // Setup event listeners
         this.setupEventListeners();
-        
-        // Update UI with user info
-        this.updateUserDisplay();
     }
 
     /**
@@ -59,12 +56,6 @@ class UserSettings {
             this.updateNotificationPreferences();
         });
 
-        // Logout button
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            this.authManager.logout();
-            window.location.href = 'index.html';
-        });
-
         // Password confirmation validation
         const newPassword = document.getElementById('new-password');
         const confirmPassword = document.getElementById('confirm-password');
@@ -72,8 +63,10 @@ class UserSettings {
         confirmPassword.addEventListener('input', () => {
             if (newPassword.value !== confirmPassword.value) {
                 confirmPassword.setCustomValidity('Las contraseñas no coinciden');
+                confirmPassword.classList.add('is-invalid');
             } else {
                 confirmPassword.setCustomValidity('');
+                confirmPassword.classList.remove('is-invalid');
             }
         });
     }
@@ -107,6 +100,12 @@ class UserSettings {
         document.getElementById('full-name').value = userData.full_name || '';
         document.getElementById('email').value = userData.email || '';
         document.getElementById('phone').value = userData.phone || '';
+
+        // Hide password section if user is from an external provider like Google
+        if (userData.auth_provider && userData.auth_provider !== 'local') {
+            const passwordSection = document.getElementById('password-section');
+            if (passwordSection) passwordSection.style.display = 'none';
+        }
     }
 
     /**
@@ -137,7 +136,11 @@ class UserSettings {
      */
     updateUserDisplay() {
         const userName = this.authManager.userName || 'Usuario';
-        document.getElementById('user-name').textContent = userName;
+        const userDisplayElement = document.querySelector('.user-name-display');
+        if (userDisplayElement) {
+            // Update the text content, keeping the icon
+            userDisplayElement.innerHTML = `<i class="fas fa-user me-1"></i>${userName}`;
+        }
     }
 
     /**

@@ -20,7 +20,32 @@ const calendar = new Calendar();
  * - Initializes the calendar view toggle logic.
  */
 document.addEventListener('DOMContentLoaded', () => {
-  calendar.renderWeeklyCalendar();
+  // Check user login status to show/hide guest fields
+  const authManager = new AuthManager();
+  const guestFields = document.getElementById('guestFields');
+  const guestName = document.getElementById('guestName');
+  const guestPhone = document.getElementById('guestPhone');
+  const guestEmail = document.getElementById('guestEmail');
+
+  if (authManager.isLoggedIn()) {
+    // User is logged in, hide guest fields and make them not required
+    if (guestFields) guestFields.style.display = 'none';
+    if (guestName) guestName.required = false;
+    if (guestPhone) guestPhone.required = false;
+    if (guestEmail) guestEmail.required = false;
+  } else {
+    // User is a guest, show guest fields and make them required
+    if (guestFields) guestFields.style.display = 'block';
+    if (guestName) guestName.required = true;
+    if (guestPhone) guestPhone.required = true;
+    if (guestEmail) guestEmail.required = true;
+  }
+
+  // Render the calendar inside the correct container
+  calendar.renderWeeklyCalendar('weeklyCalendar');
+  // Setup form submission handler
+  setupFormSubmission();
+
   // --- Calendar View Toggle Logic ---
   /**
    * Sets up event listeners for toggling between week and month calendar views.
@@ -63,4 +88,108 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   setupCalendarViewToggle();
 });
+
+/**
+ * Sets up the event listener for the appointment booking form submission.
+ */
+function setupFormSubmission() {
+  const bookingForm = document.getElementById('bookingForm');
+  if (!bookingForm) {
+    console.error('Booking form not found!');
+    return;
+  }
+
+  bookingForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const submitBtn = bookingForm.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Confirmando...';
+
+    const authManager = new AuthManager();
+    const selectedDate = document.getElementById('selectedDate').value;
+    const selectedTime = document.getElementById('selectedTime').value;
+    const note = document.getElementById('note').value;
+
+    if (!selectedDate || !selectedTime) {
+      showNotification('Por favor, selecciona una fecha y hora.', 'danger');
+      return;
+    }
+
+    let appointmentData = {
+      date: selectedDate,
+      time: selectedTime,
+      note: note,
+    };
+
+    if (authManager.isLoggedIn()) {
+      const user = authManager.getCurrentUser();
+      appointmentData.user_id = user.id;
+      appointmentData.full_name = user.full_name;
+      appointmentData.email = user.email;
+      appointmentData.phone = user.phone;
+    } else {
+      appointmentData.full_name = document.getElementById('guestName').value;
+      appointmentData.email = document.getElementById('guestEmail').value;
+      appointmentData.phone = document.getElementById('guestPhone').value;
+    }
+
+    try {
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(appointmentData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        showNotification('¡Cita agendada exitosamente! Serás redirigido.', 'success');
+        setTimeout(() => {
+          // Redirect to 'Mis Citas' if logged in, otherwise to a confirmation/home page
+          window.location.href = authManager.isLoggedIn() ? 'mis-citas.html' : 'index.html';
+        }, 2500);
+      } else {
+        throw new Error(result.message || 'No se pudo agendar la cita.');
+      }
+    } catch (error) {
+      console.error('Error booking appointment:', error);
+      showNotification(error.message, 'danger');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="fas fa-calendar-check me-2"></i>Confirmar Cita';
+    }
+  });
+}
+
+/**
+ * Shows a notification message at the top of the page.
+ * @param {string} message The message to display.
+ * @param {string} type The type of alert ('success', 'danger', 'info').
+ */
+function showNotification(message, type = 'info') {
+  const container = document.getElementById('notification-container');
+  if (!container) {
+    console.error('Notification container not found!');
+    return;
+  }
+
+  const alertDiv = document.createElement('div');
+  alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+  alertDiv.role = 'alert';
+  alertDiv.innerHTML = `
+    ${message}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  `;
+
+  container.innerHTML = ''; // Clear previous alerts
+  container.appendChild(alertDiv);
+
+  // Auto-dismiss after 5 seconds
+  setTimeout(() => {
+    const bsAlert = bootstrap.Alert.getOrCreateInstance(alertDiv);
+    if (bsAlert) {
+      bsAlert.close();
+    }
+  }, 5000);
+}
 // (autoAdvanceIfNoAvailableSlots and fetchSlotsForWeek are now part of the Calendar class)

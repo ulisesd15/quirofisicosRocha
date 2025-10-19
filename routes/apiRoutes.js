@@ -5,6 +5,7 @@
  * - Provides business hours, slot availability, appointments, schedule exceptions, and calendar merging logic.
  * - Supports both authenticated and guest users for appointment creation and queries.
  * - Implements robust merging of business hours, overrides, holidays, and exceptions for calendar display.
+ * - Handles user-specific actions like profile updates.
  * - Exports an Express router for use in the main server.
  */
 
@@ -576,6 +577,60 @@ router.put('/appointments/:id/cancel', authenticateToken, (req, res) => {
 });
 
 /**
+ * POST /appointments/:id/reschedule
+ * Reschedules an existing appointment to a new date and time.
+ */
+router.post('/appointments/:id/reschedule', authenticateToken, (req, res) => {
+  const appointmentId = req.params.id;
+  const userId = req.user.id;
+  const { newDate, newTime, note } = req.body;
+
+  if (!newDate || !newTime) {
+    return res.status(400).json({ message: 'La nueva fecha y hora son requeridas.' });
+  }
+
+  // 1. Verify the appointment belongs to the user (or user is admin)
+  const verifyQuery = req.user.role === 'admin' 
+    ? 'SELECT * FROM appointments WHERE id = ?'
+    : 'SELECT * FROM appointments WHERE id = ? AND user_id = ?';
+  
+  const verifyParams = req.user.role === 'admin' ? [appointmentId] : [appointmentId, userId];
+
+  db.query(verifyQuery, verifyParams, (err, results) => {
+    if (err) return res.status(500).json({ message: 'Error de base de datos al verificar la cita.' });
+    if (results.length === 0) return res.status(404).json({ message: 'Cita no encontrada o no autorizada.' });
+
+    // 2. Check if the new slot is available
+    db.query('SELECT id FROM appointments WHERE date = ? AND time = ? AND status IN ("pending", "confirmed")', [newDate, newTime], (err, existing) => {
+      if (err) return res.status(500).json({ message: 'Error de base de datos al verificar disponibilidad.' });
+      if (existing.length > 0) return res.status(409).json({ message: 'El nuevo horario seleccionado ya no está disponible.' });
+
+      // 3. Update the appointment
+      const updateQuery = `
+        UPDATE appointments 
+        SET 
+          date = ?, 
+          time = ?, 
+          note = ?, 
+          status = 'pending', -- Set status to pending for admin re-confirmation
+          updated_at = CURRENT_TIMESTAMP 
+        WHERE id = ?
+      `;
+      db.query(updateQuery, [newDate, newTime, note, appointmentId], (err, updateResult) => {
+        if (err) {
+          console.error('Error rescheduling appointment:', err);
+          return res.status(500).json({ message: 'Error al reagendar la cita.' });
+        }
+        if (updateResult.affectedRows === 0) {
+          return res.status(404).json({ message: 'No se pudo actualizar la cita.' });
+        }
+        res.json({ message: 'Cita reagendada exitosamente. Queda pendiente de confirmación.' });
+      });
+    });
+  });
+});
+
+/**
  * Deletes an appointment (authenticated).
  */
 router.delete('/appointments/:id', authenticateToken, (req, res) => {
@@ -584,6 +639,36 @@ router.delete('/appointments/:id', authenticateToken, (req, res) => {
     res.sendStatus(204);
   });
 });
+
+/**
+ * PUT /auth/update-profile
+ * Allows a logged-in user to update their own profile information (full_name, email, phone).
+ * This route is protected and uses the user's ID from the JWT.
+ */
+router.put('/auth/update-profile', authenticateToken, (req, res) => {
+  const userId = req.user.id; // Get user ID from the token
+  const { full_name, email, phone } = req.body;
+
+  if (!full_name || !email) {
+    return res.status(400).json({ error: 'Full name and email are required.' });
+  }
+
+  db.query(
+    'UPDATE users SET full_name = ?, email = ?, phone = ? WHERE id = ?',
+    [full_name, email, phone, userId],
+    (err, result) => {
+      if (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+          return res.status(400).json({ error: 'Email already in use by another account.' });
+        }
+        console.error('Error updating user profile:', err);
+        return res.status(500).json({ error: 'Database error while updating profile.' });
+      }
+      res.json({ message: 'Profile updated successfully.' });
+    }
+  );
+});
+
 
 // --- Helper functions for calendar merging logic ---
 /**

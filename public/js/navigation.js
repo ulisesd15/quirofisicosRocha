@@ -95,7 +95,7 @@ class NavigationManager {
             const isAdmin = window.authManager.isAdmin();
             return `
                 <div class="dropdown">
-                    <a class="nav-link main-nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                    <a class="nav-link main-nav-link dropdown-toggle user-name-display" href="#" role="button" data-bs-toggle="dropdown">
                         <i class="fas fa-user me-1"></i>${user?.full_name || 'Usuario'}
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
@@ -261,6 +261,15 @@ class NavigationManager {
         const navContainer = document.getElementById('main-navigation');
         if (navContainer) {
             navContainer.innerHTML = this.createNavbar();
+            // Debug: log clicks on mis-citas/appointment links to diagnose redirect issues
+            navContainer.addEventListener('click', (e) => {
+                const a = e.target.closest('a');
+                if (!a) return;
+                const href = a.getAttribute('href');
+                if (href && (href.includes('mis-citas') || href.includes('appointment'))) {
+                    console.debug('[Navigation] link click detected', { href });
+                }
+            });
         }
 
         // Initialize scroll link handlers

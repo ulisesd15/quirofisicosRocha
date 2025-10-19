@@ -25,15 +25,17 @@ class MisCitas {
      */
     async init() {
         // Check authentication
-        if (!this.authManager.isLoggedIn()) {
+        const loggedIn = this.authManager.isLoggedIn();
+        console.debug('[MisCitas] init - isLoggedIn:', loggedIn, { token: this.authManager.token, userId: this.authManager.userId });
+        if (!loggedIn) {
+            console.info('[MisCitas] User is not logged in; redirecting to login.html');
             this.redirectToLogin();
             return;
         }
 
         // Load user data and appointments
         await this.loadUserData();
-        await this.loadAppointments();
-        this.setupEventListeners();
+        this.setupFilterEventListeners();
     }
 
     /**
@@ -55,22 +57,23 @@ class MisCitas {
      */
     async loadUserData() {
         try {
-            const token = this.getAuthToken();
-            const response = await fetch('/api/auth/me', {
+            const response = await fetch('/api/auth/profile', {
                 headers: {
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${this.getAuthToken()}`
                 }
             });
 
             if (response.ok) {
                 this.currentUser = await response.json();
-                this.displayUserInfo();
+                // User data is loaded, now load their appointments
+                await this.loadAppointments();
             } else {
                 throw new Error('Error loading user data');
             }
         } catch (error) {
             console.error('Error loading user data:', error);
-            this.redirectToLogin();
+            // If user data fails to load, it's an auth issue. Redirect to login.
+            window.location.href = 'login.html';
         }
     }
 
@@ -78,16 +81,6 @@ class MisCitas {
      * Updates the UI with the current user's info.
      */
     displayUserInfo() {
-        if (!this.currentUser) return;
-
-        document.getElementById('userFullName').textContent = this.currentUser.full_name || 'Usuario';
-        document.getElementById('userEmail').textContent = this.currentUser.email || '';
-        
-        // Update navigation
-        const userNameDisplay = document.getElementById('userNameDisplay');
-        if (userNameDisplay) {
-            userNameDisplay.textContent = this.currentUser.full_name?.split(' ')[0] || 'Usuario';
-        }
     }
 
     /**
@@ -105,6 +98,10 @@ class MisCitas {
             if (response.ok) {
                 const data = await response.json();
                 this.appointments = data.appointments || [];
+                // Populate user info card with data from the first appointment if available
+                const userInfo = this.appointments.length > 0 ? this.appointments[0] : this.currentUser;
+                document.getElementById('userFullName').textContent = userInfo.full_name || 'Usuario';
+                document.getElementById('userEmail').textContent = userInfo.email || '';
                 this.updateAppointmentCount();
                 this.displayAppointments();
             } else {
@@ -144,6 +141,8 @@ class MisCitas {
 
         const filteredAppointments = this.filterAppointments();
         container.innerHTML = filteredAppointments.map(appointment => this.createAppointmentCard(appointment)).join('');
+        // After rendering cards, set up event listeners for the buttons inside them
+        this.setupCardEventListeners(container);
     }
 
     /**
@@ -226,16 +225,16 @@ class MisCitas {
                     <div class="card-footer bg-transparent border-0">
                         <div class="appointment-actions">
                             ${isUpcoming && appointment.status === 'pending' ? `
-                                <button class="btn btn-outline-warning btn-sm" onclick="misCitas.cancelAppointment('${appointment.id}')">
+                                <button class="btn btn-outline-warning btn-sm" data-action="cancel" data-id="${appointment.id}">
                                     <i class="fas fa-times me-1"></i>Cancelar
                                 </button>
                             ` : ''}
                             ${isUpcoming && (appointment.status === 'pending' || appointment.status === 'confirmed') ? `
-                                <button class="btn btn-outline-primary btn-sm" onclick="misCitas.rescheduleAppointment('${appointment.id}')">
+                                <button class="btn btn-outline-primary btn-sm" data-action="reschedule" data-id="${appointment.id}">
                                     <i class="fas fa-calendar-alt me-1"></i>Reagendar
                                 </button>
                             ` : ''}
-                            <button class="btn btn-outline-info btn-sm" onclick="misCitas.viewAppointmentDetails('${appointment.id}')">
+                            <button class="btn btn-outline-info btn-sm" data-action="details" data-id="${appointment.id}">
                                 <i class="fas fa-eye me-1"></i>Detalles
                             </button>
                         </div>
@@ -301,13 +300,41 @@ class MisCitas {
     /**
      * Sets up event listeners for appointment filter radio buttons.
      */
-    setupEventListeners() {
+    setupFilterEventListeners() {
         // Filter buttons
         document.querySelectorAll('input[name="appointmentFilter"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 this.currentFilter = e.target.id;
                 this.displayAppointments();
             });
+        });
+    }
+
+    /**
+     * Sets up delegated event listeners for appointment card actions.
+     * @param {HTMLElement} container - The container holding the appointment cards.
+     */
+    setupCardEventListeners(container) {
+        container.addEventListener('click', (e) => {
+            const button = e.target.closest('button[data-action]');
+            if (!button) return;
+
+            const action = button.dataset.action;
+            const id = button.dataset.id;
+
+            if (!id) return;
+
+            switch (action) {
+                case 'cancel':
+                    this.cancelAppointment(id);
+                    break;
+                case 'reschedule':
+                    this.rescheduleAppointment(id);
+                    break;
+                case 'details':
+                    this.viewAppointmentDetails(id);
+                    break;
+            }
         });
     }
 
@@ -467,21 +494,9 @@ class MisCitas {
     }
 }
 
-// Global functions for button onclick handlers
-let misCitas;
-
 /**
  * Initializes the MisCitas instance when the DOM is loaded.
  */
 document.addEventListener('DOMContentLoaded', () => {
-    misCitas = new MisCitas();
+    new MisCitas();
 });
-
-/**
- * Logs out the user and redirects to the login page.
- */
-function logout() {
-    localStorage.removeItem('user_token');
-    localStorage.removeItem('token');
-    window.location.href = 'login.html';
-}

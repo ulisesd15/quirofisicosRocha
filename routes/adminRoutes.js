@@ -532,14 +532,14 @@ router.get('/users/:id', requireAdmin, (req, res) => {
  */
 router.put('/users/:id', requireAdmin, (req, res) => {
   const userId = req.params.id;
-  const { name, full_name, email, phone, role } = req.body;
+  const { name, full_name, email, phone, role, provider } = req.body;
   
   // Accept both 'name' and 'full_name' for backward compatibility
   const userName = name || full_name;
   
   db.query(
-    'UPDATE users SET full_name = ?, email = ?, phone = ?, role = ? WHERE id = ?',
-    [userName, email, phone, role, userId],
+    'UPDATE users SET full_name = ?, email = ?, phone = ?, role = ?, auth_provider = ? WHERE id = ?',
+    [userName, email, phone, role, provider, userId],
     (err, result) => {
       if (err) {
         if (err.code === 'ER_DUP_ENTRY') {
@@ -556,7 +556,6 @@ router.put('/users/:id', requireAdmin, (req, res) => {
     }
   );
 });
-
 
 
 // Update user role

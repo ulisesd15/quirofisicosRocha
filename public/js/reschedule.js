@@ -18,6 +18,7 @@ let currentAppointmentAlert, currentAppointmentInfo;
 // ───────── APPOINTMENT DATA ─────────
 let currentAppointment = null;
 let appointmentId = null;
+let currentDateISO = null;
 
 // ───────── HELPER FUNCTIONS ─────────
 /**
@@ -70,22 +71,36 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Initialize DOM references
   initializeDOMReferences();
 
-  // Wait for AuthManager
-  if (window.authManager) {
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
   // Load current appointment
   await loadCurrentAppointment();
+
   // Initialize Calendar instance
   window.rescheduleCalendar = new Calendar();
+
   // Render weekly calendar in the reschedule context
   window.rescheduleCalendar.renderWeeklyCalendar('calendar');
+
   // Override slot selection to prevent current appointment date/time
   overrideCalendarSlotSelection();
+
   // Setup form submission
   setupFormSubmission();
   console.log('🔄 Reschedule system ready');
 });
+
+/**
+ * Initializes DOM element references.
+ */
+function initializeDOMReferences() {
+    calendarEl = document.getElementById('calendar');
+    timeCardsEl = document.getElementById('timeCards');
+    bookingForm = document.getElementById('bookingForm');
+    selectedDateInput = document.getElementById('selectedDate');
+    selectedTimeInput = document.getElementById('selectedTime');
+    currentAppointmentAlert = document.getElementById('currentAppointmentAlert');
+    currentAppointmentInfo = document.getElementById('currentAppointmentInfo');
+    console.log('🔄 DOM references initialized');
+}
 
 /**
  * Overrides Calendar slot selection to prevent selecting the current appointment's date/time.
@@ -128,7 +143,7 @@ async function loadCurrentAppointment() {
     if (!response.ok) throw new Error('Error al cargar la cita actual');
     
     const data = await response.json();
-    currentAppointment = data.appointment;
+    currentAppointment = data;
     console.log('🔄 Current appointment loaded:', currentAppointment);
     
     // Display appointment info
@@ -159,8 +174,8 @@ function displayCurrentAppointmentInfo() {
   if (!currentAppointmentInfo) return;
   
   try {
-    const date = new Date(currentAppointment.appointment_date);
-    const time = currentAppointment.appointment_time || currentAppointment.time;
+    const date = new Date(getAppointmentDate(currentAppointment));
+    const time = getAppointmentTime(currentAppointment);
     const formattedDate = date.toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
     const formattedTime = formatTime(time);
     
@@ -168,7 +183,6 @@ function displayCurrentAppointmentInfo() {
       <strong>Fecha actual:</strong> ${formattedDate}<br>
       <strong>Hora actual:</strong> ${formattedTime}<br>
       <strong>Servicio:</strong> ${currentAppointment.service_type || 'Consulta General'}<br>
-      <strong>Estado:</strong> ${currentAppointment.status || 'Pendiente'}
     `;
     
     console.log('🔄 Current appointment info displayed');
@@ -333,8 +347,8 @@ async function loadTimeSlots(dayISO) {
       timeSlotsHTML += `
         <div class="col-6 col-md-4 col-lg-3">
           <button type="button" 
-                  class="${btnClass} w-100 time-slot" 
-                  onclick="selectTime('${timeSlot}')"
+                  class="${btnClass} w-100 time-slot"
+                  data-time="${timeSlot}"
                   ${disabled}>
             ${formatTime(timeSlot)}${warningText}
           </button>
@@ -343,6 +357,11 @@ async function loadTimeSlots(dayISO) {
     });
     
     timeCardsEl.innerHTML = timeSlotsHTML;
+    timeCardsEl.querySelectorAll('.time-slot').forEach(btn => {
+        if (!btn.disabled) {
+            btn.addEventListener('click', (e) => selectTime(e.target.dataset.time, e.target));
+        }
+    });
     console.log('🔄 Time slots loaded, HTML updated:', timeSlotsHTML);
     
   } catch (error) {
@@ -353,7 +372,7 @@ async function loadTimeSlots(dayISO) {
 /**
  * Handles selecting a time slot.
  */
-function selectTime(timeSlot) {
+function selectTime(timeSlot, buttonElement) {
   // Check if this is the current appointment time
   if (currentAppointment && 
       getAppointmentDateISO(currentAppointment) === currentDateISO && 
@@ -371,8 +390,8 @@ function selectTime(timeSlot) {
     btn.classList.remove('btn-primary');
     btn.classList.add('btn-outline-primary');
   });
-  event.target.classList.remove('btn-outline-primary');
-  event.target.classList.add('btn-primary');
+  buttonElement.classList.remove('btn-outline-primary');
+  buttonElement.classList.add('btn-primary');
   
   // Enable form submission
   const submitBtn = bookingForm.querySelector('button[type="submit"]');

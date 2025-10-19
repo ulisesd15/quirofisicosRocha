@@ -5,11 +5,13 @@ class AuthManager {
     this.userId = localStorage.getItem('user_id');
     this.userName = localStorage.getItem('user_name');
     this.userRole = localStorage.getItem('user_role');
+    console.debug('[AuthManager] initialized', { tokenPresent: !!this.token, userId: this.userId, userName: this.userName });
   }
 
   // Check if user is logged in
   isLoggedIn() {
-    return !!(this.token && this.userId);
+    // Consider the user logged in if a token exists. User details may be loaded/validated separately.
+    return !!this.token;
   }
 
   // Get auth headers for API requests
@@ -105,15 +107,17 @@ class AuthManager {
   }
 
   // Get current user object
-      /**
-       * Returns a minimal user info object (id, name, role, token).
-       */
   getCurrentUser() {
     if (!this.isLoggedIn()) return null;
+    // Return fields expected across the codebase. Some parts expect `full_name`.
     return {
       id: this.userId,
-      name: this.userName,
-      role: this.userRole
+      full_name: this.userName || localStorage.getItem('user_name'),
+      name: this.userName || localStorage.getItem('user_name'),
+      email: localStorage.getItem('user_email'),
+      phone: localStorage.getItem('user_phone'),
+      role: this.userRole || localStorage.getItem('user_role'),
+      token: this.token
     };
   }
 
@@ -197,8 +201,10 @@ window.authManager = new AuthManager();
 
 // Auto-validate token on page load if user appears to be logged in
 document.addEventListener('DOMContentLoaded', async () => {
+  console.debug('[AuthManager] DOMContentLoaded - isLoggedIn:', window.authManager.isLoggedIn());
   if (window.authManager.isLoggedIn()) {
-    await window.authManager.validateToken();
+    const valid = await window.authManager.validateToken();
+    console.debug('[AuthManager] token validation result:', valid);
   }
   // window.authManager.updateNavigation(); // Removed, not needed
 });
