@@ -833,7 +833,7 @@ class AdminPanel {
         break;
       case 'settings':
         this.settings.loadClinicSettings?.(); break;
-      case 'sms-management':
+      case 'user-verification':
         this.userVerification.load?.(); break;
       case 'server-status':
         this.serverStatus.load?.(); break;

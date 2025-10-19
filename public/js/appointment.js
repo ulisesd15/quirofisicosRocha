@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
  * Sets up the event listener for the appointment booking form submission.
  */
 function setupFormSubmission() {
-  const bookingForm = document.getElementById('bookingForm');
+  const bookingForm = document.getElementById('appointment-form');
   if (!bookingForm) {
     console.error('Booking form not found!');
     return;
@@ -107,14 +107,16 @@ function setupFormSubmission() {
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Confirmando...';
 
     const authManager = new AuthManager();
-    const selectedDate = document.getElementById('selectedDate').value;
-    const selectedTime = document.getElementById('selectedTime').value;
+    const selectedDate = document.getElementById('selected-date').value;
+    const selectedTime = document.getElementById('selected-time').value;
     const note = document.getElementById('note').value;
 
     if (!selectedDate || !selectedTime) {
       showNotification('Por favor, selecciona una fecha y hora.', 'danger');
       return;
     }
+
+    console.log('[appointment.js] Submitting form with -> date:', selectedDate, 'time:', selectedTime);
 
     let appointmentData = {
       date: selectedDate,

@@ -9,7 +9,25 @@
  * - Exports a singleton instance for use in the admin UI.
  */
 
+/**
+ * userVerification.js
+ *
+ * Handles user verification logic for the admin panel.
+ * - Fetches and displays unverified users.
+ * - Allows admin to verify or reject users.
+ * - Provides UI updates for verification actions.
+ * - Includes appointment management for pending approvals.
+ * - Exports a singleton instance for use in the admin UI.
+ */
+
 export class UserVerificationModule {
+  /**
+   * Main entry point to load the module's data.
+   */
+  load() {
+    this.loadUnverifiedUsers();
+  }
+
   /**
    * Verifies a user by ID and refreshes the unverified users list.
    * @param {number} id - The ID of the user to verify.

@@ -417,7 +417,25 @@ export class Calendar {
     });
     btnElement.classList.remove('btn-outline-primary');
     btnElement.classList.add('btn-primary', 'active');
-    // Store selected time if needed
+
+    // Update the hidden input fields for the form
+    const selectedDateInput = document.getElementById('selected-date');
+    const selectedTimeInput = document.getElementById('selected-time');
+
+    console.log('[Calendar.js] selectTimeSlot: Received time:', time, 'and selected date:', this.selectedDate);
+
+    if (selectedDateInput && this.selectedDate) {
+      selectedDateInput.value = this.formatDate(this.selectedDate);
+    }
+    if (selectedTimeInput) {
+      selectedTimeInput.value = time;
+    }
+
+    console.log('[Calendar.js] selectTimeSlot: Set hidden input values -> date:', selectedDateInput.value, 'time:', selectedTimeInput.value);
+
+    // Enable the confirm booking button
+    const confirmBtn = document.getElementById('confirm-booking-btn');
+    if (confirmBtn) confirmBtn.disabled = false;
   }
 
   // --- Date Selection ---

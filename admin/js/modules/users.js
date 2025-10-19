@@ -317,28 +317,52 @@ export class UsersModule {
   }
 
   /**
-   * Renders the users table in the UI.
+   * Renders the users list in the UI.
    */
   async displayUsers(users) {
     const usersList = document.getElementById('usersList');
     usersList.innerHTML = ''; // Clear current list
 
-    users.forEach(user => {
-        const userDiv = document.createElement('div');
-        userDiv.className = 'user-entry';
-        
-        // Add a button only if the user is not already an admin
-        const promoteButton = user.role !== 'admin'
-            ? `<button class="btn btn-sm btn-outline-primary promote-admin-btn" data-user-id="${user.id}">Make Admin</button>`
-            : '';
+    if (!users || users.length === 0) {
+      usersList.innerHTML = '<div class="text-center p-4 text-muted">No users found.</div>';
+      return;
+    }
 
-        userDiv.innerHTML = `
-            <p><strong>${user.full_name}</strong> (${user.email})</p>
-            <p>Role: ${user.role} ${promoteButton}</p>
-            <p>Verified: ${user.is_verified ? 'Yes' : 'No'}</p>
+    const table = document.createElement('table');
+    table.className = 'table table-hover';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Provider</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    `;
+    const tbody = table.querySelector('tbody');
+
+    users.forEach(user => {
+        const row = document.createElement('tr');
+        const promoteButton = user.role !== 'admin' ? `<button class="btn btn-sm btn-outline-primary promote-admin-btn" data-user-id="${user.id}">Make Admin</button>` : '';
+        row.innerHTML = `
+            <td>${user.id}</td>
+            <td>${user.name}</td>
+            <td>${user.email}</td>
+            <td>${user.role}</td>
+            <td><span class="badge bg-secondary">${user.provider}</span></td>
+            <td>
+                <button class="btn btn-sm btn-outline-secondary" onclick="window.usersModule.editUser(${user.id})"><i class="fas fa-edit"></i></button>
+                ${promoteButton}
+            </td>
         `;
-        usersList.appendChild(userDiv);
+        tbody.appendChild(row);
     });
+    usersList.appendChild(table);
 
     // Add event listeners after all buttons are in the DOM
     document.querySelectorAll('.promote-admin-btn').forEach(button => {
