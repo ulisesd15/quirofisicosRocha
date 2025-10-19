@@ -67,7 +67,7 @@ export class DashboardModule {
       this.updateStatsCard('total-users', data.totalUsers);
       this.updateStatsCard('total-appointments', data.totalAppointments);
       this.updateStatsCard('today-appointments', data.todayAppointments);
-      this.updateStatsCard('pending-users', data.pendingAppointments);
+      this.updateStatsCard('pending-appointments', data.pendingAppointments);
       this.displayRecentAppointments(data.recentAppointments || []);
     } catch (error) {
       console.error('Error loading dashboard:', error);
@@ -105,6 +105,19 @@ export class DashboardModule {
       return;
     }
 
+    // Helper to format date string
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      // Create a date object, treating the input as UTC to avoid timezone shifts
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'UTC'
+      });
+    }
+
     // Helper to format time to AM/PM
     function formatTimeToAMPM(timeStr) {
       // Assumes timeStr is "HH:mm" or "HH:mm:ss"
@@ -129,9 +142,9 @@ export class DashboardModule {
       }
       return `
         <tr>
-          <td>${apt.appointment_date}</td>
-          <td>${formatTimeToAMPM(apt.appointment_time)}</td>
-          <td>${apt.name}</td>
+          <td>${formatDate(apt.date)}</td>
+          <td>${formatTimeToAMPM(apt.time)}</td>
+          <td>${apt.full_name}</td>
           <td><span class="badge ${statusClass} ${textColor}">${statusText}</span></td>
           <td>
             <button class="btn btn-sm btn-outline-primary" onclick="adminPanel.appointments.editAppointment(${apt.id})">

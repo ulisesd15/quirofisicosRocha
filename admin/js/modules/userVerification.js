@@ -50,6 +50,12 @@ export class UserVerificationModule {
           const appointmentId = approveButton.dataset.appointmentId;
           this.approveAppointmentAndVerifyUser(appointmentId, approveButton.closest('.appointment-item'));
         }
+        const rejectButton = event.target.closest('.btn-reject');
+        if (rejectButton) {
+          event.preventDefault();
+          const appointmentId = rejectButton.dataset.appointmentId;
+          this.rejectAppointment(appointmentId, rejectButton.closest('.appointment-item'));
+        }
       });
       container.dataset.listenerAttached = 'true';
     }
@@ -260,31 +266,9 @@ export class UserVerificationModule {
         container.innerHTML = '<p>No hay citas pendientes de aprobación.</p>';
         return;
       }
-      appointments.forEach(appointment => {
-        const appointmentDiv = document.createElement('div');
-        appointmentDiv.className = 'appointment-item';
-        appointmentDiv.innerHTML = `
-          <div class="appointment-details">
-            <h4>Cita #${appointment.id}</h4>
-            <p><strong>Cliente:</strong> ${appointment.user_name}</p>
-            <p><strong>Email:</strong> ${appointment.email}</p>
-            <p><strong>Teléfono:</strong> ${appointment.phone || 'No especificado'}</p>
-            <p><strong>Fecha:</strong> ${appointment.appointment_date}</p>
-            <p><strong>Hora:</strong> ${formatTimeToAMPM(appointment.appointment_time)}</p>
-            <p><strong>Servicio:</strong> ${appointment.service}</p>
-            <p><strong>Notas:</strong> ${appointment.notes || 'Sin notas'}</p>
-            <p><strong>Fecha de solicitud:</strong> ${new Date(appointment.created_at).toLocaleString()}</p>
-          </div>
-          <div class="appointment-actions">
-            <button class="btn-approve" data-appointment-id="${appointment.id}">
-              Aprobar y Enviar SMS
-            </button>
-            <button class="btn-reject" data-appointment-id="${appointment.id}">
-              Rechazar
-            </button>
-          </div>
-        `;
-        container.appendChild(appointmentDiv);
+      appointments.forEach(item => {
+        const itemHTML = this.createVerificationItemHTML(item);
+        container.insertAdjacentHTML('beforeend', itemHTML);
       });
     } catch (error) {
       console.error('Error loading pending appointments:', error);
@@ -296,15 +280,55 @@ export class UserVerificationModule {
   }
 
   /**
+   * Creates the HTML for a single pending verification item.
+   * @param {object} item - The appointment and user data object from the API.
+   * @returns {string} The HTML string for the item.
+   */
+  createVerificationItemHTML(item) {
+    // Safely format date: 'YYYY-MM-DD' -> 'dd de MMMM de yyyy'
+    const formattedDate = item.date ? new Date(item.date + 'T00:00:00').toLocaleDateString('es-MX', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC' // Treat date as UTC to avoid timezone shifts
+    }) : 'Fecha no disponible';
+
+    // Safely format time: 'HH:mm:ss' -> 'h:mm AM/PM'
+    let formattedTime = 'Hora no disponible';
+    if (item.time) {
+        const [hours, minutes] = item.time.split(':');
+        const time = new Date();
+        time.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+        formattedTime = time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    }
+
+    return `
+      <div class="appointment-item">
+        <div class="appointment-details">
+          <h4>Cita de: ${item.full_name || 'Nombre no disponible'}</h4>
+          <p><strong>Email:</strong> ${item.email || 'Email no disponible'}</p>
+          <p><strong>Fecha de Cita:</strong> ${formattedDate}</p>
+          <p><strong>Hora de Cita:</strong> ${formattedTime}</p>
+          <p class="text-muted small">ID Usuario: ${item.user_id} | ID Cita: ${item.appointment_id}</p>
+        </div>
+        <div class="appointment-actions">
+          <button class="btn-approve" data-appointment-id="${item.appointment_id}" data-user-id="${item.user_id}">Aprobar</button>
+          <button class="btn-reject" data-appointment-id="${item.appointment_id}" data-user-id="${item.user_id}">Rechazar</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
    * Approves an appointment and verifies the associated user.
-   * @param {number} appointmentId - The ID of the appointment to approve.
+   * @param {number} userId - The ID of the user to verify and whose appointment to approve.
    * @param {HTMLElement} itemElement - The DOM element for the list item to be removed on success.
    */
-  async approveAppointmentAndVerifyUser(appointmentId, itemElement) {
+  async approveAppointmentAndVerifyUser(userId, itemElement) {
     if (!confirm('¿Estás seguro de que quieres aprobar esta cita? El usuario asociado también será verificado.')) return;
 
     try {
-      const response = await fetch(`/api/admin/appointments/${appointmentId}/approve`, {
+      const response = await fetch(`/api/admin/approve-user/${userId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${this.getAuthToken()}`,
@@ -322,6 +346,37 @@ export class UserVerificationModule {
 
     } catch (error) {
       console.error('Error approving appointment and verifying user:', error);
+      this.showNotification(error.message, 'error');
+    }
+  }
+
+  /**
+   * Rejects a pending appointment.
+   * @param {number} appointmentId - The ID of the appointment to reject.
+   * @param {HTMLElement} itemElement - The DOM element for the list item to be removed on success.
+   */
+  async rejectAppointment(appointmentId, itemElement) {
+    if (!confirm('¿Estás seguro de que quieres rechazar esta cita? Esta acción no se puede deshacer.')) return;
+
+    try {
+      const response = await fetch(`/api/admin/appointments/${appointmentId}/reject`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${this.getAuthToken()}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al rechazar la cita.');
+      }
+
+      this.showNotification(result.message || 'Cita rechazada correctamente.', 'success');
+      itemElement.remove(); // Remove the item from the list
+
+    } catch (error) {
+      console.error('Error rejecting appointment:', error);
       this.showNotification(error.message, 'error');
     }
   }

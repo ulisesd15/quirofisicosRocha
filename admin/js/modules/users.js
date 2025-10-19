@@ -89,7 +89,7 @@ export class UsersModule {
    * Retrieves the current authentication token from localStorage.
    */
   getAuthToken() {
-    return localStorage.getItem('token') || localStorage.getItem('token') || '';
+    return localStorage.getItem('user_token') || localStorage.getItem('token') || '';
   }
 
   /**
@@ -192,7 +192,7 @@ export class UsersModule {
     try {
       const id = document.getElementById('edit-user-id').value;
       const data = {
-        name: document.getElementById('edit-user-name').value,
+        full_name: document.getElementById('edit-user-name').value,
         email: document.getElementById('edit-user-email').value,
         phone: document.getElementById('edit-user-phone').value,
         role: document.getElementById('edit-user-role').value
@@ -234,7 +234,7 @@ export class UsersModule {
       const data = await response.json();
       const user = data.user;
       document.getElementById('edit-user-id').value = user.id;
-      document.getElementById('edit-user-name').value = user.name;
+      document.getElementById('edit-user-name').value = user.full_name;
       document.getElementById('edit-user-email').value = user.email;
       document.getElementById('edit-user-phone').value = user.phone || '';
       document.getElementById('edit-user-role').value = user.role || 'user';
@@ -320,11 +320,16 @@ export class UsersModule {
    * Renders the users list in the UI.
    */
   async displayUsers(users) {
-    const usersList = document.getElementById('usersList');
-    usersList.innerHTML = ''; // Clear current list
+    const usersTableBody = document.getElementById('users-table');
+    if (!usersTableBody) {
+      console.error('Error: The element with ID "users-table" was not found in the DOM.');
+      this.showError('Error de UI: No se pudo encontrar el contenedor de la lista de usuarios.');
+      return;
+    }
+    usersTableBody.innerHTML = ''; // Clear current list
 
     if (!users || users.length === 0) {
-      usersList.innerHTML = '<div class="text-center p-4 text-muted">No users found.</div>';
+      usersTableBody.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-muted">No users found.</td></tr>';
       return;
     }
 
@@ -348,59 +353,22 @@ export class UsersModule {
 
     users.forEach(user => {
         const row = document.createElement('tr');
-        const promoteButton = user.role !== 'admin' ? `<button class="btn btn-sm btn-outline-primary promote-admin-btn" data-user-id="${user.id}">Make Admin</button>` : '';
         row.innerHTML = `
             <td>${user.id}</td>
-            <td>${user.name}</td>
+            <td>${user.full_name}</td>
             <td>${user.email}</td>
-            <td>${user.role}</td>
-            <td><span class="badge bg-secondary">${user.provider}</span></td>
+            <td>${user.phone || 'N/A'}</td>
+            <td><span class="badge bg-secondary">${user.role}</span></td>
+            <td>${new Date(user.created_at).toLocaleDateString()}</td>
             <td>
                 <button class="btn btn-sm btn-outline-secondary" onclick="window.usersModule.editUser(${user.id})"><i class="fas fa-edit"></i></button>
-                ${promoteButton}
             </td>
         `;
-        tbody.appendChild(row);
+        usersTableBody.appendChild(row);
     });
-    usersList.appendChild(table);
 
     // Add event listeners after all buttons are in the DOM
-    document.querySelectorAll('.promote-admin-btn').forEach(button => {
-        button.addEventListener('click', handlePromoteUser);
-    });
-}
-
-// Add this new handler function in the same file
-async handlePromoteUser(event) {
-    const userId = event.target.dataset.userId;
-    const token = localStorage.getItem('token');
-
-    if (!confirm('Are you sure you want to make this user an admin?')) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`/api/admin/users/${userId}/role`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ role: 'admin' })
-        });
-
-        if (response.ok) {
-            alert('User promoted successfully!');
-            loadUsers(); // Reload the user list to show the change
-        } else {
-            const result = await response.json();
-            alert(`Promotion failed: ${result.error}`);
-        }
-    } catch (error) {
-        console.error('Error promoting user:', error);
-        alert('A client-side error occurred.');
-    }
-}
+  }
 
   /**
    * Updates the displayed total user count in the UI.

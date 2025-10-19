@@ -30,7 +30,7 @@ const router = express.Router();
 router.get('/dashboard/stats', requireAdmin, async (req, res) => {
   try {
     // User count
-    let totalUsers = 0, totalAppointments = 0, todayAppointments = 0, pendingUsers = 0, recentAppointments = [];
+    let totalUsers = 0, totalAppointments = 0, todayAppointments = 0, pendingAppointments = 0, recentAppointments = [];
     try {
       const [users] = await new Promise((resolve, reject) => {
         db.query('SELECT COUNT(*) as count FROM users', (err, results) => {
@@ -71,7 +71,7 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
           resolve(results);
         });
       });
-      pendingUsers = pending.count || 0;
+      pendingAppointments = pending.count || 0;
     } catch (err) {
       console.error('Error fetching pending appointments:', err);
     }
@@ -89,7 +89,7 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
       totalUsers,
       totalAppointments,
       todayAppointments,
-      pendingUsers,
+      pendingAppointments,
       recentAppointments
     });
   } catch (error) {
@@ -507,7 +507,7 @@ router.get('/users/:id', requireAdmin, (req, res) => {
   const userId = req.params.id;
   
   db.query(
-    'SELECT id, full_name as name, email, phone, auth_provider as provider, role, created_at FROM users WHERE id = ?',
+    'SELECT id, full_name, email, phone, auth_provider as provider, role, created_at FROM users WHERE id = ?',
     [userId], 
     (err, results) => {
       if (err) {
@@ -535,7 +535,7 @@ router.put('/users/:id', requireAdmin, (req, res) => {
   const { name, full_name, email, phone, role, provider } = req.body;
   
   // Accept both 'name' and 'full_name' for backward compatibility
-  const userName = name || full_name;
+  const userName = full_name || name;
   
   db.query(
     'UPDATE users SET full_name = ?, email = ?, phone = ?, role = ?, auth_provider = ? WHERE id = ?',
@@ -619,21 +619,77 @@ router.put('/users/:id/verify', requireAdmin, (req, res) => {
   });
 });
 
+/**
+ * PUT /approve-user/:userId
+ * Verifies a user and confirms their first pending appointment.
+ * This is a transactional operation.
+ */
+router.put('/approve-user/:userId', requireAdmin, async (req, res) => {
+  const { userId } = req.params;
+  // Note: smsController is not provided in context, assuming it exists.
+  // const smsController = require('../controllers/smsController');
+
+  db.beginTransaction(err => {
+    if (err) {
+      console.error('Error starting transaction:', err);
+      return res.status(500).json({ error: 'Error del servidor al iniciar la transacción.' });
+    }
+
+    // 1. Verify the user
+    db.query('UPDATE users SET is_verified = true WHERE id = ?', [userId], (err, userResult) => {
+      if (err) {
+        return db.rollback(() => {
+          console.error('Error verifying user:', err);
+          res.status(500).json({ error: 'Error al verificar al usuario.' });
+        });
+      }
+      if (userResult.affectedRows === 0) {
+        return db.rollback(() => {
+          res.status(404).json({ error: 'Usuario no encontrado.' });
+        });
+      }
+
+      // 2. Confirm the user's pending appointment
+      db.query("UPDATE appointments SET status = 'confirmed' WHERE user_id = ? AND status = 'pending' LIMIT 1", [userId], (err, appointmentResult) => {
+        if (err) {
+          return db.rollback(() => {
+            console.error('Error confirming appointment:', err);
+            res.status(500).json({ error: 'Error al confirmar la cita del usuario.' });
+          });
+        }
+
+        // 3. Fetch user contact info for notification
+        db.query('SELECT phone, email FROM users WHERE id = ?', [userId], (err, users) => {
+          if (err || users.length === 0) {
+            // Don't rollback, the main operations succeeded. Just log the notification failure.
+            console.error('Could not fetch user details for notification after approval.');
+          } else {
+            const user = users[0];
+            if (user.phone) {
+              // Example: smsController.sendSms(user.phone, 'Tu cuenta ha sido verificada y tu cita confirmada.');
+              console.log(`SMS notification would be sent to ${user.phone}`);
+            }
+          }
+
+          // 4. Commit the transaction
+          db.commit(err => {
+            if (err) {
+              return db.rollback(() => {
+                console.error('Error committing transaction:', err);
+                res.status(500).json({ error: 'Error al finalizar la transacción.' });
+              });
+            }
+            res.json({ message: 'Usuario aprobado y cita confirmada correctamente.' });
+          });
+        });
+      });
+    });
+  });
+});
+
 // =================
 // APPOINTMENT MANAGEMENT
 // =================
-
-// Get all appointments (paginated and filtered)
-
-// ADMIN: Reject appointment (set status to rejected)
-router.put('/appointments/:id/reject', requireAdmin, (req, res) => {
-  const appointmentId = req.params.id;
-  db.query('UPDATE appointments SET status = "rejected", updated_at = CURRENT_TIMESTAMP WHERE id = ?', [appointmentId], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Error rechazando cita' });
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Cita no encontrada' });
-    res.json({ message: 'Cita rechazada correctamente' });
-  });
-});
 
 router.get('/appointments', requireAdmin, (req, res) => {
   console.log('DEBUG: /api/admin/appointments route hit');
@@ -773,7 +829,8 @@ router.get('/appointments/:id', requireAdmin, (req, res) => {
     FROM appointments a
     LEFT JOIN users u ON a.user_id = u.id
     WHERE a.id = ?
-  `), [appointmentId], (err, results) => {
+  `, [appointmentId], (err, results) => {
+    if (err) {
       console.error('Error fetching appointment:', err);
       return res.status(500).json({ error: 'Database error' });
     }
@@ -784,6 +841,7 @@ router.get('/appointments/:id', requireAdmin, (req, res) => {
 
     res.json({ appointment: results[0] });
   });
+});
 
 // Update appointment
 
@@ -837,26 +895,43 @@ router.delete('/appointments/:id', requireAdmin, (req, res) => {
  */
 router.get('/appointments/pending', requireAdmin, (req, res) => {
   const query = `
-    SELECT 
-      a.id, 
+    SELECT
+      a.id as appointment_id,
       a.full_name, 
-      a.date, 
-      a.time, 
+      a.date,
+      a.time,
       a.note,
       a.created_at,
-      a.status as appointment_status, 
-      u.id as user_id, 
-      u.email, 
+      a.status as appointment_status,
+      u.id as user_id,
+      u.email,
       u.phone,
-      u.is_verified 
-    FROM appointments a 
-    JOIN users u ON a.user_id = u.id 
-    WHERE a.status = 'pending' AND u.is_verified = false 
+      u.is_verified
+    FROM appointments a
+    JOIN users u ON a.user_id = u.id
+    WHERE a.status = 'pending' 
+      AND u.is_verified = false 
+      AND u.role != 'admin'
     ORDER BY a.date, a.time;
   `;
   db.query(query, (err, results) => {
     if (err) return res.status(500).json({ error: 'Error obteniendo citas pendientes de usuarios no verificados' });
     res.json(results);
+  });
+});
+
+// Approve appointment (set status to confirmed)
+
+/**
+ * PUT /appointments/:id/reject
+ * Rejects a pending appointment by setting its status to 'rejected'.
+ */
+router.put('/appointments/:id/reject', requireAdmin, (req, res) => {
+  const appointmentId = req.params.id;
+  db.query('UPDATE appointments SET status = "rejected", updated_at = CURRENT_TIMESTAMP WHERE id = ?', [appointmentId], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Error rechazando cita' });
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Cita no encontrada' });
+    res.json({ message: 'Cita rechazada correctamente' });
   });
 });
 

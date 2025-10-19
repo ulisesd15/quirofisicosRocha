@@ -100,6 +100,7 @@ class AdminPanel {
     });
     document.body.classList.toggle('mobile-admin', this.isMobile);
     this.initEventListeners();
+    this.verifyAdminAccess(); // Add this line to verify role on load
     // Sidebar hamburger toggle
     const sidebarToggle = document.getElementById('sidebar-toggle');
     const sidebar = document.getElementById('admin-sidebar');
@@ -133,6 +134,38 @@ class AdminPanel {
           });
         }
       });
+  }
+
+  /**
+   * Verifies the user's role by fetching their profile from the server.
+   * This ensures that role changes (like promotion to admin) are reflected
+   * without requiring a manual logout/login.
+   */
+  async verifyAdminAccess() {
+    const token = localStorage.getItem('user_token') || localStorage.getItem('token');
+    if (!token) return; // The inline script in adminOptions.html will handle this.
+
+    try {
+      const response = await fetch('/api/auth/profile', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        throw new Error('Session invalid or expired.');
+      }
+
+      const user = await response.json();
+      if (user.role !== 'admin') {
+        alert('Acceso denegado. Tu rol ha cambiado y ya no tienes permisos de administrador.');
+        window.location.href = '/login.html';
+      } else {
+        // Role is confirmed, update localStorage just in case it was stale.
+        localStorage.setItem('user_role', user.role);
+      }
+    } catch (error) {
+      console.error('Admin access verification failed:', error);
+      window.location.href = '/login.html';
+    }
   }
   /**
    * Loads unverified users for verification tab.

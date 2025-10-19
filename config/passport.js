@@ -47,7 +47,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           });
       }
       
-  const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '2h' });
+  const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '2h' });
       return done(null, { token });
     }
 
@@ -60,7 +60,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     db.query(insertSql, [full_name, email, null, null, 'google', google_id], (err, result) => {
       if (err) return done(err);
 
-  const token = jwt.sign({ id: result.insertId, email }, JWT_SECRET, { expiresIn: '2h' });
+  const token = jwt.sign({ id: result.insertId, email, role: 'user' }, JWT_SECRET, { expiresIn: '2h' });
       return done(null, { token });
     });
   });
