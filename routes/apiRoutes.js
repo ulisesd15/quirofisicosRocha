@@ -180,15 +180,21 @@ router.get('/available-slots/:date', async (req, res) => {
         const allSlots = generateTimeSlots(bhObj.open_time, bhObj.close_time);
         console.log(`[API] All possible slots:`, allSlots);
         // Get taken appointments
-        db.query('SELECT time FROM appointments WHERE date = ? AND status IN ("pending", "confirmed")', [dayISO], (err2, takenRows) => {
+        const countQuery = `
+          SELECT time, COUNT(*) as count 
+          FROM appointments 
+          WHERE date = ? AND status IN ('pending', 'confirmed') 
+          GROUP BY time
+        `;
+        db.query(countQuery, [dayISO], (err2, takenRows) => {
           if (err2) {
             console.log(`[API] Error fetching appointments for ${dayISO}:`, err2);
             return res.json({ availableSlots: [] });
           }
-          const taken = takenRows.map(r => r.time);
-          console.log(`[API] Taken slots for ${dayISO}:`, taken);
-          // Filter out taken slots
-          let available = allSlots.filter(t => !taken.includes(t));
+          const bookingCounts = Object.fromEntries(takenRows.map(row => [row.time, row.count]));
+          console.log(`[API] Booking counts for ${dayISO}:`, bookingCounts);
+          // A slot is available if it has been booked less than 2 times.
+          let available = allSlots.filter(slot => (bookingCounts[slot + ':00'] || 0) < 2);
           // Filter out slots less than 30 min from now (if today)
           const now = new Date();
           const todayISO = now.toISOString().split('T')[0];
@@ -241,39 +247,16 @@ router.get('/config/maps-key', (req, res) => {
  * Returns all business hours (for admin/configuration).
  */
 router.get('/business-hours', (req, res) => {
-  db.query(`
-    SELECT 
-      id,
-      day_of_week,
-      is_open,
-      TIME_FORMAT(open_time, '%H:%i') as open_time,
-      TIME_FORMAT(close_time, '%H:%i') as close_time,
-      TIME_FORMAT(break_start, '%H:%i') as break_start,
-      TIME_FORMAT(break_end, '%H:%i') as break_end,
-      updated_at
-    FROM business_hours 
-    ORDER BY FIELD(day_of_week, 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
-  `, (err, results) => {
-    if (err) {
-      console.error('Error fetching business hours:', err);
-      return res.status(500).json({ error: 'Database error', details: err.message });
-    }
-    res.json({ businessHours: results });
-  });
-});
-
-/**
- * Returns business hours for a specific date (uses scheduled-business-hours if available).
- */
-router.get('/business-hours/:date', (req, res) => {
-  const dayISO = req.params.date;
-  const dateObj = new Date(dayISO);
-  if (isNaN(dateObj)) return res.status(400).json({ business_hours: [] });
+  // This endpoint now functions like /business-hours/:date, using today if no date is provided.
+  const dayISO = new Date().toISOString().split('T')[0]; // Default to today
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
   const promises = days.map(dow => {
     return new Promise((resolve, reject) => {
       const bhQuery = `
-        SELECT * FROM scheduled_business_hours
+        SELECT *, TIME_FORMAT(open_time, '%H:%i') as open_time, TIME_FORMAT(close_time, '%H:%i') as close_time,
+                   TIME_FORMAT(break_start, '%H:%i') as break_start, TIME_FORMAT(break_end, '%H:%i') as break_end
+        FROM scheduled_business_hours
         WHERE LOWER(day_of_week) = ?
           AND effective_date <= ?
           AND is_active = 1
@@ -287,8 +270,11 @@ router.get('/business-hours/:date', (req, res) => {
           bh.day_of_week = (bh.day_of_week || dow).toLowerCase();
           resolve(bh);
         } else {
+          // Fallback to default business_hours
           db.query(
-            'SELECT * FROM business_hours WHERE LOWER(day_of_week) = ? AND is_active = 1 LIMIT 1',
+            `SELECT *, TIME_FORMAT(open_time, '%H:%i') as open_time, TIME_FORMAT(close_time, '%H:%i') as close_time,
+                      TIME_FORMAT(break_start, '%H:%i') as break_start, TIME_FORMAT(break_end, '%H:%i') as break_end
+             FROM business_hours WHERE LOWER(day_of_week) = ? AND is_active = 1 LIMIT 1`,
             [dow],
             (err2, results2) => {
               if (err2 || !results2 || results2.length === 0) {
@@ -304,14 +290,74 @@ router.get('/business-hours/:date', (req, res) => {
       });
     });
   });
+
   Promise.all(promises).then(weekHours => {
     const ordered = days.map(dow => {
-      const found = weekHours.find(bh => (bh.day_of_week || '').toLowerCase() === dow);
-      if (found) return found;
-      return { day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null };
+      return weekHours.find(bh => (bh.day_of_week || '').toLowerCase() === dow) 
+          || { day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null };
+    });
+    res.json({ businessHours: ordered });
+  }).catch((err) => {
+    console.error("Error fetching merged business hours:", err);
+    res.status(500).json({ businessHours: [] });
+  });
+});
+
+/**
+ * Returns business hours for a specific date (uses scheduled-business-hours if available).
+ */
+router.get('/business-hours/:date', (req, res) => {
+  const dayISO = req.params.date; // Expects YYYY-MM-DD
+  const dateObj = new Date(dayISO + 'T00:00:00'); // Treat as local date
+  if (isNaN(dateObj)) return res.status(400).json({ business_hours: [] });
+
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const promises = days.map(dow => {
+    return new Promise((resolve, reject) => {
+      const bhQuery = `
+        SELECT *, TIME_FORMAT(open_time, '%H:%i') as open_time, TIME_FORMAT(close_time, '%H:%i') as close_time,
+                   TIME_FORMAT(break_start, '%H:%i') as break_start, TIME_FORMAT(break_end, '%H:%i') as break_end
+        FROM scheduled_business_hours
+        WHERE LOWER(day_of_week) = ?
+          AND effective_date <= ?
+          AND is_active = 1
+        ORDER BY effective_date DESC
+        LIMIT 1
+      `;
+      db.query(bhQuery, [dow, dayISO], (err, results) => {
+        if (err) return reject(err); // Propagate DB errors
+        if (results && results.length > 0) {
+          const bh = results[0];
+          bh.day_of_week = (bh.day_of_week || dow).toLowerCase();
+          resolve(bh);
+        } else {
+          // Fallback to default business_hours
+          db.query(
+            `SELECT *, TIME_FORMAT(open_time, '%H:%i') as open_time, TIME_FORMAT(close_time, '%H:%i') as close_time,
+                      TIME_FORMAT(break_start, '%H:%i') as break_start, TIME_FORMAT(break_end, '%H:%i') as break_end
+             FROM business_hours WHERE LOWER(day_of_week) = ? AND is_active = 1 LIMIT 1`,
+            [dow],
+            (err2, results2) => {
+              if (err2 || !results2 || results2.length === 0) {
+                resolve({ day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null });
+              } else {
+                const bh2 = results2[0];
+                resolve(bh2);
+              }
+            }
+          );
+        }
+      });
+    });
+  });
+  Promise.all(promises).then(weekHours => {
+    const ordered = days.map(dow => {
+      return weekHours.find(bh => (bh.day_of_week || '').toLowerCase() === dow) 
+          || { day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null };
     });
     res.json({ business_hours: ordered });
-  }).catch(() => {
+  }).catch((err) => {
+    console.error(`Error fetching business hours for date ${dayISO}:`, err);
     res.status(500).json({ business_hours: [] });
   });
 });
@@ -325,13 +371,34 @@ router.post('/appointments', (req, res) => {
   // Normalize empty user_id to null
   user_id = user_id ? user_id : null;
 
+  // --- 90-Day Booking Limit Validation ---
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalize to start of day
+  const maxBookingDate = new Date(today);
+  maxBookingDate.setDate(today.getDate() + 90);
+  const requestedDate = new Date(date);
+
+  if (requestedDate > maxBookingDate) {
+    return res.status(400).json({ error: 'Booking too far in advance', message: 'No se puede agendar con más de 90 días de antelación.' });
+  }
   // Validate required fields
   if (!full_name || !date || !time) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-    // If user_id is present, check verification status
-    function createAppointmentWithStatus(status) {
+  // Check if the time slot is available (allows up to 2 bookings per slot)
+  db.query('SELECT COUNT(*) as count FROM appointments WHERE date = ? AND time = ? AND status IN ("pending", "confirmed")', 
+    [date, time], (err, existing) => {
+    if (err) {
+      console.error('Error checking existing appointments:', err);
+      return res.status(500).json({ error: 'Database error checking availability' });
+    }
+ 
+    if (existing[0].count >= 2) {
+      return res.status(409).json({ error: 'Time slot already taken', message: 'Este horario ya está ocupado' });
+    }
+
+    const createAppointmentWithStatus = (status) => {
       const appointmentData = { full_name, email, phone, date, time, note, user_id, status };
       db.query('INSERT INTO appointments SET ?', appointmentData, (err, result) => {
         if (err) {
@@ -340,41 +407,24 @@ router.post('/appointments', (req, res) => {
         }
         res.json({ message: 'Cita agendada correctamente', id: result.insertId, status });
       });
-    }
+    };
 
-  // Check if the time slot is already taken
-  db.query('SELECT id FROM appointments WHERE date = ? AND time = ? AND status IN ("pending", "confirmed")', 
-    [date, time], (err, existing) => {
-    if (err) {
-      console.error('Error checking existing appointments:', err);
-      return res.status(500).json({ error: 'Database error checking availability' });
-    }
-
-    if (existing.length > 0) {
-      return res.status(409).json({ error: 'Time slot already taken', message: 'Este horario ya está ocupado' });
-    }
-
-      if (user_id) {
-        // Check user verification status
-        db.query('SELECT is_verified FROM users WHERE id = ?', [user_id], (err, userRows) => {
-          if (err || !userRows || userRows.length === 0) {
-            return res.status(400).json({ error: 'Usuario no encontrado para verificación' });
-          }
-          const isVerified = userRows[0].is_verified;
-          if (isVerified) {
-            // User is verified, auto-confirm the appointment
-            console.log(`User ${user_id} is verified. Setting appointment status to 'confirmed'.`);
-            createAppointmentWithStatus('confirmed');
-          } else {
-            // User is not verified, appointment requires admin approval
-            console.log(`User ${user_id} is not verified. Setting appointment status to 'pending'.`);
-            createAppointmentWithStatus('pending');
-          }
-        });
-      } else {
-        // Guest user, always pending
-        console.log("Guest user appointment. Setting status to 'pending'.");
-        createAppointmentWithStatus('pending');
+    if (user_id) {
+      // Check user verification status
+      db.query('SELECT is_verified FROM users WHERE id = ?', [user_id], (err, userRows) => {
+        if (err || !userRows || userRows.length === 0) {
+          // Fallback for safety, treat as unverified if user not found
+          return createAppointmentWithStatus('pending');
+        }
+        const isVerified = userRows[0].is_verified;
+        const newStatus = isVerified ? 'confirmed' : 'pending';
+        console.log(`User ${user_id} is_verified: ${isVerified}. Setting appointment status to '${newStatus}'.`);
+        createAppointmentWithStatus(newStatus);
+      });
+    } else {
+      // Guest user, always pending
+      console.log("Guest user appointment. Setting status to 'pending'.");
+      createAppointmentWithStatus('pending');
       }
   });
 });

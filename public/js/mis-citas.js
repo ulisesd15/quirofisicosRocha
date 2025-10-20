@@ -129,18 +129,29 @@ class MisCitas {
     displayAppointments() {
         const container = document.getElementById('appointmentsContainer');
         const noAppointments = document.getElementById('noAppointments');
+        const loadingState = document.getElementById('loadingState');
 
-        if (this.appointments.length === 0) {
+        loadingState.style.display = 'none';
+
+        const filteredAppointments = this.filterAppointments();
+
+        if (this.appointments.length === 0) { // No appointments at all
             container.style.display = 'none';
             noAppointments.style.display = 'block';
+            noAppointments.querySelector('h4').textContent = 'No tienes citas registradas';
             return;
         }
 
-        container.style.display = 'block';
+        // Ensure the container uses flex display to align columns horizontally
+        container.style.display = 'flex'; 
         noAppointments.style.display = 'none';
 
-        const filteredAppointments = this.filterAppointments();
-        container.innerHTML = filteredAppointments.map(appointment => this.createAppointmentCard(appointment)).join('');
+        if (filteredAppointments.length === 0) {
+            container.innerHTML = `<div class="col-12"><p class="text-center text-muted mt-4">No hay citas que coincidan con este filtro.</p></div>`;
+        } else {
+            container.innerHTML = filteredAppointments.map(appointment => this.createAppointmentCard(appointment)).join('');
+        }
+
         // After rendering cards, set up event listeners for the buttons inside them
         this.setupCardEventListeners(container);
     }
@@ -150,21 +161,25 @@ class MisCitas {
      */
     filterAppointments() {
         const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
         switch (this.currentFilter) {
             case 'upcoming':
                 return this.appointments.filter(apt => {
-                    const aptDate = new Date(apt.date);
-                    return aptDate >= today && apt.status !== 'cancelled' && apt.status !== 'completed';
+                    const dateOnly = apt.date.split('T')[0];
+                    const aptDateTime = new Date(`${dateOnly}T${apt.time}`);
+                    return aptDateTime >= now && apt.status !== 'cancelled' && apt.status !== 'completed';
                 });
             case 'past':
                 return this.appointments.filter(apt => {
-                    const aptDate = new Date(apt.date);
-                    return aptDate < today || apt.status === 'completed';
+                    const dateOnly = apt.date.split('T')[0];
+                    const aptDateTime = new Date(`${dateOnly}T${apt.time}`);
+                    return aptDateTime < now || apt.status === 'completed' || apt.status === 'cancelled';
                 });
             default:
-                return this.appointments;
+                // Return a sorted copy for 'all'
+                return [...this.appointments].sort((a, b) => {
+                    return new Date(`${b.date}T${b.time}`) - new Date(`${a.date}T${a.time}`);
+                });
         }
     }
 
@@ -172,20 +187,17 @@ class MisCitas {
      * Creates the HTML for a single appointment card.
      */
     createAppointmentCard(appointment) {
-        const appointmentDate = new Date(appointment.date);
-        const appointmentTime = appointment.time;
-        const dateTimeString = `${appointment.date}T${appointmentTime}:00`;
-        const appointmentDateTime = new Date(dateTimeString);
+        const dateOnly = appointment.date.split('T')[0];
+        const appointmentDateTime = new Date(`${dateOnly}T${appointment.time}`);
         const now = new Date();
-        const isUpcoming = appointmentDateTime > now && appointment.status !== 'cancelled' && appointment.status !== 'completed';
 
         const statusConfig = this.getStatusConfig(appointment.status);
         const formattedDate = this.formatDate(appointmentDateTime);
-        const formattedTime = this.formatTime(appointmentTime);
+        const formattedTime = this.formatTime(appointment.time);
 
         return `
             <div class="col-md-6 col-lg-4">
-                <div class="card appointment-card h-100 border-0 shadow-sm">
+                <div class="card appointment-card h-100">
                     <div class="card-header bg-transparent border-0 pb-0">
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="appointment-date">${formattedDate}</div>
@@ -224,19 +236,16 @@ class MisCitas {
                     
                     <div class="card-footer bg-transparent border-0">
                         <div class="appointment-actions">
-                            ${isUpcoming && appointment.status === 'pending' ? `
-                                <button class="btn btn-outline-warning btn-sm" data-action="cancel" data-id="${appointment.id}">
-                                    <i class="fas fa-times me-1"></i>Cancelar
-                                </button>
-                            ` : ''}
-                            ${isUpcoming && (appointment.status === 'pending' || appointment.status === 'confirmed') ? `
+                            ${appointment.status === 'confirmed' && appointmentDateTime > now ? `
                                 <button class="btn btn-outline-primary btn-sm" data-action="reschedule" data-id="${appointment.id}">
                                     <i class="fas fa-calendar-alt me-1"></i>Reagendar
                                 </button>
                             ` : ''}
-                            <button class="btn btn-outline-info btn-sm" data-action="details" data-id="${appointment.id}">
-                                <i class="fas fa-eye me-1"></i>Detalles
-                            </button>
+                            ${(appointment.status === 'confirmed' || appointment.status === 'pending') && appointmentDateTime > now ? `
+                                <button class="btn btn-outline-danger btn-sm" data-action="cancel" data-id="${appointment.id}">
+                                    <i class="fas fa-times me-1"></i>Cancelar
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
                 </div>
@@ -250,7 +259,7 @@ class MisCitas {
     getStatusConfig(status) {
         const configs = {
             pending: { text: 'Pendiente', class: 'warning' },
-            confirmed: { text: 'Confirmada', class: 'success' },
+            confirmed: { text: 'Confirmada', class: 'primary' },
             completed: { text: 'Completada', class: 'secondary' },
             cancelled: { text: 'Cancelada', class: 'danger' }
         };
@@ -261,7 +270,7 @@ class MisCitas {
      * Formats a date as a localized string for display.
      */
     formatDate(date) {
-        return date.toLocaleDateString('es-ES', {
+        return new Date(date.getTime() + date.getTimezoneOffset() * 60000).toLocaleDateString('es-ES', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
@@ -276,7 +285,7 @@ class MisCitas {
         const [hours, minutes] = timeString.split(':');
         const time = new Date();
         time.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-        return time.toLocaleTimeString('es-ES', {
+        return time.toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit',
             hour12: true
@@ -330,9 +339,6 @@ class MisCitas {
                     break;
                 case 'reschedule':
                     this.rescheduleAppointment(id);
-                    break;
-                case 'details':
-                    this.viewAppointmentDetails(id);
                     break;
             }
         });
@@ -475,21 +481,22 @@ class MisCitas {
      * Shows an alert message of the given type in the UI.
      */
     showAlert(message, type) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-        alertDiv.style.cssText = 'top: 100px; right: 20px; z-index: 9999; min-width: 300px;';
-        alertDiv.innerHTML = `
+        const container = document.getElementById('notification-container');
+        if (!container) return;
+
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.role = 'alert';
+        alert.innerHTML = `
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
         
-        document.body.appendChild(alertDiv);
+        container.appendChild(alert);
         
         // Auto-dismiss after 5 seconds
         setTimeout(() => {
-            if (alertDiv.parentNode) {
-                alertDiv.parentNode.removeChild(alertDiv);
-            }
+            bootstrap.Alert.getOrCreateInstance(alert)?.close();
         }, 5000);
     }
 }

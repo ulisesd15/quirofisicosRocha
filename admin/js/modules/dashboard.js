@@ -147,7 +147,7 @@ export class DashboardModule {
           <td>${apt.full_name}</td>
           <td><span class="badge ${statusClass} ${textColor}">${statusText}</span></td>
           <td>
-            <button class="btn btn-sm btn-outline-primary btn-edit-appointment" data-appointment-id="${apt.id}">
+            <button class="btn btn-sm btn-outline-primary btn-edit-appointment" data-appointment-id="${apt.id}" title="Editar">
               <i class="fas fa-edit"></i>
             </button>
           </td>

@@ -104,7 +104,9 @@ export class Calendar {
       console.error(`No #${containerId} container found`);
       return;
     }
-    await this.fetchBusinessHours();
+    // Fetch business hours relevant to the month being rendered.
+    // We use the 15th of the month to ensure we get the correct schedule.
+    await this.fetchBusinessHours(new Date(this.currentYear, this.currentMonth, 15));
     await this.fetchScheduleExceptions();
     calendarContainer.innerHTML = '';
     const calendar = document.createElement('div');
@@ -161,6 +163,10 @@ export class Calendar {
         const isCurrentMonth = thisDate.getMonth() === this.currentMonth;
         const isCurrentYear = thisDate.getFullYear() === this.currentYear;
         const isPast = this.isPastDate(thisDate);
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() + 90);
+    maxDate.setHours(0, 0, 0, 0);
+    const isTooFar = thisDate > maxDate;
         const isOpenDay = this.isDayOpen(thisDate);
         const isTodayDate = this.isToday(thisDate);
         const isSelectedDate = this.selectedDate && thisDate.toDateString() === this.selectedDate.toDateString();
@@ -170,7 +176,7 @@ export class Calendar {
           dayElement.classList.add('other-month');
           dayElement.disabled = true;
         } else if (isPast) {
-          dayElement.classList.add('disabled');
+      dayElement.classList.add('disabled', 'past-date');
           dayElement.disabled = true;
         } else if (!isOpenDay) {
           dayElement.classList.add('unavailable');
@@ -178,6 +184,10 @@ export class Calendar {
         } else {
           dayElement.classList.add('available');
           dayElement.addEventListener('click', () => {
+        if (isTooFar) {
+          alert('No se puede agendar con más de 90 días de antelación.');
+          return;
+        }
             console.log('[MonthlyView] Day clicked:', {
               date: new Date(thisDate),
               isOpenDay,
@@ -197,6 +207,11 @@ export class Calendar {
             this.selectedDate = new Date(thisDate);
             this.renderTimeSlots(this.selectedDate);
           }
+    }
+    if (isTooFar) {
+      dayElement.classList.add('disabled', 'too-far');
+      dayElement.disabled = true;
+      dayElement.title = 'No se puede agendar con más de 90 días de antelación.';
         }
         grid.appendChild(dayElement);
         currentCalendarDate.setDate(currentCalendarDate.getDate() + 1);
@@ -261,6 +276,10 @@ export class Calendar {
       const dayOfWeek = this.getDayOfWeekString(day).toLowerCase();
       const businessDay = this.businessHoursMap[dayOfWeek];
       const isOpenDay = this.isDayOpen(day);
+      const maxDate = new Date();
+      maxDate.setDate(maxDate.getDate() + 90);
+      maxDate.setHours(0, 0, 0, 0);
+      const isTooFar = day > maxDate;
       const isTodayDate = this.isToday(day);
       const isSelectedDate = this.selectedDate && day.toDateString() === this.selectedDate.toDateString();
       const btn = document.createElement('button');
@@ -276,11 +295,15 @@ export class Calendar {
       btn.appendChild(dateLabel);
       const isPast = this.isPastDate(day);
       if (isTodayDate && !isSelectedDate) btn.classList.add('today');
-      if (isSelectedDate) btn.classList.add('selected');
-      if (!isOpenDay || isPast) {
+      if (isSelectedDate) btn.classList.add('selected', 'btn-primary');
+      if (!isOpenDay || isPast || isTooFar) {
         btn.classList.add('btn-secondary');
         btn.disabled = true;
-        btn.title = !isOpenDay ? 'Cerrado' : 'No disponible';
+        if (isTooFar) {
+          btn.title = 'No se puede agendar con más de 90 días de antelación.';
+        } else {
+          btn.title = !isOpenDay ? 'Cerrado' : 'No disponible';
+        }
       } else {
         btn.classList.add('btn-outline-primary');
         btn.addEventListener('click', () => {

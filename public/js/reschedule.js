@@ -281,6 +281,14 @@ function setupFormSubmission() {
  */
 async function selectDate(dayISO) {
   console.log('🔄 Date selected:', dayISO);
+
+  const maxDate = new Date();
+  maxDate.setDate(maxDate.getDate() + 90);
+  const requestedDate = new Date(dayISO);
+  if (requestedDate > maxDate) {
+    showNotification('No se puede reagendar con más de 90 días de antelación.', 'warning');
+    return;
+  }
   
   // Check if this is the current appointment date
   if (currentAppointment && getAppointmentDateISO(currentAppointment) === dayISO) {

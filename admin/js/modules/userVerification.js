@@ -293,27 +293,27 @@ export class UserVerificationModule {
     return `
       <div class="appointment-item">
         <div class="appointment-details">
-          <h4>Cita de: ${item.full_name || 'Usuario no disponible'}</h4>
+          <h4>Cita de: ${item.full_name || 'No disponible'}</h4>
           <p><strong>Email:</strong> ${item.email || 'No disponible'}</p>
           <p><strong>Fecha:</strong> ${formattedDate}</p>
           <p><strong>Hora de Cita:</strong> ${formattedTime}</p>
           <p class="text-muted small">ID Usuario: ${item.user_id} | ID Cita: ${item.appointment_id}</p>
         </div>
         <div class="appointment-actions">
-          <button class="btn-approve" data-appointment-id="${item.appointment_id}" data-user-id="${item.user_id}">Aprobar</button>
-          <button class="btn-reject" data-appointment-id="${item.appointment_id}" data-user-id="${item.user_id}">Rechazar</button>
+          <button class="btn-approve" data-user-id="${item.user_id}">Aprobar</button>
+          <button class="btn-reject" data-appointment-id="${item.appointment_id}">Rechazar</button>
         </div>
       </div>
     `;
   }
 
   /**
-   * Approves an appointment and verifies the associated user.
-   * @param {number} userId - The ID of the user to verify and whose appointment to approve.
+   * Approves a user and all their pending appointments.
+   * @param {number} userId - The ID of the user to verify.
    * @param {HTMLElement} itemElement - The DOM element for the list item to be removed on success.
    */
   async approveAppointmentAndVerifyUser(userId, itemElement) {
-    if (!confirm('¿Estás seguro de que quieres aprobar esta cita? El usuario asociado también será verificado.')) return;
+    if (!confirm('¿Estás seguro de que quieres aprobar este usuario? Todas sus citas pendientes serán confirmadas.')) return;
 
     try {
       const response = await fetch(`/api/admin/approve-user/${userId}`, {
@@ -326,18 +326,17 @@ export class UserVerificationModule {
 
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.error || 'Error al aprobar la cita.');
+        throw new Error(result.error || 'Error al aprobar al usuario.');
       }
 
-      this.showNotification(result.message || 'Cita aprobada y usuario verificado.', 'success');
+      this.showNotification(result.message || 'Usuario aprobado y citas confirmadas.', 'success');
       itemElement.remove(); // Remove the item from the list
 
     } catch (error) {
-      console.error('Error approving appointment and verifying user:', error);
+      console.error('Error approving user:', error);
       this.showNotification(error.message, 'error');
     }
   }
-
   /**
    * Rejects a pending appointment.
    * @param {number} appointmentId - The ID of the appointment to reject.

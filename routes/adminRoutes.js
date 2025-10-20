@@ -228,30 +228,50 @@ router.post('/scheduled-business-hours', requireAdmin, (req, res) => {
   if (!businessHours || !Array.isArray(businessHours) || !effective_date) {
     return res.status(400).json({ error: 'Missing businessHours array or effective_date' });
   }
-  const values = businessHours.map(bh => [
-    bh.day_of_week,
-    bh.is_open ? 1 : 0,
-    bh.open_time || null,
-    bh.close_time || null,
-    bh.break_start || null,
-    bh.break_end || null,
-    effective_date,
-    1 // is_active
-  ]);
 
-  
-  const sql = `
-    INSERT INTO scheduled_business_hours
-      (day_of_week, is_open, open_time, close_time, break_start, break_end, effective_date, is_active)
-    VALUES ?
-  `;
   req.db = req.db || require('../config/database');
-  req.db.query(sql, [values], (err, result) => {
+
+  // Use a transaction to ensure atomicity
+  req.db.beginTransaction(err => {
     if (err) {
       console.error('Error saving scheduled business hours:', err);
-      return res.status(500).json({ error: 'Error saving scheduled business hours' });
+      return res.status(500).json({ error: 'Database transaction error' });
     }
-    res.json({ message: 'Scheduled business hours saved', inserted: result.affectedRows });
+
+    // 1. Deactivate any existing schedules for the same effective date
+    const deactivateSql = 'UPDATE scheduled_business_hours SET is_active = 0 WHERE effective_date = ?';
+    req.db.query(deactivateSql, [effective_date], (err, deactivateResult) => {
+      if (err) {
+        return req.db.rollback(() => {
+          console.error('Error deactivating old scheduled hours:', err);
+          res.status(500).json({ error: 'Error deactivating old schedule' });
+        });
+      }
+      console.log(`Deactivated ${deactivateResult.affectedRows} old schedule entries for ${effective_date}.`);
+
+      // 2. Insert the new schedule
+      const values = businessHours.map(bh => [
+        bh.day_of_week, bh.is_open ? 1 : 0, bh.open_time || null, bh.close_time || null,
+        bh.break_start || null, bh.break_end || null, effective_date, 1 // is_active
+      ]);
+      const insertSql = `INSERT INTO scheduled_business_hours (day_of_week, is_open, open_time, close_time, break_start, break_end, effective_date, is_active) VALUES ?`;
+
+      req.db.query(insertSql, [values], (err, insertResult) => {
+        if (err) {
+          return req.db.rollback(() => {
+            console.error('Error inserting new scheduled hours:', err);
+            res.status(500).json({ error: 'Error saving new schedule' });
+          });
+        }
+
+        req.db.commit(err => {
+          if (err) {
+            return req.db.rollback(() => res.status(500).json({ error: 'Error committing transaction' }));
+          }
+          res.json({ message: 'Scheduled business hours saved', inserted: insertResult.affectedRows });
+        });
+      });
+    });
   });
 });
 
@@ -619,74 +639,6 @@ router.put('/users/:id/verify', requireAdmin, (req, res) => {
   });
 });
 
-/**
- * PUT /approve-user/:userId
- * Verifies a user and confirms their first pending appointment.
- * This is a transactional operation.
- */
-router.put('/approve-user/:userId', requireAdmin, async (req, res) => {
-  const { userId } = req.params;
-  // Note: smsController is not provided in context, assuming it exists.
-  // const smsController = require('../controllers/smsController');
-
-  db.beginTransaction(err => {
-    if (err) {
-      console.error('Error starting transaction:', err);
-      return res.status(500).json({ error: 'Error del servidor al iniciar la transacción.' });
-    }
-
-    // 1. Verify the user
-    db.query('UPDATE users SET is_verified = true WHERE id = ?', [userId], (err, userResult) => {
-      if (err) {
-        return db.rollback(() => {
-          console.error('Error verifying user:', err);
-          res.status(500).json({ error: 'Error al verificar al usuario.' });
-        });
-      }
-      if (userResult.affectedRows === 0) {
-        return db.rollback(() => {
-          res.status(404).json({ error: 'Usuario no encontrado.' });
-        });
-      }
-
-      // 2. Confirm the user's pending appointment
-      db.query("UPDATE appointments SET status = ? WHERE user_id = ? AND status = ? LIMIT 1", ['confirmed', userId, 'pending'], (err, appointmentResult) => {
-        if (err) {
-          return db.rollback(() => {
-            console.error('Error confirming appointment:', err);
-            res.status(500).json({ error: 'Error al confirmar la cita del usuario.' });
-          });
-        }
-
-        // 3. Fetch user contact info for notification
-        db.query('SELECT phone, email FROM users WHERE id = ?', [userId], (err, users) => {
-          if (err || users.length === 0) {
-            // Don't rollback, the main operations succeeded. Just log the notification failure.
-            console.error('Could not fetch user details for notification after approval.');
-          } else {
-            const user = users[0];
-            if (user.phone) {
-              // Example: smsController.sendSms(user.phone, 'Tu cuenta ha sido verificada y tu cita confirmada.');
-              console.log(`SMS notification would be sent to ${user.phone}`);
-            }
-          }
-
-          // 4. Commit the transaction
-          db.commit(err => {
-            if (err) {
-              return db.rollback(() => {
-                console.error('Error committing transaction:', err);
-                res.status(500).json({ error: 'Error al finalizar la transacción.' });
-              });
-            }
-            res.json({ message: 'Usuario aprobado y cita confirmada correctamente.' });
-          });
-        });
-      });
-    });
-  });
-});
-
 // =================
 // APPOINTMENT MANAGEMENT
 // =================
@@ -851,24 +803,33 @@ router.get('/appointments/:id', requireAdmin, (req, res) => {
  */
 router.put('/appointments/:id', requireAdmin, (req, res) => {
   const appointmentId = req.params.id;
-  const { name, full_name, email, phone, date, time, note, status } = req.body;
-  
-  // Accept both 'name' and 'full_name' for backward compatibility
-  const appointmentName = name || full_name;
-  
-  db.query(
-    'UPDATE appointments SET full_name = ?, email = ?, phone = ?, date = ?, time = ?, note = ?, status = ? WHERE id = ?',
-    [appointmentName, email, phone, date, time, note, status, appointmentId],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ error: 'Appointment not found' });
-      }
-      
-      res.json({ message: 'Appointment updated successfully' });
+  const fields = req.body;
+
+  // Dynamically build the query to only update provided fields
+  const updateFields = [];
+  const updateValues = [];
+
+  // Map frontend fields to database columns if they exist in the request
+  if (fields.date) { updateFields.push('date = ?'); updateValues.push(fields.date); }
+  if (fields.time) { updateFields.push('time = ?'); updateValues.push(fields.time); }
+  if (fields.status) { updateFields.push('status = ?'); updateValues.push(fields.status); }
+  if (fields.hasOwnProperty('note')) { updateFields.push('note = ?'); updateValues.push(fields.note); }
+
+  if (updateFields.length === 0) {
+    return res.status(400).json({ error: 'No fields to update' });
+  }
+
+  const query = `UPDATE appointments SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+  updateValues.push(appointmentId);
+
+  db.query(query, updateValues, (err, result) => {
+    if (err) {
+      console.error("Error updating appointment:", err);
+      return res.status(500).json({ error: 'Database error' });
     }
-  );
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Appointment not found' });
+    res.json({ message: 'Appointment updated successfully' });
+  });
 });
 
 // Delete appointment
@@ -931,6 +892,47 @@ router.put('/appointments/:id/reject', requireAdmin, (req, res) => {
     if (err) return res.status(500).json({ error: 'Error rechazando cita' });
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Cita no encontrada' });
     res.json({ message: 'Cita rechazada correctamente' });
+  });
+});
+
+/**
+ * PUT /approve-user/:userId
+ * Verifies a user and confirms ALL their pending appointments.
+ * This is a transactional operation.
+ */
+router.put('/approve-user/:userId', requireAdmin, (req, res) => {
+  const { userId } = req.params;
+
+  db.beginTransaction(err => {
+    if (err) {
+      console.error('Error starting transaction:', err);
+      return res.status(500).json({ error: 'Error del servidor al iniciar la transacción.' });
+    }
+
+    // 1. Verify the user
+    db.query('UPDATE users SET is_verified = true WHERE id = ?', [userId], (err, userResult) => {
+      if (err) return db.rollback(() => res.status(500).json({ error: 'Error al verificar al usuario.' }));
+      if (userResult.affectedRows === 0) return db.rollback(() => res.status(404).json({ error: 'Usuario no encontrado.' }));
+
+      // 2. Confirm all of the user's pending appointments
+      db.query("UPDATE appointments SET status = 'confirmed' WHERE user_id = ? AND status = 'pending'", [userId], (err, appointmentResult) => {
+        if (err) return db.rollback(() => res.status(500).json({ error: 'Error al confirmar las citas del usuario.' }));
+
+        // 3. Commit the transaction
+        db.commit(err => {
+          if (err) {
+            return db.rollback(() => {
+              console.error('Error committing transaction:', err);
+              res.status(500).json({ error: 'Error al finalizar la transacción.' });
+            });
+          }
+          // Optional: Send notification
+          res.json({ 
+            message: `Usuario aprobado. ${appointmentResult.affectedRows} cita(s) confirmada(s).` 
+          });
+        });
+      });
+    });
   });
 });
 

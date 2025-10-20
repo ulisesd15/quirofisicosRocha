@@ -131,7 +131,8 @@ export class AppointmentsModule {
    * Sets up delegated event listeners for the appointments section.
    */
   setupEventListeners() {
-    const container = document.getElementById('appointments-section');
+    // Listen on the main content area to catch events from dashboard and appointments section
+    const container = document.querySelector('main.col-md-9'); 
     if (container && !container.dataset.listenerAttached) {
       container.addEventListener('click', (event) => {
         const editButton = event.target.closest('.btn-edit-appointment');
@@ -147,6 +148,13 @@ export class AppointmentsModule {
         }
       });
       container.dataset.listenerAttached = 'true';
+    }
+
+    // Add listener for the save button in the modal
+    const saveBtn = document.getElementById('save-appointment-btn');
+    if (saveBtn && !saveBtn.dataset.listenerAttached) {
+      saveBtn.addEventListener('click', () => this.saveAppointmentChanges());
+      saveBtn.dataset.listenerAttached = 'true';
     }
   }
 
@@ -273,11 +281,8 @@ export class AppointmentsModule {
     try {
       const id = document.getElementById('edit-appointment-id').value;
       const data = {
-        name: document.getElementById('edit-appointment-name').value,
-        email: document.getElementById('edit-appointment-email').value,
-        phone: document.getElementById('edit-appointment-phone').value,
-        appointment_date: document.getElementById('edit-appointment-date').value,
-        appointment_time: document.getElementById('edit-appointment-time').value,
+        date: document.getElementById('edit-appointment-date').value,
+        time: document.getElementById('edit-appointment-time').value,
         status: document.getElementById('edit-appointment-status').value,
         note: document.getElementById('edit-appointment-note').value
       };
@@ -298,7 +303,7 @@ export class AppointmentsModule {
       modal.hide();
 
       // Reload data
-      await this.refreshCurrentSection();
+      await this.loadAppointments();
       this.showSuccess('Cita actualizada correctamente');
 
     } catch (error) {
@@ -321,15 +326,15 @@ export class AppointmentsModule {
       if (!response.ok) throw new Error('Error loading appointment');
       
       const data = await response.json();
-      const appointment = data.appointment;
+      const appointment = data.appointment; // Correctly access the nested object
 
       // Populate modal
       document.getElementById('edit-appointment-id').value = appointment.id;
-      document.getElementById('edit-appointment-name').value = appointment.name;
-      document.getElementById('edit-appointment-email').value = appointment.email || '';
-      document.getElementById('edit-appointment-phone').value = appointment.phone || '';
-      document.getElementById('edit-appointment-date').value = appointment.appointment_date;
-      document.getElementById('edit-appointment-time').value = appointment.appointment_time;
+      document.getElementById('edit-appointment-name').textContent = appointment.full_name || appointment.name || 'No disponible';
+      document.getElementById('edit-appointment-email').textContent = appointment.email || 'No disponible';
+      document.getElementById('edit-appointment-phone').textContent = appointment.phone || 'No disponible';
+      document.getElementById('edit-appointment-date').value = (appointment.date || appointment.appointment_date).split('T')[0]; // Format to YYYY-MM-DD
+      document.getElementById('edit-appointment-time').value = appointment.time || appointment.appointment_time;
       document.getElementById('edit-appointment-status').value = appointment.status;
       document.getElementById('edit-appointment-note').value = appointment.note || '';
 
@@ -359,7 +364,7 @@ export class AppointmentsModule {
 
       if (!response.ok) throw new Error('Error deleting appointment');
 
-      await this.refreshCurrentSection();
+      await this.loadAppointments();
       this.showSuccess('Cita eliminada correctamente');
 
     } catch (error) {
