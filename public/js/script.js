@@ -94,7 +94,7 @@ async function loadClinicSettingsFooter() {
  */
 async function loadAnnouncements() {
   try {
-  const response = await fetch('/api/admin/announcements/public');
+  const response = await fetch('/api/announcements/active');
     if (!response.ok) return; // Silently fail if no announcements
 
     const announcements = await response.json();
@@ -104,6 +104,15 @@ async function loadAnnouncements() {
   } catch (error) {
     console.log('No announcements to display'); // Silently handle errors
   }
+}
+
+/**
+ * Formats a date string (YYYY-MM-DD) into a more readable format.
+ */
+function formatDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString + 'T00:00:00'); // Treat as local date
+    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 /**

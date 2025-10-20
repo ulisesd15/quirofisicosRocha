@@ -34,9 +34,9 @@ export class UserVerificationModule {
       container.addEventListener('click', (event) => {
         const approveButton = event.target.closest('.btn-approve');
         if (approveButton) {
-          const userId = approveButton.dataset.userId;
-          if (userId) {
-            this.approveAppointmentAndVerifyUser(userId, approveButton.closest('.appointment-item'));
+          const appointmentId = approveButton.dataset.appointmentId;
+          if (appointmentId) {
+            this.approveAppointmentAndVerifyUser(appointmentId, approveButton.closest('.appointment-item'));
           }
         }
         const rejectButton = event.target.closest('.btn-reject');
@@ -300,7 +300,7 @@ export class UserVerificationModule {
           <p class="text-muted small">ID Usuario: ${item.user_id} | ID Cita: ${item.appointment_id}</p>
         </div>
         <div class="appointment-actions">
-          <button class="btn-approve" data-user-id="${item.user_id}">Aprobar</button>
+          <button class="btn-approve" data-user-id="${item.user_id}" data-appointment-id="${item.appointment_id}">Aprobar</button>
           <button class="btn-reject" data-appointment-id="${item.appointment_id}">Rechazar</button>
         </div>
       </div>
@@ -309,14 +309,14 @@ export class UserVerificationModule {
 
   /**
    * Approves a user and all their pending appointments.
-   * @param {number} userId - The ID of the user to verify.
+   * @param {number} appointmentId - The ID of the appointment to approve.
    * @param {HTMLElement} itemElement - The DOM element for the list item to be removed on success.
    */
-  async approveAppointmentAndVerifyUser(userId, itemElement) {
-    if (!confirm('¿Estás seguro de que quieres aprobar este usuario? Todas sus citas pendientes serán confirmadas.')) return;
+  async approveAppointmentAndVerifyUser(appointmentId, itemElement) { // Corrected parameter name
+    if (!confirm('¿Estás seguro de que quieres aprobar esta cita? El usuario asociado será verificado.')) return;
 
     try {
-      const response = await fetch(`/api/admin/approve-user/${userId}`, {
+      const response = await fetch(`/api/admin/appointments/${appointmentId}/approve`, { // Corrected endpoint
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${this.getAuthToken()}`,
@@ -326,14 +326,14 @@ export class UserVerificationModule {
 
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.error || 'Error al aprobar al usuario.');
+        throw new Error(result.error || 'Error al aprobar la cita.');
       }
 
-      this.showNotification(result.message || 'Usuario aprobado y citas confirmadas.', 'success');
+      this.showNotification(result.message || 'Cita aprobada y usuario verificado.', 'success');
       itemElement.remove(); // Remove the item from the list
 
     } catch (error) {
-      console.error('Error approving user:', error);
+      console.error('Error approving appointment and user:', error);
       this.showNotification(error.message, 'error');
     }
   }

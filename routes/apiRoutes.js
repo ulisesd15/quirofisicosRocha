@@ -132,6 +132,29 @@ router.get('/clinic-settings', (req, res) => {
 });
 
 /**
+ * Returns all active announcements for public display.
+ */
+router.get('/announcements/active', (req, res) => {
+  const query = `
+    SELECT id, title, message, announcement_type, priority, start_date, end_date, show_on_homepage
+    FROM announcements 
+    WHERE is_active = TRUE 
+      AND show_on_homepage = TRUE
+      AND start_date <= CURDATE()
+      AND (end_date IS NULL OR end_date >= CURDATE())
+    ORDER BY priority DESC, created_at DESC
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching active announcements:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    res.json(results);
+  });
+});
+
+/**
  * Returns available slots for a specific date.
  */
 router.get('/available-slots/:date', async (req, res) => {
@@ -398,34 +421,37 @@ router.post('/appointments', (req, res) => {
       return res.status(409).json({ error: 'Time slot already taken', message: 'Este horario ya está ocupado' });
     }
 
-    const createAppointmentWithStatus = (status) => {
-      const appointmentData = { full_name, email, phone, date, time, note, user_id, status };
-      db.query('INSERT INTO appointments SET ?', appointmentData, (err, result) => {
-        if (err) {
-          console.error('Error inserting appointment:', err);
-          return res.status(500).json({ error: 'Database error', details: err });
-        }
-        res.json({ message: 'Cita agendada correctamente', id: result.insertId, status });
-      });
-    };
-
     if (user_id) {
-      // Check user verification status
+      // For registered users, check verification status to set appointment status
       db.query('SELECT is_verified FROM users WHERE id = ?', [user_id], (err, userRows) => {
         if (err || !userRows || userRows.length === 0) {
-          // Fallback for safety, treat as unverified if user not found
-          return createAppointmentWithStatus('pending');
+          // Fallback for safety if user lookup fails, treat as guest
+          const appointmentData = { full_name, email, phone, date, time, note, user_id, status: 'pending' };
+          db.query('INSERT INTO appointments SET ?', appointmentData, (err, result) => {
+            if (err) return res.status(500).json({ error: 'Database error creating appointment' });
+            res.json({ message: 'Cita agendada, pendiente de confirmación', id: result.insertId, status: 'pending' });
+          });
+          return;
         }
         const isVerified = userRows[0].is_verified;
         const newStatus = isVerified ? 'confirmed' : 'pending';
         console.log(`User ${user_id} is_verified: ${isVerified}. Setting appointment status to '${newStatus}'.`);
-        createAppointmentWithStatus(newStatus);
+        
+        const appointmentData = { full_name, email, phone, date, time, note, user_id, status: newStatus };
+        db.query('INSERT INTO appointments SET ?', appointmentData, (err, result) => {
+          if (err) return res.status(500).json({ error: 'Database error creating appointment' });
+          res.json({ message: 'Cita agendada correctamente', id: result.insertId, status: newStatus });
+        });
       });
     } else {
-      // Guest user, always pending
+      // For guest users, status is always 'pending'
       console.log("Guest user appointment. Setting status to 'pending'.");
-      createAppointmentWithStatus('pending');
-      }
+      const appointmentData = { full_name, email, phone, date, time, note, user_id, status: 'pending' };
+      db.query('INSERT INTO appointments SET ?', appointmentData, (err, result) => {
+        if (err) return res.status(500).json({ error: 'Database error creating guest appointment' });
+        res.json({ message: 'Cita agendada, pendiente de confirmación', id: result.insertId, status: 'pending' });
+      });
+    }
   });
 });
 

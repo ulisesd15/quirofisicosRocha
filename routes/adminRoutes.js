@@ -478,7 +478,8 @@ router.get('/users', requireAdmin, (req, res) => {
   // Search filter
   if (search) {
     query += ` AND (full_name LIKE ? OR email LIKE ?)`;
-    params.push(`%${search}%`, `%${search}%`);
+    const searchTerm = `%${search}%`;
+    params.push(searchTerm, searchTerm);
   }
   
   query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
@@ -691,8 +692,9 @@ router.get('/appointments', requireAdmin, (req, res) => {
   }
   
   if (search) {
-    query += ` AND (a.full_name LIKE ? OR a.email LIKE ? OR a.phone LIKE ?)`;
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    query += ` AND (COALESCE(a.full_name, u.full_name) LIKE ? OR COALESCE(a.email, u.email) LIKE ? OR COALESCE(a.phone, u.phone) LIKE ?)`;
+    const searchTerm = `%${search}%`;
+    params.push(searchTerm, searchTerm, searchTerm);
   }
   
   query += ` ORDER BY a.date DESC, a.time DESC LIMIT ? OFFSET ?`;
@@ -856,22 +858,23 @@ router.delete('/appointments/:id', requireAdmin, (req, res) => {
  */
 router.get('/appointments/pending', requireAdmin, (req, res) => {
   const query = `
-    SELECT
-      a.id as appointment_id,
-      a.full_name, 
-      a.date,
-      a.time,
-      a.note,
-      a.created_at,
-      a.status as appointment_status,
-      u.id as user_id,
-      u.email,
-      u.phone,
-      u.is_verified
+    SELECT 
+      a.id as appointment_id, 
+      a.date, 
+      a.time, 
+      a.note, 
+      a.created_at, 
+      a.status,
+      u.id as user_id, 
+      u.full_name, 
+      u.email, 
+      u.phone, 
+      u.is_verified 
     FROM appointments a
-    JOIN users u ON a.user_id = u.id
+    LEFT JOIN users u ON a.user_id = u.id
     WHERE a.status = ? 
-      AND u.is_verified = ?
+      AND a.user_id IS NOT NULL
+      AND u.is_verified = 0
     ORDER BY a.date, a.time;
   `;
   db.query(query, ['pending', false], (err, results) => {
@@ -935,73 +938,6 @@ router.put('/approve-user/:userId', requireAdmin, (req, res) => {
     });
   });
 });
-
-// Approve appointment (set status to confirmed)
-
-/**
- * PUT /appointments/:id/approve
- * Approves an appointment (sets status to confirmed).
- */
-router.put('/appointments/:id/approve', requireAdmin, (req, res) => {
-  const appointmentId = req.params.id;
-
-  // Start a transaction to ensure atomicity
-  db.beginTransaction(err => {
-    if (err) {
-      console.error('Error starting transaction:', err);
-      return res.status(500).json({ error: 'Error del servidor al iniciar la transacción.' });
-    }
-
-    // 1. Get the user_id from the appointment
-    db.query('SELECT user_id FROM appointments WHERE id = ?', [appointmentId], (err, appointments) => {
-      if (err || appointments.length === 0) {
-        return db.rollback(() => {
-          res.status(404).json({ error: 'Cita no encontrada.' });
-        });
-      }
-
-      const userId = appointments[0].user_id;
-
-      // 2. Update the appointment status to 'confirmed'
-      db.query('UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['confirmed', appointmentId], (err, result) => {
-        if (err || result.affectedRows === 0) {
-          return db.rollback(() => {
-            res.status(500).json({ error: 'Error al aprobar la cita.' });
-          });
-        }
-
-        // 3. If there's a user associated, verify them
-        if (userId) {
-          db.query('UPDATE users SET is_verified = 1 WHERE id = ?', [userId], (err, userResult) => {
-            if (err) {
-              return db.rollback(() => {
-                res.status(500).json({ error: 'Error al verificar al usuario.' });
-              });
-            }
-
-            // All good, commit the transaction
-            db.commit(err => {
-              if (err) {
-                return db.rollback(() => {
-                  res.status(500).json({ error: 'Error al finalizar la transacción.' });
-                });
-              }
-              // TODO: Add notification logic here (SMS/Email)
-              res.json({ message: 'Cita aprobada y usuario verificado correctamente.' });
-            });
-          });
-        } else {
-          // No user to verify, just commit the appointment approval
-          db.commit(err => {
-            if (err) return db.rollback(() => res.status(500).json({ error: 'Error al finalizar la transacción.' }));
-            res.json({ message: 'Cita de invitado aprobada correctamente.' });
-          });
-        }
-      });
-    });
-  });
-});
-
 
 // =================
 // CLINIC SETTINGS MANAGEMENT
