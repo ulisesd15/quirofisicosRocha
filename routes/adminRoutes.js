@@ -229,10 +229,8 @@ router.post('/scheduled-business-hours', requireAdmin, (req, res) => {
     return res.status(400).json({ error: 'Missing businessHours array or effective_date' });
   }
 
-  req.db = req.db || require('../config/database');
-
   // Use a transaction to ensure atomicity
-  req.db.beginTransaction(err => {
+  db.beginTransaction(err => {
     if (err) {
       console.error('Error saving scheduled business hours:', err);
       return res.status(500).json({ error: 'Database transaction error' });
@@ -240,9 +238,9 @@ router.post('/scheduled-business-hours', requireAdmin, (req, res) => {
 
     // 1. Deactivate any existing schedules for the same effective date
     const deactivateSql = 'UPDATE scheduled_business_hours SET is_active = 0 WHERE effective_date = ?';
-    req.db.query(deactivateSql, [effective_date], (err, deactivateResult) => {
+    db.query(deactivateSql, [effective_date], (err, deactivateResult) => {
       if (err) {
-        return req.db.rollback(() => {
+        return db.rollback(() => {
           console.error('Error deactivating old scheduled hours:', err);
           res.status(500).json({ error: 'Error deactivating old schedule' });
         });
@@ -256,17 +254,17 @@ router.post('/scheduled-business-hours', requireAdmin, (req, res) => {
       ]);
       const insertSql = `INSERT INTO scheduled_business_hours (day_of_week, is_open, open_time, close_time, break_start, break_end, effective_date, is_active) VALUES ?`;
 
-      req.db.query(insertSql, [values], (err, insertResult) => {
+      db.query(insertSql, [values], (err, insertResult) => {
         if (err) {
-          return req.db.rollback(() => {
+          return db.rollback(() => {
             console.error('Error inserting new scheduled hours:', err);
             res.status(500).json({ error: 'Error saving new schedule' });
           });
         }
 
-        req.db.commit(err => {
+        db.commit(err => {
           if (err) {
-            return req.db.rollback(() => res.status(500).json({ error: 'Error committing transaction' }));
+            return db.rollback(() => res.status(500).json({ error: 'Error committing transaction' }));
           }
           res.json({ message: 'Scheduled business hours saved', inserted: insertResult.affectedRows });
         });
