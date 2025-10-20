@@ -252,7 +252,7 @@ router.get('/business-hours', (req, res) => {
       TIME_FORMAT(break_end, '%H:%i') as break_end,
       updated_at
     FROM business_hours 
-    ORDER BY FIELD(UPPER(day_of_week),  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
+    ORDER BY FIELD(day_of_week, 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
   `, (err, results) => {
     if (err) {
       console.error('Error fetching business hours:', err);
@@ -315,16 +315,6 @@ router.get('/business-hours/:date', (req, res) => {
     res.status(500).json({ business_hours: [] });
   });
 });
-
-/**
- * Returns all appointments (authenticated).
- */
-router.get('/appointments', authenticateToken, (req, res) => {
-  db.query('SELECT * FROM appointments', (err, results) => {
-    if (err) return res.status(500).json(err);
-    res.json(results);
-  });
-}); 
 
 /**
  * Creates a new appointment (supports guest and authenticated users).
@@ -515,29 +505,6 @@ router.get('/appointments/date/:date/full', authenticateToken, (req, res) => {
 });
 
 /**
- * Returns appointments by user ID (authenticated).
- */
-router.get('/appointments/user/:userId', authenticateToken, (req, res) => {
-  const userId = req.params.userId;
-  db.query('SELECT * FROM appointments WHERE user_id = ?', [userId], (err, results) => {
-    if (err) return res.status(500).json(err);
-    res.json(results);
-  });
-});
-
-/**
- * Returns appointments by user ID and date (authenticated).
- */
-router.get('/appointments/user/:userId/date/:date', authenticateToken, (req, res) => {
-  const userId = req.params.userId;
-  const date = req.params.date;
-  db.query('SELECT * FROM appointments WHERE user_id = ? AND date = ?', [userId, date], (err, results) => {
-    if (err) return res.status(500).json(err);
-    res.json(results);
-  });
-});
-
-/**
  * Returns appointments by date and time (authenticated).
  */
 router.get('/appointments/date/:date/time/:time', authenticateToken, (req, res) => {
@@ -555,29 +522,20 @@ router.get('/appointments/date/:date/time/:time', authenticateToken, (req, res) 
 router.put('/appointments/:id/cancel', authenticateToken, (req, res) => {
   const appointmentId = req.params.id;
   const userId = req.user.id;
-  
-  // First check if the appointment belongs to the user
-  const checkQuery = 'SELECT id FROM appointments WHERE id = ? AND user_id = ?';
-  db.query(checkQuery, [appointmentId, userId], (err, results) => {
+
+  // Atomically update the appointment status only if it belongs to the user
+  const updateQuery = 'UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?';
+  db.query(updateQuery, ['cancelled', appointmentId, userId], (err, result) => {
     if (err) {
-      console.error('Error checking appointment ownership:', err);
-      return res.status(500).json({ error: 'Error processing request' });
+      console.error('Error cancelling appointment:', err);
+      return res.status(500).json({ error: 'Error cancelling appointment' });
     }
-    
-    if (results.length === 0) {
+
+    if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Appointment not found or not authorized' });
     }
-    
-    // Update appointment status to cancelled
-    const updateQuery = 'UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
-    db.query(updateQuery, ['cancelled', appointmentId], (err, result) => {
-      if (err) {
-        console.error('Error cancelling appointment:', err);
-        return res.status(500).json({ error: 'Error cancelling appointment' });
-      }
-      
-      res.json({ message: 'Appointment cancelled successfully' });
-    });
+
+    res.json({ message: 'Appointment cancelled successfully' });
   });
 });
 
@@ -610,18 +568,25 @@ router.post('/appointments/:id/reschedule', authenticateToken, (req, res) => {
       if (err) return res.status(500).json({ message: 'Error de base de datos al verificar disponibilidad.' });
       if (existing.length > 0) return res.status(409).json({ message: 'El nuevo horario seleccionado ya no está disponible.' });
 
-      // 3. Update the appointment
+      // 3. Determine the new status based on user verification
+      const isVerified = req.user.is_verified || false;
+      const newStatus = isVerified ? 'confirmed' : 'pending';
+      const successMessage = isVerified 
+        ? 'Cita reagendada y confirmada exitosamente.'
+        : 'Cita reagendada exitosamente. Queda pendiente de confirmación.';
+
+      // 4. Update the appointment
       const updateQuery = `
         UPDATE appointments 
         SET 
           date = ?, 
           time = ?, 
           note = ?, 
-          status = 'pending', -- Set status to pending for admin re-confirmation
+          status = ?,
           updated_at = CURRENT_TIMESTAMP 
         WHERE id = ?
       `;
-      db.query(updateQuery, [newDate, newTime, note, appointmentId], (err, updateResult) => {
+      db.query(updateQuery, [newDate, newTime, note, newStatus, appointmentId], (err, updateResult) => {
         if (err) {
           console.error('Error rescheduling appointment:', err);
           return res.status(500).json({ message: 'Error al reagendar la cita.' });
@@ -629,7 +594,7 @@ router.post('/appointments/:id/reschedule', authenticateToken, (req, res) => {
         if (updateResult.affectedRows === 0) {
           return res.status(404).json({ message: 'No se pudo actualizar la cita.' });
         }
-        res.json({ message: 'Cita reagendada exitosamente. Queda pendiente de confirmación.' });
+        res.json({ message: successMessage });
       });
     });
   });
@@ -757,7 +722,12 @@ router.get('/calendar', async (req, res) => {
 
     // 3. Fetch all schedule_exceptions overlapping the range
     const scheduleExceptions = await new Promise((resolve, reject) => {
-      db.query(`SELECT * FROM schedule_exceptions WHERE is_active = 1 AND ((start_date <= ? AND (end_date IS NULL OR end_date >= ?)) OR (start_date BETWEEN ? AND ?))`, [end, start, start, end], (err, results) => {
+      const query = `
+        SELECT * FROM schedule_exceptions 
+        WHERE is_active = 1 
+          AND start_date <= ? 
+          AND (end_date IS NULL OR end_date >= ?)`;
+      db.query(query, [end, start], (err, results) => {
         if (err) return reject(err);
         resolve(results);
       });

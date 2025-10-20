@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Get appointment ID from URL
   const urlParams = new URLSearchParams(window.location.search);
   appointmentId = urlParams.get('id');
+  console.log('[DEBUG] Appointment ID from URL:', appointmentId);
 
   if (!appointmentId) {
     showNotification('ID de cita no encontrado', 'error');
@@ -137,12 +138,15 @@ function overrideCalendarSlotSelection() {
  */
 async function loadCurrentAppointment() {
   try {
+    console.log(`[DEBUG] Fetching current appointment with ID: ${appointmentId}`);
     const response = await fetch(`/api/appointments/${appointmentId}`, {
       headers: window.authManager ? window.authManager.getAuthHeaders() : {}
     });
+    console.log('[DEBUG] Fetch response status:', response.status);
     if (!response.ok) throw new Error('Error al cargar la cita actual');
     
     const data = await response.json();
+    console.log('[DEBUG] Current appointment data received:', data);
     currentAppointment = data;
     console.log('🔄 Current appointment loaded:', currentAppointment);
     
@@ -212,7 +216,12 @@ function setupFormSubmission() {
       return;
     }
     
-    console.log('🔄 Submitting reschedule:', { selectedDate, selectedTime, note });
+    console.log('[DEBUG] Submitting reschedule form with data:', {
+      appointmentId: appointmentId,
+      newDate: selectedDate,
+      newTime: selectedTime,
+      note: note
+    });
     
     try {
       const submitBtn = bookingForm.querySelector('button[type="submit"]');

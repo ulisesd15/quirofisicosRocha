@@ -124,6 +124,30 @@ export class AppointmentsModule {
    */
   constructor() {
     // Optionally, you can pass a loading element or selector
+    this.setupEventListeners();
+  }
+
+  /**
+   * Sets up delegated event listeners for the appointments section.
+   */
+  setupEventListeners() {
+    const container = document.getElementById('appointments-section');
+    if (container && !container.dataset.listenerAttached) {
+      container.addEventListener('click', (event) => {
+        const editButton = event.target.closest('.btn-edit-appointment');
+        if (editButton) {
+          const appointmentId = editButton.dataset.appointmentId;
+          this.editAppointment(appointmentId);
+        }
+
+        const deleteButton = event.target.closest('.btn-delete-appointment');
+        if (deleteButton) {
+          const appointmentId = deleteButton.dataset.appointmentId;
+          this.deleteAppointment(appointmentId);
+        }
+      });
+      container.dataset.listenerAttached = 'true';
+    }
   }
 
   /**
@@ -174,10 +198,10 @@ export class AppointmentsModule {
         <td><span class="badge bg-${apt.status}">${this.getStatusText(apt.status)}</span></td>
         <td>
           <div class="action-buttons">
-            <button class="btn btn-outline-primary btn-sm" onclick="adminPanel.appointments.editAppointment(${apt.id})" title="Editar">
+            <button class="btn btn-outline-primary btn-sm btn-edit-appointment" data-appointment-id="${apt.id}" title="Editar">
               <i class="fas fa-edit"></i>
             </button>
-            <button class="btn btn-outline-danger btn-sm" onclick="adminPanel.appointments.deleteAppointment(${apt.id})" title="Eliminar">
+            <button class="btn btn-outline-danger btn-sm btn-delete-appointment" data-appointment-id="${apt.id}" title="Eliminar">
               <i class="fas fa-trash"></i>
             </button>
           </div>
@@ -316,88 +340,6 @@ export class AppointmentsModule {
     } catch (error) {
       console.error('Error loading appointment:', error);
       this.showError('Error cargando la cita');
-    }
-  }
-
-  /**
-   * Deletes an appointment by ID and refreshes the section.
-   */
-  async deleteAppointment(id) {
-    await this.appointments.delete(id);
-  }
-
-  /**
-   * Saves changes to an appointment after editing.
-   */
-  async saveAppointmentChanges() {
-    try {
-      const id = document.getElementById('edit-appointment-id').value;
-      const data = {
-        name: document.getElementById('edit-appointment-name').value,
-        email: document.getElementById('edit-appointment-email').value,
-        phone: document.getElementById('edit-appointment-phone').value,
-        appointment_date: document.getElementById('edit-appointment-date').value,
-        appointment_time: document.getElementById('edit-appointment-time').value,
-        status: document.getElementById('edit-appointment-status').value,
-        note: document.getElementById('edit-appointment-note').value
-      };
-
-      const response = await fetch(`/api/admin/appointments/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.getAuthToken()}`
-        },
-        body: JSON.stringify(data)
-      });
-
-      if (!response.ok) throw new Error('Error updating appointment');
-
-      // Close modal
-      const modal = bootstrap.Modal.getInstance(document.getElementById('editAppointmentModal'));
-      modal.hide();
-
-      // Reload data
-      await this.refreshCurrentSection();
-      this.showSuccess('Cita actualizada correctamente');
-
-    } catch (error) {
-      console.error('Error saving appointment:', error);
-      this.showError('Error guardando los cambios');
-    }
-  }
-
-   /**
-   * Loads an appointment's data into the edit modal for editing.
-   */
-  async editAppointment(id) {
-    try {
-      const response = await fetch(`/api/admin/appointments/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${this.getAuthToken()}`
-        }
-      });
-
-      if (!response.ok) throw new Error('Error loading appointment');
-      const data = await response.json();
-      const appointment = data.appointment;
-
-      // Populate modal
-      document.getElementById('edit-appointment-id').value = appointment.id;
-      document.getElementById('edit-appointment-name').value = appointment.name;
-      document.getElementById('edit-appointment-email').value = appointment.email || '';
-      document.getElementById('edit-appointment-phone').value = appointment.phone || '';
-      document.getElementById('edit-appointment-date').value = appointment.appointment_date;
-      document.getElementById('edit-appointment-time').value = appointment.appointment_time;
-      document.getElementById('edit-appointment-status').value = appointment.status;
-      document.getElementById('edit-appointment-note').value = appointment.note || '';
-
-      // Show modal
-      const modal = new bootstrap.Modal(document.getElementById('editAppointmentModal'));
-      modal.show();
-    } catch (error) {
-      console.error('Error loading appointment:', error);
-      this.showError('Error cargando la cita para editar');
     }
   }
 

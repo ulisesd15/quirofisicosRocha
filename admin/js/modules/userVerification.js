@@ -9,18 +9,6 @@
  * - Exports a singleton instance for use in the admin UI.
  */
 
-
-/**
- * userVerification.js
- *
- * Handles user verification logic for the admin panel.
- * - Fetches and displays unverified users.
- * - Allows admin to verify or reject users.
- * - Provides UI updates for verification actions.
- * - Includes appointment management for pending approvals.
- * - Exports a singleton instance for use in the admin UI.
- */
-
 export class UserVerificationModule {
   /**
    * Main entry point to load the module's data.
@@ -41,18 +29,18 @@ export class UserVerificationModule {
    * Sets up delegated event listeners for the module.
    */
   setupEventListeners() {
-    const container = document.getElementById('pending-appointments');
+    const container = document.getElementById('unverified-users');
     if (container && !container.dataset.listenerAttached) {
       container.addEventListener('click', (event) => {
         const approveButton = event.target.closest('.btn-approve');
         if (approveButton) {
-          event.preventDefault();
-          const appointmentId = approveButton.dataset.appointmentId;
-          this.approveAppointmentAndVerifyUser(appointmentId, approveButton.closest('.appointment-item'));
+          const userId = approveButton.dataset.userId;
+          if (userId) {
+            this.approveAppointmentAndVerifyUser(userId, approveButton.closest('.appointment-item'));
+          }
         }
         const rejectButton = event.target.closest('.btn-reject');
         if (rejectButton) {
-          event.preventDefault();
           const appointmentId = rejectButton.dataset.appointmentId;
           this.rejectAppointment(appointmentId, rejectButton.closest('.appointment-item'));
         }
@@ -285,7 +273,7 @@ export class UserVerificationModule {
    * @returns {string} The HTML string for the item.
    */
   createVerificationItemHTML(item) {
-    // Safely format date: 'YYYY-MM-DD' -> 'dd de MMMM de yyyy'
+    // Safely format date: 'YYYY-MM-DD...' -> 'dd de MMMM de yyyy'
     const formattedDate = item.date ? new Date(item.date + 'T00:00:00').toLocaleDateString('es-MX', {
         day: 'numeric',
         month: 'long',
@@ -305,9 +293,9 @@ export class UserVerificationModule {
     return `
       <div class="appointment-item">
         <div class="appointment-details">
-          <h4>Cita de: ${item.full_name || 'Nombre no disponible'}</h4>
-          <p><strong>Email:</strong> ${item.email || 'Email no disponible'}</p>
-          <p><strong>Fecha de Cita:</strong> ${formattedDate}</p>
+          <h4>Cita de: ${item.full_name || 'Usuario no disponible'}</h4>
+          <p><strong>Email:</strong> ${item.email || 'No disponible'}</p>
+          <p><strong>Fecha:</strong> ${formattedDate}</p>
           <p><strong>Hora de Cita:</strong> ${formattedTime}</p>
           <p class="text-muted small">ID Usuario: ${item.user_id} | ID Cita: ${item.appointment_id}</p>
         </div>

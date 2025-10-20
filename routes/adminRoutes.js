@@ -66,7 +66,7 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
     }
     try {
       const [pending] = await new Promise((resolve, reject) => {
-        db.query('SELECT COUNT(*) as count FROM appointments WHERE status = "pending"', (err, results) => {
+        db.query('SELECT COUNT(*) as count FROM appointments WHERE status = ?', ['pending'], (err, results) => {
           if (err) return reject(err);
           resolve(results);
         });
@@ -594,7 +594,7 @@ router.put('/users/:id/role', requireAdmin, (req, res) => {
 router.delete('/users/:id', requireAdmin, (req, res) => {
   const userId = req.params.id;
   
-  db.query('DELETE FROM users WHERE id = ? AND role != "admin"', [userId], (err, result) => {
+  db.query('DELETE FROM users WHERE id = ? AND role != ?', [userId, 'admin'], (err, result) => {
     if (err) return res.status(500).json({ error: 'Database error' });
     
     if (result.affectedRows === 0) {
@@ -650,7 +650,7 @@ router.put('/approve-user/:userId', requireAdmin, async (req, res) => {
       }
 
       // 2. Confirm the user's pending appointment
-      db.query("UPDATE appointments SET status = 'confirmed' WHERE user_id = ? AND status = 'pending' LIMIT 1", [userId], (err, appointmentResult) => {
+      db.query("UPDATE appointments SET status = ? WHERE user_id = ? AND status = ? LIMIT 1", ['confirmed', userId, 'pending'], (err, appointmentResult) => {
         if (err) {
           return db.rollback(() => {
             console.error('Error confirming appointment:', err);
@@ -802,7 +802,7 @@ router.get('/appointments', requireAdmin, (req, res) => {
  * Returns all users who are not yet verified.
  */
 router.get('/users/unverified', requireAdmin, (req, res) => {
-  db.query('SELECT * FROM users WHERE is_verified = 0', (err, results) => {
+  db.query('SELECT * FROM users WHERE is_verified = 0 AND role != ?', ['admin'], (err, results) => {
     if (err) return res.status(500).json({ error: 'Error obteniendo usuarios no verificados' });
     res.json({ users: results });
   });
@@ -909,12 +909,11 @@ router.get('/appointments/pending', requireAdmin, (req, res) => {
       u.is_verified
     FROM appointments a
     JOIN users u ON a.user_id = u.id
-    WHERE a.status = 'pending' 
-      AND u.is_verified = false 
-      AND u.role != 'admin'
+    WHERE a.status = ? 
+      AND u.is_verified = ?
     ORDER BY a.date, a.time;
   `;
-  db.query(query, (err, results) => {
+  db.query(query, ['pending', false], (err, results) => {
     if (err) return res.status(500).json({ error: 'Error obteniendo citas pendientes de usuarios no verificados' });
     res.json(results);
   });
@@ -928,7 +927,7 @@ router.get('/appointments/pending', requireAdmin, (req, res) => {
  */
 router.put('/appointments/:id/reject', requireAdmin, (req, res) => {
   const appointmentId = req.params.id;
-  db.query('UPDATE appointments SET status = "rejected", updated_at = CURRENT_TIMESTAMP WHERE id = ?', [appointmentId], (err, result) => {
+  db.query('UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['rejected', appointmentId], (err, result) => {
     if (err) return res.status(500).json({ error: 'Error rechazando cita' });
     if (result.affectedRows === 0) return res.status(404).json({ error: 'Cita no encontrada' });
     res.json({ message: 'Cita rechazada correctamente' });
@@ -962,7 +961,7 @@ router.put('/appointments/:id/approve', requireAdmin, (req, res) => {
       const userId = appointments[0].user_id;
 
       // 2. Update the appointment status to 'confirmed'
-      db.query('UPDATE appointments SET status = "confirmed", updated_at = CURRENT_TIMESTAMP WHERE id = ?', [appointmentId], (err, result) => {
+      db.query('UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['confirmed', appointmentId], (err, result) => {
         if (err || result.affectedRows === 0) {
           return db.rollback(() => {
             res.status(500).json({ error: 'Error al aprobar la cita.' });
@@ -1118,10 +1117,10 @@ router.get('/approval/recent', requireAdmin, (req, res) => {
   db.query(`
     SELECT id, email, full_name, created_at, role
     FROM users 
-    WHERE role != 'admin'
+    WHERE role != ?
     ORDER BY created_at DESC 
     LIMIT 5
-  `, (err, results) => {
+  `, ['admin'], (err, results) => {
     if (err) {
       console.error('Database error in /approval/recent:', err);
       return res.status(500).json({ error: 'Database error' });
