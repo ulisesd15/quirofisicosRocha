@@ -498,8 +498,9 @@ router.get('/users', requireAdmin, (req, res) => {
     }
     
     if (search) {
+      const searchTerm = `%${search}%`;
       countQuery += ` AND (full_name LIKE ? OR email LIKE ?)`;
-      countParams.push(`%${search}%`, `%${search}%`);
+      countParams.push(searchTerm, searchTerm);
     }
     
     db.query(countQuery, countParams, (err, countResults) => {
@@ -883,28 +884,13 @@ router.get('/appointments/pending', requireAdmin, (req, res) => {
   });
 });
 
-// Approve appointment (set status to confirmed)
-
 /**
- * PUT /appointments/:id/reject
- * Rejects a pending appointment by setting its status to 'rejected'.
- */
-router.put('/appointments/:id/reject', requireAdmin, (req, res) => {
-  const appointmentId = req.params.id;
-  db.query('UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['rejected', appointmentId], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Error rechazando cita' });
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Cita no encontrada' });
-    res.json({ message: 'Cita rechazada correctamente' });
-  });
-});
-
-/**
- * PUT /approve-user/:userId
- * Verifies a user and confirms ALL their pending appointments.
+ * PUT /appointments/:id/approve
+ * Approves an appointment and verifies the associated user.
  * This is a transactional operation.
  */
-router.put('/approve-user/:userId', requireAdmin, (req, res) => {
-  const { userId } = req.params;
+router.put('/appointments/:id/approve', requireAdmin, (req, res) => {
+  const appointmentId = req.params.id;
 
   db.beginTransaction(err => {
     if (err) {
@@ -912,28 +898,39 @@ router.put('/approve-user/:userId', requireAdmin, (req, res) => {
       return res.status(500).json({ error: 'Error del servidor al iniciar la transacción.' });
     }
 
-    // 1. Verify the user
-    db.query('UPDATE users SET is_verified = true WHERE id = ?', [userId], (err, userResult) => {
-      if (err) return db.rollback(() => res.status(500).json({ error: 'Error al verificar al usuario.' }));
-      if (userResult.affectedRows === 0) return db.rollback(() => res.status(404).json({ error: 'Usuario no encontrado.' }));
+    // 1. Get the user_id from the appointment
+    db.query('SELECT user_id FROM appointments WHERE id = ?', [appointmentId], (err, appointments) => {
+      if (err || appointments.length === 0) {
+        return db.rollback(() => res.status(404).json({ error: 'Cita no encontrada.' }));
+      }
 
-      // 2. Confirm all of the user's pending appointments
-      db.query("UPDATE appointments SET status = 'confirmed' WHERE user_id = ? AND status = 'pending'", [userId], (err, appointmentResult) => {
-        if (err) return db.rollback(() => res.status(500).json({ error: 'Error al confirmar las citas del usuario.' }));
+      const userId = appointments[0].user_id;
 
-        // 3. Commit the transaction
-        db.commit(err => {
-          if (err) {
-            return db.rollback(() => {
-              console.error('Error committing transaction:', err);
-              res.status(500).json({ error: 'Error al finalizar la transacción.' });
+      // 2. Update the appointment status to 'confirmed'
+      db.query('UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['confirmed', appointmentId], (err, result) => {
+        if (err || result.affectedRows === 0) {
+          return db.rollback(() => res.status(500).json({ error: 'Error al aprobar la cita.' }));
+        }
+
+        // 3. If there's a user associated, verify them
+        if (userId) {
+          db.query('UPDATE users SET is_verified = 1 WHERE id = ?', [userId], (err, userResult) => {
+            if (err) {
+              return db.rollback(() => res.status(500).json({ error: 'Error al verificar al usuario.' }));
+            }
+            // All good, commit the transaction
+            db.commit(err => {
+              if (err) return db.rollback(() => res.status(500).json({ error: 'Error al finalizar la transacción.' }));
+              res.json({ message: 'Cita aprobada y usuario verificado correctamente.' });
             });
-          }
-          // Optional: Send notification
-          res.json({ 
-            message: `Usuario aprobado. ${appointmentResult.affectedRows} cita(s) confirmada(s).` 
           });
-        });
+        } else {
+          // No user to verify (should not happen with the pending logic, but for safety)
+          db.commit(err => {
+            if (err) return db.rollback(() => res.status(500).json({ error: 'Error al finalizar la transacción.' }));
+            res.json({ message: 'Cita de invitado aprobada correctamente.' });
+          });
+        }
       });
     });
   });

@@ -138,15 +138,19 @@ function overrideCalendarSlotSelection() {
  */
 async function loadCurrentAppointment() {
   try {
-    console.log(`[DEBUG] Fetching current appointment with ID: ${appointmentId}`);
+    // 1. Log the ID being read from the URL
+    console.log(`[DEBUG] Attempting to load appointment with ID from URL: ${appointmentId}`);
+
     const response = await fetch(`/api/appointments/${appointmentId}`, {
       headers: window.authManager ? window.authManager.getAuthHeaders() : {}
     });
-    console.log('[DEBUG] Fetch response status:', response.status);
+
     if (!response.ok) throw new Error('Error al cargar la cita actual');
     
     const data = await response.json();
-    console.log('[DEBUG] Current appointment data received:', data);
+    // 2. Log the raw data received from the fetch call
+    console.log('[DEBUG] Raw data received from /api/appointments/:id :', data);
+
     currentAppointment = data;
     console.log('🔄 Current appointment loaded:', currentAppointment);
     
@@ -167,6 +171,8 @@ async function loadCurrentAppointment() {
       await loadTimeSlots(dateISO);
     }
   } catch (error) {
+    // 3. Log any errors that occur during the fetch
+    console.error('🔴 [DEBUG] An error occurred in loadCurrentAppointment:', error);
     console.error('🔄 Error loading current appointment:', error);
     showNotification('Error cargando la cita actual: ' + error.message, 'error');
   }

@@ -809,6 +809,11 @@ router.get('/calendar', async (req, res) => {
       });
     });
 
+    // --- DEBUG LOGGING ---
+    console.log('[API /calendar] Fetched businessHours:', JSON.stringify(businessHours, null, 2));
+    console.log('[API /calendar] Fetched scheduledBusinessHours:', JSON.stringify(scheduledBusinessHours, null, 2));
+    console.log('[API /calendar] Fetched scheduleExceptions:', JSON.stringify(scheduleExceptions, null, 2));
+
     // 4. Fetch all holiday_templates (active)
     const holidayTemplates = await new Promise((resolve, reject) => {
       db.query('SELECT * FROM holiday_templates WHERE is_active = 1', (err, results) => {
@@ -858,6 +863,7 @@ router.get('/calendar', async (req, res) => {
         dayInfo.reason = exception.reason || 'Exception';
       }
 
+      console.log(`[API /calendar] Final dayInfo for ${date}:`, JSON.stringify(dayInfo, null, 2));
       result.push(dayInfo);
     }
     res.json(result);

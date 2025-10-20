@@ -148,7 +148,8 @@ export class ScheduleModule {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Error al guardar horarios');
       this.showSuccess('Horarios guardados exitosamente');
-      await this.loadBusinessHours();
+      // Reload the business hours for the date that was just saved to reflect the changes.
+      await this.loadBusinessHours(effective_date);
     } catch (error) {
       console.error('Error saving business hours:', error);
       this.showError('Error al guardar horarios: ' + error.message);
@@ -873,12 +874,13 @@ export class ScheduleModule {
   /**
    * Loads business hours from the backend and displays them.
    */
-  async loadBusinessHours() {
+  async loadBusinessHours(date = null) {
     try {
       this.showLoading();
       console.log('Loading business hours...');
 
-      const response = await fetch('/api/business-hours', {
+      const url = date ? `/api/business-hours/${date}` : '/api/business-hours';
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${this.getAuthToken()}`
         }
