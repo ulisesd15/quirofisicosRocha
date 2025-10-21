@@ -116,6 +116,7 @@ function setupFormSubmission() {
       return;
     }
 
+    console.log('[DEBUG] Submitting form. Raw values -> date:', selectedDate, 'time:', selectedTime);
     console.log('[appointment.js] Submitting form with -> date:', selectedDate, 'time:', selectedTime);
 
     let appointmentData = {

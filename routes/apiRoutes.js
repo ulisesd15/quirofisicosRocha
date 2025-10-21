@@ -788,13 +788,19 @@ router.get('/calendar', async (req, res) => {
       });
     });
 
-    // 2. Fetch all scheduled_business_hours with effective_date <= end
+    // 2. Fetch all scheduled_business_hours to determine the future schedule
     const scheduledBusinessHours = await new Promise((resolve, reject) => {
-      db.query('SELECT * FROM scheduled_business_hours WHERE is_active = 1 AND effective_date <= ?', [end], (err, results) => {
+      // No is_active column; the presence of records implies a pending schedule.
+      db.query('SELECT * FROM scheduled_business_hours ORDER BY effective_date DESC', (err, results) => {
         if (err) return reject(err);
         resolve(results);
       });
     });
+    // Get the single effective_date from the future schedule, if it exists.
+    // Format it as a 'YYYY-MM-DD' string to prevent timezone issues during comparison.
+    const effectiveDateStr = scheduledBusinessHours.length > 0 
+      ? new Date(scheduledBusinessHours[0].effective_date).toISOString().split('T')[0] 
+      : null;
 
     // 3. Fetch all schedule_exceptions overlapping the range
     const scheduleExceptions = await new Promise((resolve, reject) => {
@@ -809,10 +815,6 @@ router.get('/calendar', async (req, res) => {
       });
     });
 
-    // --- DEBUG LOGGING ---
-    console.log('[API /calendar] Fetched businessHours:', JSON.stringify(businessHours, null, 2));
-    console.log('[API /calendar] Fetched scheduledBusinessHours:', JSON.stringify(scheduledBusinessHours, null, 2));
-    console.log('[API /calendar] Fetched scheduleExceptions:', JSON.stringify(scheduleExceptions, null, 2));
 
     // 4. Fetch all holiday_templates (active)
     const holidayTemplates = await new Promise((resolve, reject) => {
@@ -822,35 +824,53 @@ router.get('/calendar', async (req, res) => {
       });
     });
 
+    // --- DEBUG LOGGING ---
+    console.log('[DEBUG] GET /api/calendar: Fetched businessHours:', JSON.stringify(businessHours, null, 2));
+    console.log('[DEBUG] GET /api/calendar: Fetched scheduledBusinessHours:', JSON.stringify(scheduledBusinessHours, null, 2));
+    console.log('[DEBUG] GET /api/calendar: Fetched scheduleExceptions:', JSON.stringify(scheduleExceptions, null, 2));
+    console.log('[DEBUG] GET /api/calendar: Fetched holidayTemplates:', JSON.stringify(holidayTemplates, null, 2));
+
     // --- Merging logic: build day map for each date in range ---
     const days = getDatesInRange(start, end);
     const result = [];
     for (const date of days) {
-      const dayOfWeek = dayjs(date).format('dddd'); // e.g., 'Monday'
-      let base = getBusinessHoursForDay(dayOfWeek, businessHours);
+      const dayOfWeek = dayjs(date).format('dddd').toLowerCase(); // e.g., 'monday'
+      let activeSchedule;
+
+      // --- DEBUG LOGGING (Before decision) ---
+      console.log(`\n[DEBUG] Processing Date: ${date}`);
+      console.log(`  > Effective Date: ${effectiveDateStr}`);
+      console.log(`  > Has business_hours? ${businessHours.length > 0}`);
+      console.log(`  > Has scheduled_business_hours? ${scheduledBusinessHours.length > 0}`);
+
+      // Determine which schedule to use for this day
+      if (effectiveDateStr && date >= effectiveDateStr) {
+        console.log(`  [DECISION] Using FUTURE schedule (scheduled_business_hours)`);
+        // Use the future schedule if the day is on or after the effective date
+        activeSchedule = getBusinessHoursForDay(dayOfWeek, scheduledBusinessHours);
+      } else {
+        console.log(`  [DECISION] Using CURRENT schedule (business_hours)`);
+        // Otherwise, use the current (base) schedule
+        activeSchedule = getBusinessHoursForDay(dayOfWeek, businessHours);
+      }
+
+      console.log(`  > Active schedule for ${dayOfWeek}:`, activeSchedule || 'None');
 
       // 1. Start with base
       let dayInfo = {
         date,
-        is_open: base ? !!base.is_open : false,
-        open_time: base ? base.open_time : null,
-        close_time: base ? base.close_time : null,
+        is_open: activeSchedule ? !!activeSchedule.is_open : false, // Correctly use the determined active schedule
+        open_time: activeSchedule ? activeSchedule.open_time : null,
+        close_time: activeSchedule ? activeSchedule.close_time : null,
         reason: null
       };
-
-      // 2. Overlay scheduled_business_hours
-      const scheduled = getScheduledOverride(dayOfWeek, date, scheduledBusinessHours);
-      if (scheduled) {
-        dayInfo.is_open = !!scheduled.is_open;
-        dayInfo.open_time = scheduled.open_time;
-        dayInfo.close_time = scheduled.close_time;
-        // Optionally: dayInfo.break_start = scheduled.break_start; etc.
-      }
+      console.log('[DEBUG] 1. After base hours:', JSON.stringify(dayInfo));
 
       // 3. Overlay holiday_templates
       const holiday = holidayTemplates.find(ht => isFixedHoliday(date, ht));
       if (holiday) {
         dayInfo.is_open = false;
+        console.log('[DEBUG] 3. After holiday template:', JSON.stringify(dayInfo));
         dayInfo.reason = `Holiday - ${holiday.name}`;
       }
 
@@ -861,9 +881,9 @@ router.get('/calendar', async (req, res) => {
         if (exception.custom_open_time) dayInfo.open_time = exception.custom_open_time;
         if (exception.custom_close_time) dayInfo.close_time = exception.custom_close_time;
         dayInfo.reason = exception.reason || 'Exception';
+        console.log('[DEBUG] 4. After schedule exception:', JSON.stringify(dayInfo));
       }
 
-      console.log(`[API /calendar] Final dayInfo for ${date}:`, JSON.stringify(dayInfo, null, 2));
       result.push(dayInfo);
     }
     res.json(result);

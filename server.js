@@ -12,6 +12,7 @@ require('dotenv').config();
 // Load passport strategy AFTER env variables are loaded
 require('./config/passport');
 
+const db = require('./config/database');
 const routes = require('./routes/apiRoutes');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
@@ -142,18 +143,59 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
+/**
+ * Checks if a scheduled business hours update is due and applies it.
+ * This runs on server startup to handle pending schedule changes.
+ */
+async function promoteScheduleIfEffective() {
+  let connection;
+  try {
+    connection = await db.promise().getConnection();
 
-// Cron job to apply scheduled business hours every day at midnight
-// cron.schedule('0 0 * * *', () => {
-//   console.log('Running scheduled business hours check...');
-//   scheduleController.applyScheduledBusinessHours();
-// }, {
-//   timezone: "America/Tijuana"
-// });
+    // 1. Check for a scheduled update
+    const [scheduledHours] = await connection.query('SELECT effective_date FROM scheduled_business_hours LIMIT 1');
 
-// Also check on server startup for any missed scheduled hours
-// console.log('Checking for any scheduled business hours to apply on startup...');
-// scheduleController.applyScheduledBusinessHours();
+    if (scheduledHours.length === 0) {
+      console.log('No pending schedule updates found.');
+      return;
+    }
+
+    const effectiveDate = new Date(scheduledHours[0].effective_date);
+    const today = new Date();
+    // Set time to 00:00:00 to compare dates only
+    effectiveDate.setUTCHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
+
+    // 2. If the effective date is today or in the past, promote the schedule
+    if (effectiveDate <= today) {
+      console.log(`Effective date ${effectiveDate.toISOString().split('T')[0]} reached. Promoting new schedule...`);
+
+      await connection.beginTransaction();
+
+      // 3. Clear the current business_hours
+      await connection.query('DELETE FROM business_hours');
+
+      // 4. Copy the scheduled hours into the current business_hours table
+      const copySql = `
+        INSERT INTO business_hours (day_of_week, is_open, open_time, close_time, break_start, break_end)
+        SELECT day_of_week, is_open, open_time, close_time, break_start, break_end 
+        FROM scheduled_business_hours
+      `;
+      await connection.query(copySql);
+
+      // 5. Clear the scheduled_business_hours table
+      await connection.query('DELETE FROM scheduled_business_hours');
+
+      await connection.commit();
+      console.log('✅ New schedule promoted to primary.');
+    }
+  } catch (error) {
+    console.error('Error promoting scheduled business hours:', error);
+    if (connection) await connection.rollback();
+  } finally {
+    if (connection) connection.release();
+  }
+}
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
@@ -161,3 +203,6 @@ app.listen(PORT, () => {
   console.log(`🔒 Production mode: ${isProduction ? 'enabled' : 'disabled'}`);
   console.log('⏰ Scheduled business hours cron job active');
 });
+
+// Check for schedule updates on server startup.
+promoteScheduleIfEffective();

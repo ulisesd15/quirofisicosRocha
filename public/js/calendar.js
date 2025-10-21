@@ -445,6 +445,8 @@ export class Calendar {
     const selectedDateInput = document.getElementById('selected-date');
     const selectedTimeInput = document.getElementById('selected-time');
 
+    console.log('[DEBUG] selectTimeSlot: Raw selectedDate object:', this.selectedDate);
+
     console.log('[Calendar.js] selectTimeSlot: Received time:', time, 'and selected date:', this.selectedDate);
 
     if (selectedDateInput && this.selectedDate) {
@@ -477,7 +479,12 @@ export class Calendar {
    * Formats a JS Date as yyyy-mm-dd.
    */
   formatDate(date) {
-    return date.toISOString().split('T')[0];
+    // Using toISOString() can cause off-by-one day errors due to timezone conversion.
+    // Instead, we build the date string from the local date components.
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() is zero-based
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   /**
