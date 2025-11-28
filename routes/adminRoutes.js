@@ -229,39 +229,45 @@ router.post('/scheduled-business-hours', requireAdmin, (req, res) => {
     return res.status(400).json({ error: 'Missing businessHours array or effective_date' });
   }
 
+  console.log(`[POST /scheduled-business-hours] Received request to set new schedule for effective_date: ${effective_date}`);
+
   // Use a transaction to ensure atomicity
   db.beginTransaction(err => {
     if (err) {
-      console.error('Error saving scheduled business hours:', err);
+      console.error('Error starting transaction:', err);
       return res.status(500).json({ error: 'Database transaction error' });
     }
 
-    // 1. Deactivate any existing schedules for the same effective date
-    const deactivateSql = 'UPDATE scheduled_business_hours SET is_active = 0 WHERE effective_date = ?';
-    db.query(deactivateSql, [effective_date], (err, deactivateResult) => {
+    // 1. Delete any existing schedules for the same effective date to prevent duplicates.
+    const deleteSql = 'DELETE FROM scheduled_business_hours WHERE effective_date = ?';
+    db.query(deleteSql, [effective_date], (err, deleteResult) => {
       if (err) {
         return db.rollback(() => {
-          console.error('Error deactivating old scheduled hours:', err);
-          res.status(500).json({ error: 'Error deactivating old schedule' });
+          console.error('Error deleting old scheduled hours:', err);
+          res.status(500).json({ error: 'Error deleting old schedule' });
         });
       }
-      console.log(`Deactivated ${deactivateResult.affectedRows} old schedule entries for ${effective_date}.`);
+      console.log(`[POST /scheduled-business-hours] Deleted ${deleteResult.affectedRows} old schedule entries for ${effective_date}.`);
 
-      // 2. Insert the new schedule
+      // 2. Prepare and insert the new schedule
       const values = businessHours.map(bh => [
         bh.day_of_week, bh.is_open ? 1 : 0, bh.open_time || null, bh.close_time || null,
         bh.break_start || null, bh.break_end || null, effective_date, 1 // is_active
       ]);
+
+      console.log('[POST /scheduled-business-hours] Data to be inserted:', JSON.stringify(values, null, 2));
+
       const insertSql = `INSERT INTO scheduled_business_hours (day_of_week, is_open, open_time, close_time, break_start, break_end, effective_date, is_active) VALUES ?`;
 
       db.query(insertSql, [values], (err, insertResult) => {
         if (err) {
           return db.rollback(() => {
             console.error('Error inserting new scheduled hours:', err);
-            res.status(500).json({ error: 'Error saving new schedule' });
+            res.status(500).json({ error: 'Error saving new schedule', details: err.message });
           });
         }
 
+        // 3. Commit the transaction
         db.commit(err => {
           if (err) {
             return db.rollback(() => res.status(500).json({ error: 'Error committing transaction' }));
