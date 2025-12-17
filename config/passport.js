@@ -1,7 +1,8 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const jwt = require('jsonwebtoken');
-const db = require('../config/database');
+const { User } = require('../models');
+const { Op } = require('sequelize');
 const secretKey = process.env.SECRET_KEY;
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -18,7 +19,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: process.env.GOOGLE_CALLBACK_URL
-  }, (accessToken, refreshToken, profile, done) => {
+  }, async (accessToken, refreshToken, profile, done) => {
   console.log('🎯 Google OAuth callback received:', {
     email: profile.emails[0].value,
     name: profile.displayName,
@@ -29,41 +30,44 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   const full_name = profile.displayName;
   const google_id = profile.id;
 
-  // First check by google_id, then by email
-  db.query('SELECT * FROM users WHERE google_id = ? OR email = ?', [google_id, email], (err, results) => {
-    if (err) {
-      console.error('Database error during Google OAuth:', err);
-      return done(err);
-    }
+  try {
+    // First check by google_id, then by email
+    let user = await User.findOne({
+      where: {
+        [Op.or]: [
+          { google_id: google_id },
+          { email: email }
+        ]
+      }
+    });
 
-    if (results.length > 0) {
-      const user = results[0];
-      
+    if (user) {
       // If user exists but doesn't have google_id, update it
       if (!user.google_id) {
-        db.query('UPDATE users SET google_id = ?, auth_provider = ? WHERE id = ?', 
-          [google_id, 'google', user.id], (updateErr) => {
-            if (updateErr) return done(updateErr);
-          });
+        user.google_id = google_id;
+        user.auth_provider = 'google';
+        await user.save();
       }
       
-  const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '2h' });
+      const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '2h' });
       return done(null, { token });
     }
 
     // New Google user -> insert into users table
-    const insertSql = `
-      INSERT INTO users (full_name, email, phone, password, auth_provider, google_id)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `;
-
-    db.query(insertSql, [full_name, email, null, null, 'google', google_id], (err, result) => {
-      if (err) return done(err);
-
-  const token = jwt.sign({ id: result.insertId, email, role: 'user' }, JWT_SECRET, { expiresIn: '2h' });
-      return done(null, { token });
+    const newUser = await User.create({
+      full_name,
+      email,
+      auth_provider: 'google',
+      google_id,
+      role: 'user'
     });
-  });
+
+    const token = jwt.sign({ id: newUser.id, email: newUser.email, role: newUser.role }, JWT_SECRET, { expiresIn: '2h' });
+    return done(null, { token });
+  } catch (err) {
+    console.error('Database error during Google OAuth:', err);
+    return done(err);
+  }
 }));
 
 } else {

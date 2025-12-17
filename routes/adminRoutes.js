@@ -18,9 +18,10 @@
  */
 
 const express = require('express');
-const db = require('../config/database');
 const requireAdmin = require('../middleware/requireAdmin');
 const router = express.Router();
+const { User, Appointment, ClinicSetting, BusinessHour, ScheduledBusinessHour, ScheduleException, HolidayTemplate, Announcement, sequelize } = require('../models');
+const { Op } = require('sequelize');
 
 
 /**
@@ -32,55 +33,31 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
     // User count
     let totalUsers = 0, totalAppointments = 0, todayAppointments = 0, pendingAppointments = 0, recentAppointments = [];
     try {
-      const [users] = await new Promise((resolve, reject) => {
-        db.query('SELECT COUNT(*) as count FROM users', (err, results) => {
-          if (err) return reject(err);
-          resolve(results);
-        });
-      });
-      totalUsers = users.count || 0;
+      totalUsers = await User.count();
     } catch (err) {
       console.error('Error fetching user count:', err);
     }
     try {
-      const [appointments] = await new Promise((resolve, reject) => {
-        db.query('SELECT COUNT(*) as count FROM appointments', (err, results) => {
-          if (err) return reject(err);
-          resolve(results);
-        });
-      });
-      totalAppointments = appointments.count || 0;
+      totalAppointments = await Appointment.count();
     } catch (err) {
       console.error('Error fetching appointment count:', err);
     }
     try {
-      const [today] = await new Promise((resolve, reject) => {
-        db.query('SELECT COUNT(*) as count FROM appointments WHERE DATE(date) = CURDATE()', (err, results) => {
-          if (err) return reject(err);
-          resolve(results);
-        });
-      });
-      todayAppointments = today.count || 0;
+      const todayStr = new Date().toISOString().split('T')[0];
+      todayAppointments = await Appointment.count({ where: { date: todayStr } });
     } catch (err) {
       console.error('Error fetching today appointments:', err);
     }
     try {
-      const [pending] = await new Promise((resolve, reject) => {
-        db.query('SELECT COUNT(*) as count FROM appointments WHERE status = ?', ['pending'], (err, results) => {
-          if (err) return reject(err);
-          resolve(results);
-        });
-      });
-      pendingAppointments = pending.count || 0;
+      pendingAppointments = await Appointment.count({ where: { status: 'pending' } });
     } catch (err) {
       console.error('Error fetching pending appointments:', err);
     }
     try {
-      recentAppointments = await new Promise((resolve, reject) => {
-        db.query('SELECT id, full_name, email, date, time, status FROM appointments ORDER BY date DESC, time DESC LIMIT 5', (err, results) => {
-          if (err) return reject(err);
-          resolve(results);
-        });
+      recentAppointments = await Appointment.findAll({
+        attributes: ['id', 'full_name', 'email', 'date', 'time', 'status'],
+        order: [['date', 'DESC'], ['time', 'DESC']],
+        limit: 5
       });
     } catch (err) {
       console.error('Error fetching recent appointments:', err);
@@ -111,20 +88,19 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
  * PUT /business-hours/:id
  * Updates a single business hour entry by ID.
  */
-router.put('/business-hours/:id', requireAdmin, (req, res) => {
+router.put('/business-hours/:id', requireAdmin, async (req, res) => {
   const id = req.params.id;
   const { is_open, open_time, close_time, break_start, break_end } = req.body;
-  db.query(
-    'UPDATE business_hours SET is_open = ?, open_time = ?, close_time = ?, break_start = ?, break_end = ? WHERE id = ?',
-    [is_open, open_time, close_time, break_start, break_end, id],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ error: 'Business hour not found' });
-      }
-      res.json({ message: 'Business hours updated successfully' });
-    }
-  );
+  try {
+    const [updated] = await BusinessHour.update(
+      { is_open, open_time, close_time, break_start, break_end },
+      { where: { id } }
+    );
+    if (updated === 0) return res.status(404).json({ error: 'Business hour not found' });
+    res.json({ message: 'Business hours updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 
@@ -133,60 +109,37 @@ router.put('/business-hours/:id', requireAdmin, (req, res) => {
  * PUT /business-hours
  * Bulk update or insert business hours for all days of the week.
  */
-router.put('/business-hours', requireAdmin, (req, res) => {
+router.put('/business-hours', requireAdmin, async (req, res) => {
   const { businessHours } = req.body;
   if (!businessHours || !Array.isArray(businessHours)) {
     return res.status(400).json({ error: 'Invalid business hours data' });
   }
-  const updatePromises = businessHours.map(hours => {
-    return new Promise((resolve, reject) => {
-      db.query(
-        'SELECT id FROM business_hours WHERE LOWER(day_of_week) = LOWER(?)',
-        [hours.day_of_week],
-        (err, results) => {
-          if (err) return reject(err);
-          if (results.length === 0) {
-            db.query(
-              'INSERT INTO business_hours (day_of_week, is_open, open_time, close_time, break_start, break_end) VALUES (?, ?, ?, ?, ?, ?)',
-              [hours.day_of_week, hours.is_open, hours.open_time, hours.close_time, hours.break_start || null, hours.break_end || null],
-              (insertErr, insertResult) => {
-                if (insertErr) return reject(insertErr);
-                resolve(insertResult);
-              }
-            );
-          } else {
-            const id = results[0].id;
-            db.query(
-              'UPDATE business_hours SET is_open = ?, open_time = ?, close_time = ?, break_start = ?, break_end = ?, updated_at = NOW() WHERE id = ?',
-              [hours.is_open, hours.open_time, hours.close_time, hours.break_start || null, hours.break_end || null, id],
-              (updateErr, updateResult) => {
-                if (updateErr) return reject(updateErr);
-                resolve(updateResult);
-              }
-            );
-          }
-        }
-      );
-    });
-  });
-  Promise.all(updatePromises)
-    .then(() => {
-      res.json({ message: 'Business hours updated successfully' });
-    })
-    .catch(err => {
-      console.error('Error updating business hours:', err);
-      res.status(500).json({ error: 'Database error updating business hours' });
+  
+  try {
+    const updatePromises = businessHours.map(async (hours) => {
+      const existing = await BusinessHour.findOne({
+        where: { day_of_week: hours.day_of_week }
+      });
+
+      const data = {
+        day_of_week: hours.day_of_week,
+        is_open: hours.is_open,
+        open_time: hours.open_time,
+        close_time: hours.close_time,
+        break_start: hours.break_start || null,
+        break_end: hours.break_end || null
+      };
+
+      if (existing) return existing.update(data);
+      return BusinessHour.create(data);
     });
 
-
-  Promise.all(updatePromises)
-    .then(() => {
-      res.json({ message: 'Business hours updated successfully' });
-    })
-    .catch(err => {
-      console.error('Error updating business hours:', err);
-      res.status(500).json({ error: 'Database error updating business hours' });
-    });
+    await Promise.all(updatePromises);
+    res.json({ message: 'Business hours updated successfully' });
+  } catch (err) {
+    console.error('Error updating business hours:', err);
+    res.status(500).json({ error: 'Database error updating business hours' });
+  }
 });
 
 
@@ -195,11 +148,11 @@ router.put('/business-hours', requireAdmin, (req, res) => {
  * GET /scheduled-business-hours
  * Returns all scheduled business hours, ordered by effective date and day of week.
  */
-router.get('/scheduled-business-hours', requireAdmin, (req, res) => {
-  db.query('SELECT * FROM scheduled_business_hours ORDER BY effective_date DESC, day_of_week', (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
+router.get('/scheduled-business-hours', requireAdmin, async (req, res) => {
+  try {
+    const results = await ScheduledBusinessHour.findAll({ order: [['effective_date', 'DESC'], ['day_of_week', 'ASC']] });
     res.json({ scheduledBusinessHours: results });
-  });
+  } catch (err) { res.status(500).json({ error: 'Database error' }); }
 });
 
 // Get single scheduled business hour by ID
@@ -208,13 +161,13 @@ router.get('/scheduled-business-hours', requireAdmin, (req, res) => {
  * GET /scheduled-business-hours/:id
  * Returns a single scheduled business hour entry by ID.
  */
-router.get('/scheduled-business-hours/:id', requireAdmin, (req, res) => {
+router.get('/scheduled-business-hours/:id', requireAdmin, async (req, res) => {
   const id = req.params.id;
-  db.query('SELECT * FROM scheduled_business_hours WHERE id = ?', [id], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (results.length === 0) return res.status(404).json({ error: 'Scheduled business hour not found' });
-    res.json({ scheduledBusinessHour: results[0] });
-  });
+  try {
+    const result = await ScheduledBusinessHour.findByPk(id);
+    if (!result) return res.status(404).json({ error: 'Scheduled business hour not found' });
+    res.json({ scheduledBusinessHour: result });
+  } catch (err) { res.status(500).json({ error: 'Database error' }); }
 });
 
 // Create new scheduled business hours
@@ -229,46 +182,29 @@ router.post('/scheduled-business-hours', requireAdmin, async (req, res) => {
     return res.status(400).json({ message: 'Missing businessHours array or effective_date' });
   }
 
-  let connection;
   try {
-    // 1. Get a connection from the pool
-    connection = await db.promise().getConnection();
+    await sequelize.transaction(async (t) => {
+      // 3. Delete all existing scheduled hours
+      await ScheduledBusinessHour.destroy({ where: {}, transaction: t });
 
-    // 2. Start transaction
-    await connection.beginTransaction();
+      // 4. Insert the new schedule
+      const records = businessHours.map(bh => ({
+        day_of_week: bh.day_of_week,
+        is_open: bh.is_open,
+        open_time: bh.open_time || null,
+        close_time: bh.close_time || null,
+        break_start: bh.break_start || null,
+        break_end: bh.break_end || null,
+        effective_date
+      }));
 
-    // 3. Delete all existing scheduled hours to ensure only one future schedule is pending.
-    const [deleteResult] = await connection.query('DELETE FROM scheduled_business_hours');
-    console.log(`Deleted ${deleteResult.affectedRows} existing scheduled hours.`);
+      await ScheduledBusinessHour.bulkCreate(records, { transaction: t });
+    });
 
-    // 4. Insert the new schedule
-    const values = businessHours.map(bh => [
-      bh.day_of_week, bh.is_open ? 1 : 0, bh.open_time || null, bh.close_time || null,
-      bh.break_start || null, bh.break_end || null, effective_date
-    ]);
-    const insertSql = `
-      INSERT INTO scheduled_business_hours 
-      (day_of_week, is_open, open_time, close_time, break_start, break_end, effective_date) 
-      VALUES ?
-    `;
-
-    const [insertResult] = await connection.query(insertSql, [values]);
-
-    // 5. Commit the transaction
-    await connection.commit();
-
-    res.json({ message: 'Horario futuro guardado exitosamente.', inserted: insertResult.affectedRows });
-
+    res.json({ message: 'Horario futuro guardado exitosamente.' });
   } catch (error) {
     console.error('Error saving scheduled business hours:', error);
-    // 6. Rollback on error
-    if (connection) {
-      await connection.rollback();
-    }
     res.status(500).json({ message: 'Error al guardar horarios' });
-  } finally {
-    // 7. Release the connection
-    if (connection) connection.release();
   }
 });
 
@@ -279,30 +215,14 @@ router.post('/scheduled-business-hours', requireAdmin, async (req, res) => {
  * GET /schedule-exceptions
  * Returns all active schedule exceptions (e.g., holidays, special hours).
  */
-router.get('/schedule-exceptions', requireAdmin, (req, res) => {
-  db.query(`
-    SELECT 
-      id,
-      exception_type,
-      start_date,
-      end_date,
-      is_closed,
-      TIME_FORMAT(custom_open_time, '%H:%i') as custom_open_time,
-      TIME_FORMAT(custom_close_time, '%H:%i') as custom_close_time,
-      TIME_FORMAT(custom_break_start, '%H:%i') as custom_break_start,
-      TIME_FORMAT(custom_break_end, '%H:%i') as custom_break_end,
-      reason,
-      description,
-      is_active,
-      created_at,
-      updated_at
-    FROM schedule_exceptions 
-    WHERE is_active = 1
-    ORDER BY start_date DESC
-  `, (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
+router.get('/schedule-exceptions', requireAdmin, async (req, res) => {
+  try {
+    const results = await ScheduleException.findAll({
+      where: { is_active: true },
+      order: [['start_date', 'DESC']]
+    });
     res.json({ scheduleExceptions: results });
-  });
+  } catch (err) { res.status(500).json({ error: 'Database error' }); }
 });
 
 // Add schedule exception
@@ -311,7 +231,7 @@ router.get('/schedule-exceptions', requireAdmin, (req, res) => {
  * POST /schedule-exceptions
  * Adds a new schedule exception (e.g., holiday, special hours).
  */
-router.post('/schedule-exceptions', requireAdmin, (req, res) => {
+router.post('/schedule-exceptions', requireAdmin, async (req, res) => {
   const {
     exception_type,
     start_date,
@@ -326,34 +246,26 @@ router.post('/schedule-exceptions', requireAdmin, (req, res) => {
     recurring_type
   } = req.body;
 
-  const query = `
-    INSERT INTO schedule_exceptions 
-    (exception_type, start_date, end_date, is_closed, custom_open_time, custom_close_time, 
-     custom_break_start, custom_break_end, reason, description, recurring_type, is_active) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
-  `;
-
-  const values = [
-    exception_type || 'single_day',
-    start_date,
-    end_date || null,
-    is_closed || false,
-    custom_open_time || null,
-    custom_close_time || null,
-    custom_break_start || null,
-    custom_break_end || null,
-    reason || '',
-    description || '',
-    recurring_type || null
-  ];
-
-  db.query(query, values, (err, result) => {
-    if (err) {
-      console.error('Error adding schedule exception:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    res.json({ message: 'Schedule exception added successfully', id: result.insertId });
-  });
+  try {
+    const result = await ScheduleException.create({
+      exception_type: exception_type || 'single_day',
+      start_date,
+      end_date: end_date || null,
+      is_closed: is_closed || false,
+      custom_open_time: custom_open_time || null,
+      custom_close_time: custom_close_time || null,
+      custom_break_start: custom_break_start || null,
+      custom_break_end: custom_break_end || null,
+      reason: reason || '',
+      description: description || '',
+      yearly_recurring: recurring_type === 'yearly', // Mapping recurring_type to boolean
+      is_active: true
+    });
+    res.json({ message: 'Schedule exception added successfully', id: result.id });
+  } catch (err) {
+    console.error('Error adding schedule exception:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Update schedule exception
@@ -362,7 +274,7 @@ router.post('/schedule-exceptions', requireAdmin, (req, res) => {
  * PUT /schedule-exceptions/:id
  * Updates an existing schedule exception by ID.
  */
-router.put('/schedule-exceptions/:id', requireAdmin, (req, res) => {
+router.put('/schedule-exceptions/:id', requireAdmin, async (req, res) => {
   const exceptionId = req.params.id;
   const {
     exception_type,
@@ -379,43 +291,28 @@ router.put('/schedule-exceptions/:id', requireAdmin, (req, res) => {
     is_active
   } = req.body;
 
-  const query = `
-    UPDATE schedule_exceptions 
-    SET exception_type = ?, start_date = ?, end_date = ?, is_closed = ?, 
-        custom_open_time = ?, custom_close_time = ?, custom_break_start = ?, 
-        custom_break_end = ?, reason = ?, description = ?, recurring_type = ?, 
-        is_active = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `;
+  try {
+    const [updated] = await ScheduleException.update({
+      exception_type,
+      start_date,
+      end_date,
+      is_closed,
+      custom_open_time,
+      custom_close_time,
+      custom_break_start,
+      custom_break_end,
+      reason,
+      description,
+      yearly_recurring: recurring_type === 'yearly',
+      is_active
+    }, { where: { id: exceptionId } });
 
-  const values = [
-    exception_type,
-    start_date,
-    end_date,
-    is_closed,
-    custom_open_time,
-    custom_close_time,
-    custom_break_start,
-    custom_break_end,
-    reason,
-    description,
-    recurring_type,
-    is_active,
-    exceptionId
-  ];
-
-  db.query(query, values, (err, result) => {
-    if (err) {
-      console.error('Error updating schedule exception:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Schedule exception not found' });
-    }
-    
+    if (updated === 0) return res.status(404).json({ error: 'Schedule exception not found' });
     res.json({ message: 'Schedule exception updated successfully' });
-  });
+  } catch (err) {
+    console.error('Error updating schedule exception:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Delete schedule exception
@@ -424,21 +321,16 @@ router.put('/schedule-exceptions/:id', requireAdmin, (req, res) => {
  * DELETE /schedule-exceptions/:id
  * Soft-deletes a schedule exception by setting is_active to false.
  */
-router.delete('/schedule-exceptions/:id', requireAdmin, (req, res) => {
+router.delete('/schedule-exceptions/:id', requireAdmin, async (req, res) => {
   const exceptionId = req.params.id;
-  
-  db.query('UPDATE schedule_exceptions SET is_active = FALSE WHERE id = ?', [exceptionId], (err, result) => {
-    if (err) {
-      console.error('Error deleting schedule exception:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Schedule exception not found' });
-    }
-    
+  try {
+    const [updated] = await ScheduleException.update({ is_active: false }, { where: { id: exceptionId } });
+    if (updated === 0) return res.status(404).json({ error: 'Schedule exception not found' });
     res.json({ message: 'Schedule exception deleted successfully' });
-  });
+  } catch (err) {
+    console.error('Error deleting schedule exception:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // =================
@@ -451,7 +343,7 @@ router.delete('/schedule-exceptions/:id', requireAdmin, (req, res) => {
  * GET /users
  * Returns a paginated list of users, with optional search and role filtering.
  */
-router.get('/users', requireAdmin, (req, res) => {
+router.get('/users', requireAdmin, async (req, res) => {
   console.log('DEBUG: /api/admin/users route hit');
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
@@ -459,61 +351,37 @@ router.get('/users', requireAdmin, (req, res) => {
   const search = req.query.search || '';
   const roleFilter = req.query.role || '';
   
-  let query = `
-    SELECT id, full_name as name, email, phone, auth_provider as provider, role, created_at 
-    FROM users 
-    WHERE 1=1
-  `;
-  let params = [];
-  
-  // Role filter
-  if (roleFilter) {
-    query += ` AND role = ?`;
-    params.push(roleFilter);
-  }
-  
-  // Search filter
+  const where = {};
+  if (roleFilter) where.role = roleFilter;
   if (search) {
-    query += ` AND (full_name LIKE ? OR email LIKE ?)`;
-    const searchTerm = `%${search}%`;
-    params.push(searchTerm, searchTerm);
+    where[Op.or] = [
+      { full_name: { [Op.like]: `%${search}%` } },
+      { email: { [Op.like]: `%${search}%` } }
+    ];
   }
-  
-  query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
-  params.push(limit, offset);
-  
-  db.query(query, params, (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    
-    // Get total count for pagination
-    let countQuery = `SELECT COUNT(*) as total FROM users WHERE 1=1`;
-    let countParams = [];
-    
-    if (roleFilter) {
-      countQuery += ` AND role = ?`;
-      countParams.push(roleFilter);
-    }
-    
-    if (search) {
-      const searchTerm = `%${search}%`;
-      countQuery += ` AND (full_name LIKE ? OR email LIKE ?)`;
-      countParams.push(searchTerm, searchTerm);
-    }
-    
-    db.query(countQuery, countParams, (err, countResults) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      
-      res.json({
-        users: results,
-        pagination: {
-          current_page: page,
-          total_pages: Math.ceil(countResults[0].total / limit),
-          total_records: countResults[0].total,
-          limit: limit
-        }
-      });
+
+  try {
+    const { count, rows } = await User.findAndCountAll({
+      where,
+      limit,
+      offset,
+      order: [['created_at', 'DESC']],
+      attributes: ['id', ['full_name', 'name'], 'email', 'phone', ['auth_provider', 'provider'], 'role', 'created_at']
     });
-  });
+
+    res.json({
+      users: rows,
+      pagination: {
+        current_page: page,
+        total_pages: Math.ceil(count / limit),
+        total_records: count,
+        limit: limit
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Get single user
@@ -522,25 +390,18 @@ router.get('/users', requireAdmin, (req, res) => {
  * GET /users/:id
  * Returns a single user by ID.
  */
-router.get('/users/:id', requireAdmin, (req, res) => {
+router.get('/users/:id', requireAdmin, async (req, res) => {
   const userId = req.params.id;
-  
-  db.query(
-    'SELECT id, full_name, email, phone, auth_provider as provider, role, created_at FROM users WHERE id = ?',
-    [userId], 
-    (err, results) => {
-      if (err) {
-        console.error('Error fetching user:', err);
-        return res.status(500).json({ error: 'Database error' });
-      }
-      
-      if (results.length === 0) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-      
-      res.json({ user: results[0] });
-    }
-  );
+  try {
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'full_name', 'email', 'phone', ['auth_provider', 'provider'], 'role', 'created_at']
+    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ user });
+  } catch (err) {
+    console.error('Error fetching user:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Update user
@@ -549,31 +410,26 @@ router.get('/users/:id', requireAdmin, (req, res) => {
  * PUT /users/:id
  * Updates a user's information by ID.
  */
-router.put('/users/:id', requireAdmin, (req, res) => {
+router.put('/users/:id', requireAdmin, async (req, res) => {
   const userId = req.params.id;
   const { name, full_name, email, phone, role, provider } = req.body;
   
   // Accept both 'name' and 'full_name' for backward compatibility
   const userName = full_name || name;
   
-  db.query(
-    'UPDATE users SET full_name = ?, email = ?, phone = ?, role = ?, auth_provider = ? WHERE id = ?',
-    [userName, email, phone, role, provider, userId],
-    (err, result) => {
-      if (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-          return res.status(400).json({ error: 'Email already exists' });
-        }
-        return res.status(500).json({ error: 'Database error' });
-      }
-      
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-      
-  res.json({ message: 'User updated successfully' });
+  try {
+    const [updated] = await User.update(
+      { full_name: userName, email, phone, role, auth_provider: provider },
+      { where: { id: userId } }
+    );
+    if (updated === 0) return res.status(404).json({ error: 'User not found' });
+    res.json({ message: 'User updated successfully' });
+  } catch (err) {
+    if (err.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({ error: 'Email already exists' });
     }
-  );
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 
@@ -583,25 +439,21 @@ router.put('/users/:id', requireAdmin, (req, res) => {
  * PUT /users/:id/role
  * Updates a user's role by ID.
  */
-router.put('/users/:id/role', requireAdmin, (req, res) => {
+router.put('/users/:id/role', requireAdmin, async (req, res) => {
     const { role } = req.body;
     const userId = req.params.id;
 
     if (!role || (role !== 'user' && role !== 'admin')) {
         return res.status(400).json({ error: 'Invalid role specified.' });
     }
-
-    const query = 'UPDATE users SET role = ? WHERE id = ?';
-    db.query(query, [role, userId], (err, result) => {
-        if (err) {
-            console.error("Error updating user role:", err);
-            return res.status(500).json({ error: 'Database error while updating role.' });
-        }
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'User not found.' });
-        }
-        res.json({ message: 'User role updated successfully.' });
-    });
+    try {
+      const [updated] = await User.update({ role }, { where: { id: userId } });
+      if (updated === 0) return res.status(404).json({ error: 'User not found.' });
+      res.json({ message: 'User role updated successfully.' });
+    } catch (err) {
+      console.error("Error updating user role:", err);
+      res.status(500).json({ error: 'Database error while updating role.' });
+    }
 });
 
 // Delete user
@@ -610,17 +462,13 @@ router.put('/users/:id/role', requireAdmin, (req, res) => {
  * DELETE /users/:id
  * Deletes a user by ID (cannot delete admin users).
  */
-router.delete('/users/:id', requireAdmin, (req, res) => {
+router.delete('/users/:id', requireAdmin, async (req, res) => {
   const userId = req.params.id;
-  
-  db.query('DELETE FROM users WHERE id = ? AND role != ?', [userId, 'admin'], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'User not found or cannot delete admin' });
-    }
-    
-  });
+  try {
+    const deleted = await User.destroy({ where: { id: userId, role: { [Op.ne]: 'admin' } } });
+    if (deleted === 0) return res.status(404).json({ error: 'User not found or cannot delete admin' });
+    res.json({ message: 'User deleted successfully' });
+  } catch (err) { res.status(500).json({ error: 'Database error' }); }
 });
 
 // ADMIN: Verify a user
@@ -629,122 +477,67 @@ router.delete('/users/:id', requireAdmin, (req, res) => {
  * PUT /users/:id/verify
  * Verifies a user (sets is_verified to true).
  */
-router.put('/users/:id/verify', requireAdmin, (req, res) => {
+router.put('/users/:id/verify', requireAdmin, async (req, res) => {
   const userId = req.params.id;
-  db.query('UPDATE users SET is_verified = 1, requires_verification = 0 WHERE id = ?', [userId], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Error verificando usuario' });
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+  try {
+    const [updated] = await User.update({ is_verified: true, requires_verification: false }, { where: { id: userId } });
+    if (updated === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json({ message: 'Usuario verificado correctamente' });
-  });
+  } catch (err) { res.status(500).json({ error: 'Error verificando usuario' }); }
 });
 
 // =================
 // APPOINTMENT MANAGEMENT
 // =================
 
-router.get('/appointments', requireAdmin, (req, res) => {
+router.get('/appointments', requireAdmin, async (req, res) => {
   console.log('DEBUG: /api/admin/appointments route hit');
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 15;
   const offset = (page - 1) * limit;
   const status = req.query.status || '';
   const date = req.query.date || '';
-  const start_date = req.query.start_date || '';
-  const end_date = req.query.end_date || '';
+  const startDate = req.query.start_date || '';
+  const endDate = req.query.end_date || '';
   const search = req.query.search || '';
   
-  let query = `
-    SELECT a.*, 
-           COALESCE(a.full_name, u.full_name) as name,
-           COALESCE(a.email, u.email) as email,
-           COALESCE(a.phone, u.phone) as phone,
-           a.date as appointment_date,
-           a.time as appointment_time,
-           u.full_name as user_name, 
-           u.email as user_email
-    FROM appointments a
-    LEFT JOIN users u ON a.user_id = u.id
-    WHERE 1=1
-  `;
-  let params = [];
-  
-  if (status) {
-    query += ` AND a.status = ?`;
-    params.push(status);
-  }
-  
-  if (date) {
-    query += ` AND DATE(a.date) = ?`;
-    params.push(date);
-  }
-  
-  if (start_date && end_date) {
-    query += ` AND DATE(a.date) BETWEEN ? AND ?`;
-    params.push(start_date, end_date);
-  } else if (start_date) {
-    query += ` AND DATE(a.date) >= ?`;
-    params.push(start_date);
-  } else if (end_date) {
-    query += ` AND DATE(a.date) <= ?`;
-    params.push(end_date);
-  }
-  
+  const where = {};
+  if (status) where.status = status;
+  if (date) where.date = date;
+  if (startDate && endDate) where.date = { [Op.between]: [startDate, endDate] };
+  else if (startDate) where.date = { [Op.gte]: startDate };
+  else if (endDate) where.date = { [Op.lte]: endDate };
+
   if (search) {
-    query += ` AND (COALESCE(a.full_name, u.full_name) LIKE ? OR COALESCE(a.email, u.email) LIKE ? OR COALESCE(a.phone, u.phone) LIKE ?)`;
-    const searchTerm = `%${search}%`;
-    params.push(searchTerm, searchTerm, searchTerm);
+    where[Op.or] = [
+      { full_name: { [Op.like]: `%${search}%` } },
+      { email: { [Op.like]: `%${search}%` } },
+      { phone: { [Op.like]: `%${search}%` } }
+    ];
   }
-  
-  query += ` ORDER BY a.date DESC, a.time DESC LIMIT ? OFFSET ?`;
-  params.push(limit, offset);
-  
-  db.query(query, params, (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    
-    // Get total count for pagination
-    let countQuery = `SELECT COUNT(*) as total FROM appointments a WHERE 1=1`;
-    let countParams = [];
-    
-    if (status) {
-      countQuery += ` AND a.status = ?`;
-      countParams.push(status);
-    }
-    
-    if (date) {
-      countQuery += ` AND DATE(a.date) = ?`;
-      countParams.push(date);
-    }
-    
-    if (start_date && end_date) {
-      countQuery += ` AND DATE(a.date) BETWEEN ? AND ?`;
-      countParams.push(start_date, end_date);
-    } else if (start_date) {
-      countQuery += ` AND DATE(a.date) >= ?`;
-      countParams.push(start_date);
-    } else if (end_date) {
-      countQuery += ` AND DATE(a.date) <= ?`;
-      countParams.push(end_date);
-    }
-    
-    if (search) {
-      countQuery += ` AND (a.full_name LIKE ? OR a.email LIKE ? OR a.phone LIKE ?)`;
-      countParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
-    }
-    
-    db.query(countQuery, countParams, (err, countResults) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      
-      res.json({
-        appointments: results,
-        pagination: {
-          current_page: page,
-          total_pages: Math.ceil(countResults[0].total / limit),
-          total_records: countResults[0].total,
-          limit: limit
-        }
-      });
+
+  try {
+    const { count, rows } = await Appointment.findAndCountAll({
+      where,
+      include: [{ model: User, as: 'user', attributes: ['full_name', 'email'] }],
+      limit,
+      offset,
+      order: [['date', 'DESC'], ['time', 'DESC']]
     });
-  });
+
+    res.json({
+      appointments: rows,
+      pagination: {
+        current_page: page,
+        total_pages: Math.ceil(count / limit),
+        total_records: count,
+        limit: limit
+      }
+    });
+  } catch (err) {
+    console.error('Database error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // ADMIN: Get all unverified users
@@ -753,11 +546,13 @@ router.get('/appointments', requireAdmin, (req, res) => {
  * GET /users/unverified
  * Returns all users who are not yet verified.
  */
-router.get('/users/unverified', requireAdmin, (req, res) => {
-  db.query('SELECT * FROM users WHERE is_verified = 0 AND role != ?', ['admin'], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error obteniendo usuarios no verificados' });
+router.get('/users/unverified', requireAdmin, async (req, res) => {
+  try {
+    const results = await User.findAll({
+      where: { is_verified: false, role: { [Op.ne]: 'admin' } }
+    });
     res.json({ users: results });
-  });
+  } catch (err) { res.status(500).json({ error: 'Error obteniendo usuarios no verificados' }); }
 });
 
 // Get single appointment
@@ -766,33 +561,15 @@ router.get('/users/unverified', requireAdmin, (req, res) => {
  * GET /appointments/:id
  * Returns a single appointment by ID.
  */
-router.get('/appointments/:id', requireAdmin, (req, res) => {
+router.get('/appointments/:id', requireAdmin, async (req, res) => {
   const appointmentId = req.params.id;
-  
-  db.query(`
-    SELECT a.*, 
-           COALESCE(a.full_name, u.full_name) as name,
-           COALESCE(a.email, u.email) as email,
-           COALESCE(a.phone, u.phone) as phone,
-           a.date as appointment_date,
-           a.time as appointment_time,
-           u.full_name as user_name, 
-           u.email as user_email
-    FROM appointments a
-    LEFT JOIN users u ON a.user_id = u.id
-    WHERE a.id = ?
-  `, [appointmentId], (err, results) => {
-    if (err) {
-      console.error('Error fetching appointment:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-
-    if (results.length === 0) {
-      return res.status(404).json({ error: 'Appointment not found' });
-    }
-
-    res.json({ appointment: results[0] });
-  });
+  try {
+    const appointment = await Appointment.findByPk(appointmentId, {
+      include: [{ model: User, as: 'user', attributes: ['full_name', 'email'] }]
+    });
+    if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
+    res.json({ appointment });
+  } catch (err) { res.status(500).json({ error: 'Database error' }); }
 });
 
 // Update appointment
@@ -801,50 +578,28 @@ router.get('/appointments/:id', requireAdmin, (req, res) => {
  * PUT /appointments/:id
  * Updates an appointment's details by ID.
  */
-router.put('/appointments/:id', requireAdmin, (req, res) => {
+router.put('/appointments/:id', requireAdmin, async (req, res) => {
   const appointmentId = req.params.id;
   const fields = req.body;
-
-  // Dynamically build the query to only update provided fields
-  const updateFields = [];
-  const updateValues = [];
-
-  // Map frontend fields to database columns if they exist in the request
-  if (fields.date) { updateFields.push('date = ?'); updateValues.push(fields.date); }
-  if (fields.time) { updateFields.push('time = ?'); updateValues.push(fields.time); }
-  if (fields.status) { updateFields.push('status = ?'); updateValues.push(fields.status); }
-  if (fields.hasOwnProperty('note')) { updateFields.push('note = ?'); updateValues.push(fields.note); }
-
-  if (updateFields.length === 0) {
-    return res.status(400).json({ error: 'No fields to update' });
-  }
-
-  const query = `UPDATE appointments SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-  updateValues.push(appointmentId);
-
-  db.query(query, updateValues, (err, result) => {
-    if (err) {
-      console.error("Error updating appointment:", err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    if (result.affectedRows === 0) return res.status(404).json({ error: 'Appointment not found' });
+  
+  try {
+    const [updated] = await Appointment.update(fields, { where: { id: appointmentId } });
+    if (updated === 0) return res.status(404).json({ error: 'Appointment not found' });
     res.json({ message: 'Appointment updated successfully' });
-  });
+  } catch (err) {
+    console.error("Error updating appointment:", err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Delete appointment
-router.delete('/appointments/:id', requireAdmin, (req, res) => {
+router.delete('/appointments/:id', requireAdmin, async (req, res) => {
   const appointmentId = req.params.id;
-  
-  db.query('DELETE FROM appointments WHERE id = ?', [appointmentId], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Appointment not found' });
-    }
-    
+  try {
+    const deleted = await Appointment.destroy({ where: { id: appointmentId } });
+    if (deleted === 0) return res.status(404).json({ error: 'Appointment not found' });
     res.json({ message: 'Appointment deleted successfully' });
-  });
+  } catch (err) { res.status(500).json({ error: 'Database error' }); }
 });
 
 
@@ -854,31 +609,20 @@ router.delete('/appointments/:id', requireAdmin, (req, res) => {
  * GET /appointments/pending
  * Returns all appointments with status 'pending'.
  */
-router.get('/appointments/pending', requireAdmin, (req, res) => {
-  const query = `
-    SELECT 
-      a.id as appointment_id, 
-      a.date, 
-      a.time, 
-      a.note, 
-      a.created_at, 
-      a.status,
-      u.id as user_id, 
-      u.full_name, 
-      u.email, 
-      u.phone, 
-      u.is_verified 
-    FROM appointments a
-    LEFT JOIN users u ON a.user_id = u.id
-    WHERE a.status = ? 
-      AND a.user_id IS NOT NULL
-      AND u.is_verified = 0
-    ORDER BY a.date, a.time;
-  `;
-  db.query(query, ['pending', false], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error obteniendo citas pendientes de usuarios no verificados' });
+router.get('/appointments/pending', requireAdmin, async (req, res) => {
+  try {
+    const results = await Appointment.findAll({
+      where: { status: 'pending', user_id: { [Op.ne]: null } },
+      include: [{
+        model: User,
+        as: 'user',
+        where: { is_verified: false },
+        attributes: ['id', 'full_name', 'email', 'phone', 'is_verified']
+      }],
+      order: [['date', 'ASC'], ['time', 'ASC']]
+    });
     res.json(results);
-  });
+  } catch (err) { res.status(500).json({ error: 'Error obteniendo citas pendientes' }); }
 });
 
 /**
@@ -888,48 +632,25 @@ router.get('/appointments/pending', requireAdmin, (req, res) => {
  */
 router.put('/appointments/:id/approve', requireAdmin, async (req, res) => {
   const appointmentId = req.params.id;
-  let connection;
 
   try {
-    // 1. Get a connection from the pool
-    connection = await db.promise().getConnection();
+    await sequelize.transaction(async (t) => {
+      const appointment = await Appointment.findByPk(appointmentId, { transaction: t });
+      if (!appointment) throw new Error('Appointment not found');
 
-    // 2. Start the transaction
-    await connection.beginTransaction();
+      await appointment.update({ status: 'confirmed' }, { transaction: t });
 
-    // 3. Get the user_id from the appointment
-    const [appointments] = await connection.query('SELECT user_id FROM appointments WHERE id = ?', [appointmentId]);
-
-    if (appointments.length === 0) {
-      await connection.rollback();
-      return res.status(404).json({ error: 'Cita no encontrada.' });
-    }
-
-    const userId = appointments[0].user_id;
-
-    // 4. Update the appointment status to 'confirmed'
-    const [updateResult] = await connection.query('UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', ['confirmed', appointmentId]);
-
-    if (updateResult.affectedRows === 0) {
-      await connection.rollback();
-      return res.status(500).json({ error: 'Error al aprobar la cita.' });
-    }
-
-    // 5. If there's a user associated, verify them
-    if (userId) {
-      await connection.query('UPDATE users SET is_verified = 1 WHERE id = ?', [userId]);
-    }
-
-    // 6. Commit the transaction
-    await connection.commit();
-
+      if (appointment.user_id) {
+        await User.update({ is_verified: true }, { where: { id: appointment.user_id }, transaction: t });
+      }
+    });
     res.json({ message: 'Cita aprobada y usuario verificado correctamente.' });
   } catch (error) {
     console.error('Error during appointment approval transaction:', error);
-    if (connection) await connection.rollback();
+    if (error.message === 'Appointment not found') {
+      return res.status(404).json({ error: 'Cita no encontrada.' });
+    }
     res.status(500).json({ error: 'Error en el servidor al procesar la aprobación.' });
-  } finally {
-    if (connection) connection.release();
   }
 });
 
@@ -938,10 +659,9 @@ router.put('/appointments/:id/approve', requireAdmin, async (req, res) => {
 // =================
 
 // Get clinic settings
-router.get('/settings', requireAdmin, (req, res) => {
-  db.query('SELECT * FROM clinic_settings ORDER BY setting_key', (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    
+router.get('/settings', requireAdmin, async (req, res) => {
+  try {
+    const results = await ClinicSetting.findAll({ order: [['setting_key', 'ASC']] });
     const settings = {};
     results.forEach(row => {
       settings[row.setting_key] = {
@@ -949,78 +669,49 @@ router.get('/settings', requireAdmin, (req, res) => {
         description: row.description
       };
     });
-    
     res.json(settings);
-  });
+  } catch (err) { res.status(500).json({ error: 'Database error' }); }
 });
 
 // Update multiple clinic settings
-router.put('/settings', requireAdmin, (req, res) => {
+router.put('/settings', requireAdmin, async (req, res) => {
   const { settings } = req.body;
   
   if (!settings || !Array.isArray(settings)) {
     return res.status(400).json({ error: 'Settings array is required' });
   }
 
-  // Prepare promises for all setting updates
-  const updatePromises = settings.map(setting => {
-    return new Promise((resolve, reject) => {
+  try {
+    const updatePromises = settings.map(async (setting) => {
       const { key, value } = setting;
-      
-      // First try to update existing setting
-      db.query(
-        'UPDATE clinic_settings SET setting_value = ? WHERE setting_key = ?',
-        [value, key],
-        (updateErr, updateResult) => {
-          if (updateErr) return reject(updateErr);
-          
-          // If no rows were affected, insert new setting
-          if (updateResult.affectedRows === 0) {
-            db.query(
-              'INSERT INTO clinic_settings (setting_key, setting_value) VALUES (?, ?)',
-              [key, value],
-              (insertErr) => {
-                if (insertErr) return reject(insertErr);
-                resolve();
-              }
-            );
-          } else {
-            resolve();
-          }
-        }
-      );
+      const existing = await ClinicSetting.findOne({ where: { setting_key: key } });
+      if (existing) {
+        return existing.update({ setting_value: value });
+      } else {
+        return ClinicSetting.create({ setting_key: key, setting_value: value });
+      }
     });
-  });
 
-  // Execute all updates
-  Promise.all(updatePromises)
-    .then(() => {
-      res.json({ message: 'Settings updated successfully' });
-    })
-    .catch(err => {
-      console.error('Error updating settings:', err);
-      res.status(500).json({ error: 'Database error' });
-    });
+    await Promise.all(updatePromises);
+    res.json({ message: 'Settings updated successfully' });
+  } catch (err) {
+    console.error('Error updating settings:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Update clinic setting
-router.put('/settings/:key', requireAdmin, (req, res) => {
+router.put('/settings/:key', requireAdmin, async (req, res) => {
   const settingKey = req.params.key;
   const { value } = req.body;
   
-  db.query(
-    'UPDATE clinic_settings SET setting_value = ? WHERE setting_key = ?',
-    [value, settingKey],
-    (err, result) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ error: 'Setting not found' });
-      }
-      
-      res.json({ message: 'Setting updated successfully' });
-    }
-  );
+  try {
+    const [updated] = await ClinicSetting.update({ setting_value: value }, { where: { setting_key: settingKey } });
+    if (updated === 0) return res.status(404).json({ error: 'Setting not found' });
+    res.json({ message: 'Setting updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Server status endpoint for admin dashboard
@@ -1044,21 +735,20 @@ router.get('/server/status', requireAdmin, (req, res) => {
  * GET /approval/recent
  * Returns recent user registrations for admin approval dashboard.
  */
-router.get('/approval/recent', requireAdmin, (req, res) => {
+router.get('/approval/recent', requireAdmin, async (req, res) => {
   // For now, return recent user registrations as a placeholder
-  db.query(`
-    SELECT id, email, full_name, created_at, role
-    FROM users 
-    WHERE role != ?
-    ORDER BY created_at DESC 
-    LIMIT 5
-  `, ['admin'], (err, results) => {
-    if (err) {
-      console.error('Database error in /approval/recent:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
+  try {
+    const results = await User.findAll({
+      where: { role: { [Op.ne]: 'admin' } },
+      order: [['created_at', 'DESC']],
+      limit: 5,
+      attributes: ['id', 'email', 'full_name', 'created_at', 'role']
+    });
     res.json(results);
-  });
+  } catch (err) {
+    console.error('Database error in /approval/recent:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // =================
@@ -1066,47 +756,50 @@ router.get('/approval/recent', requireAdmin, (req, res) => {
 // =================
 
 // Get announcements
-router.get('/announcements', requireAdmin, (req, res) => {
-  const query = `
-    SELECT a.*, u.full_name as created_by_name 
-    FROM announcements a
-    LEFT JOIN users u ON a.created_by = u.id
-    WHERE a.is_active = TRUE
-    ORDER BY a.priority DESC, a.created_at DESC
-  `;
-  
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error fetching announcements:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    res.json(results);
-  });
+router.get('/announcements', requireAdmin, async (req, res) => {
+  try {
+    const results = await Announcement.findAll({
+      where: { is_active: true },
+      include: [{ model: User, as: 'creator', attributes: ['full_name'] }],
+      order: [['priority', 'DESC'], ['created_at', 'DESC']]
+    });
+    // Map result to include created_by_name for frontend compatibility if needed
+    const mapped = results.map(r => {
+      const plain = r.get({ plain: true });
+      plain.created_by_name = plain.creator ? plain.creator.full_name : null;
+      return plain;
+    });
+    res.json(mapped);
+  } catch (err) {
+    console.error('Error fetching announcements:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Get active announcements for public display
-router.get('/announcements/public', (req, res) => {
-  const query = `
-    SELECT id, title, message, announcement_type, priority, start_date, end_date
-    FROM announcements 
-    WHERE is_active = TRUE 
-      AND show_on_homepage = TRUE
-      AND start_date <= CURDATE()
-      AND (end_date IS NULL OR end_date >= CURDATE())
-    ORDER BY priority DESC, created_at DESC
-  `;
-  
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error fetching public announcements:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
+router.get('/announcements/public', async (req, res) => {
+  try {
+    const results = await Announcement.findAll({
+      where: {
+        is_active: true,
+        show_on_homepage: true,
+        start_date: { [Op.lte]: new Date() },
+        [Op.or]: [
+          { end_date: null },
+          { end_date: { [Op.gte]: new Date() } }
+        ]
+      },
+      order: [['priority', 'DESC'], ['created_at', 'DESC']]
+    });
     res.json(results);
-  });
+  } catch (err) {
+    console.error('Error fetching public announcements:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Add announcement
-router.post('/announcements', requireAdmin, (req, res) => {
+router.post('/announcements', requireAdmin, async (req, res) => {
   const {
     title,
     message,
@@ -1122,36 +815,28 @@ router.post('/announcements', requireAdmin, (req, res) => {
     return res.status(400).json({ error: 'Title, message, and start date are required' });
   }
 
-  const query = `
-    INSERT INTO announcements 
-    (title, message, announcement_type, priority, start_date, end_date, 
-     show_on_homepage, show_on_booking, created_by, is_active) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
-  `;
-
-  const values = [
-    title,
-    message,
-    announcement_type || 'info',
-    priority || 'normal',
-    start_date,
-    end_date || null,
-    show_on_homepage !== undefined ? show_on_homepage : true,
-    show_on_booking !== undefined ? show_on_booking : false,
-    req.user.id
-  ];
-
-  db.query(query, values, (err, result) => {
-    if (err) {
-      console.error('Error adding announcement:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    res.json({ message: 'Announcement added successfully', id: result.insertId });
-  });
+  try {
+    const result = await Announcement.create({
+      title,
+      message,
+      announcement_type: announcement_type || 'info',
+      priority: priority || 'normal',
+      start_date,
+      end_date: end_date || null,
+      show_on_homepage: show_on_homepage !== undefined ? show_on_homepage : true,
+      show_on_booking: show_on_booking !== undefined ? show_on_booking : false,
+      created_by: req.user.id,
+      is_active: true
+    });
+    res.json({ message: 'Announcement added successfully', id: result.id });
+  } catch (err) {
+    console.error('Error adding announcement:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Update announcement
-router.put('/announcements/:id', requireAdmin, (req, res) => {
+router.put('/announcements/:id', requireAdmin, async (req, res) => {
   const announcementId = req.params.id;
   const {
     title,
@@ -1165,57 +850,38 @@ router.put('/announcements/:id', requireAdmin, (req, res) => {
     is_active
   } = req.body;
 
-  const query = `
-    UPDATE announcements 
-    SET title = ?, message = ?, announcement_type = ?, priority = ?, 
-        start_date = ?, end_date = ?, show_on_homepage = ?, show_on_booking = ?, 
-        is_active = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `;
+  try {
+    const [updated] = await Announcement.update({
+      title,
+      message,
+      announcement_type,
+      priority,
+      start_date,
+      end_date,
+      show_on_homepage,
+      show_on_booking,
+      is_active
+    }, { where: { id: announcementId } });
 
-  const values = [
-    title,
-    message,
-    announcement_type,
-    priority,
-    start_date,
-    end_date,
-    show_on_homepage,
-    show_on_booking,
-    is_active,
-    announcementId
-  ];
-
-  db.query(query, values, (err, result) => {
-    if (err) {
-      console.error('Error updating announcement:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Announcement not found' });
-    }
-    
+    if (updated === 0) return res.status(404).json({ error: 'Announcement not found' });
     res.json({ message: 'Announcement updated successfully' });
-  });
+  } catch (err) {
+    console.error('Error updating announcement:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Delete announcement
-router.delete('/announcements/:id', requireAdmin, (req, res) => {
+router.delete('/announcements/:id', requireAdmin, async (req, res) => {
   const announcementId = req.params.id;
-  
-  db.query('UPDATE announcements SET is_active = FALSE WHERE id = ?', [announcementId], (err, result) => {
-    if (err) {
-      console.error('Error deleting announcement:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Announcement not found' });
-    }
-    
-    // res.json({ message: 'Announcement deleted successfully' });
-  });
+  try {
+    const [updated] = await Announcement.update({ is_active: false }, { where: { id: announcementId } });
+    if (updated === 0) return res.status(404).json({ error: 'Announcement not found' });
+    res.json({ message: 'Announcement deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting announcement:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // =================
@@ -1291,12 +957,6 @@ router.get('/server/status', requireAdmin, (req, res) => {
     cpu_usage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
     memory_usage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
   });
-});
-
-router.get('/test', (req, res) => res.json({ ok: true }));
-
-router.get('/test', (req, res) => {
-  res.json({ ok: true, message: 'adminRoutes is working!' });
 });
 
 module.exports = router;

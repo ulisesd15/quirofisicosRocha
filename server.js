@@ -12,7 +12,7 @@ require('dotenv').config();
 // Load passport strategy AFTER env variables are loaded
 require('./config/passport');
 
-const db = require('./config/database');
+const { sequelize } = require('./models');
 const routes = require('./routes/apiRoutes');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
@@ -143,59 +143,64 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-/**
- * Checks if a scheduled business hours update is due and applies it.
- * This runs on server startup to handle pending schedule changes.
- */
-async function promoteScheduleIfEffective() {
-  let connection;
-  try {
-    connection = await db.promise().getConnection();
-
-    // 1. Check for a scheduled update
-    const [scheduledHours] = await connection.query('SELECT effective_date FROM scheduled_business_hours LIMIT 1');
-
-    if (scheduledHours.length === 0) {
-      console.log('No pending schedule updates found.');
-      return;
-    }
-
-    const effectiveDate = new Date(scheduledHours[0].effective_date);
-    const today = new Date();
-    // Set time to 00:00:00 to compare dates only
-    effectiveDate.setUTCHours(0, 0, 0, 0);
-    today.setUTCHours(0, 0, 0, 0);
-
-    // 2. If the effective date is today or in the past, promote the schedule
-    if (effectiveDate <= today) {
-      console.log(`Effective date ${effectiveDate.toISOString().split('T')[0]} reached. Promoting new schedule...`);
-
-      await connection.beginTransaction();
-
-      // 3. Clear the current business_hours
-      await connection.query('DELETE FROM business_hours');
-
-      // 4. Copy the scheduled hours into the current business_hours table
-      const copySql = `
-        INSERT INTO business_hours (day_of_week, is_open, open_time, close_time, break_start, break_end)
-        SELECT day_of_week, is_open, open_time, close_time, break_start, break_end 
-        FROM scheduled_business_hours
-      `;
-      await connection.query(copySql);
-
-      // 5. Clear the scheduled_business_hours table
-      await connection.query('DELETE FROM scheduled_business_hours');
-
-      await connection.commit();
-      console.log('✅ New schedule promoted to primary.');
-    }
-  } catch (error) {
-    console.error('Error promoting scheduled business hours:', error);
-    if (connection) await connection.rollback();
-  } finally {
-    if (connection) connection.release();
-  }
-}
+// /**
+//  * Checks if a scheduled business hours update is due and applies it.
+//  * This runs on server startup to handle pending schedule changes.
+//  */
+// async function promoteScheduleIfEffective() {
+//   try {
+//     // 1. Check for a scheduled update
+//     const scheduledUpdate = await ScheduledBusinessHour.findOne({
+//       attributes: ['effective_date'],
+//       limit: 1
+//     });
+// 
+//     if (!scheduledUpdate) {
+//       console.log('No pending schedule updates found.');
+//       return;
+//     }
+// 
+//     const effectiveDate = new Date(scheduledUpdate.effective_date);
+//     const today = new Date();
+//     // Set time to 00:00:00 to compare dates only
+//     effectiveDate.setUTCHours(0, 0, 0, 0);
+//     today.setUTCHours(0, 0, 0, 0);
+// 
+//     // 2. If the effective date is today or in the past, promote the schedule
+//     if (effectiveDate <= today) {
+//       console.log(`Effective date ${effectiveDate.toISOString().split('T')[0]} reached. Promoting new schedule...`);
+// 
+//       await sequelize.transaction(async (t) => {
+//         // 3. Clear the current business_hours
+//         await BusinessHour.destroy({ where: {}, transaction: t });
+// 
+//         // 4. Copy the scheduled hours into the current business_hours table
+//         const scheduledHours = await ScheduledBusinessHour.findAll({ transaction: t });
+//         
+//         if (scheduledHours.length > 0) {
+//           const hoursToInsert = scheduledHours.map(h => ({
+//             day_of_week: h.day_of_week,
+//             is_open: h.is_open,
+//             open_time: h.open_time,
+//             close_time: h.close_time,
+//             break_start: h.break_start,
+//             break_end: h.break_end,
+//             is_active: h.is_active
+//           }));
+//           
+//           await BusinessHour.bulkCreate(hoursToInsert, { transaction: t });
+//         }
+// 
+//         // 5. Clear the scheduled_business_hours table
+//         await ScheduledBusinessHour.destroy({ where: {}, transaction: t });
+//       });
+// 
+//       console.log('✅ New schedule promoted to primary.');
+//     }
+//   } catch (error) {
+//     console.error('Error promoting scheduled business hours:', error);
+//   }
+// }
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
@@ -205,4 +210,4 @@ app.listen(PORT, () => {
 });
 
 // Check for schedule updates on server startup.
-promoteScheduleIfEffective();
+// promoteScheduleIfEffective();
