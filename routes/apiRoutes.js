@@ -12,7 +12,7 @@
 const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/authenticateToken');
-const { Appointment, ScheduledBusinessHour, BusinessHour, ClinicSetting, Announcement, ScheduleException, HolidayTemplate, User, sequelize } = require('../models');
+const { Appointment, BusinessHour, Announcement, ScheduleException, User, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 /**
@@ -56,12 +56,14 @@ router.get('/slots', async (req, res) => {
   try {
     // 1. Get scheduled business hours for all days in week
     const weekDayNames = days.map(d => dayNames[new Date(d).getDay()]);
-    
-    const results = await ScheduledBusinessHour.findAll({
+
+    // Refactor: Use the new BusinessHour model logic
+    const latestEffectiveDate = await BusinessHour.max('effectiveDate', { where: { effectiveDate: { [Op.lte]: days[6] } } });
+
+    const results = await BusinessHour.findAll({
       where: {
-        day_of_week: weekDayNames,
-        effective_date: { [Op.lte]: days[6] },
-        is_active: true
+        effectiveDate: latestEffectiveDate,
+        dayOfWeek: weekDayNames,
       },
       order: [['effective_date', 'DESC']]
     });
@@ -69,7 +71,7 @@ router.get('/slots', async (req, res) => {
     // Map most recent override for each day
     const bhMap = {};
     for (const dow of weekDayNames) {
-      const overrides = results.filter(r => (r.day_of_week || '').toLowerCase() === dow);
+      const overrides = results.filter(r => (r.dayOfWeek || '').toLowerCase() === dow);
       if (overrides.length > 0) bhMap[dow] = overrides[0];
     }
 
@@ -89,10 +91,10 @@ router.get('/slots', async (req, res) => {
       const dow = weekDayNames[i];
       const bh = bhMap[dow];
       if (!bh || !bh.is_open) {
-        slotsByDay[date] = [];
+        slotsByDay[date] = []; // Keep as is
         continue;
       }
-      const allSlots = generateTimeSlots(bh.open_time, bh.close_time);
+      const allSlots = generateTimeSlots(bh.openTime, bh.closeTime);
       const taken = appts.filter(a => a.date === date).map(a => a.time);
       let available = allSlots.filter(t => !taken.includes(t));
       // Filter out slots less than 30 min from now (if today)
@@ -118,21 +120,9 @@ router.get('/slots', async (req, res) => {
  * Returns public clinic settings (name, address, phone, email).
  */
 router.get('/clinic-settings', async (req, res) => {
-  const keys = ['clinic_name', 'clinic_address', 'clinic_phone', 'clinic_email', 'clinic_description'];
-  try {
-    const results = await ClinicSetting.findAll({
-      where: { setting_key: keys },
-      attributes: ['setting_key', 'setting_value']
-    });
-    const settings = {};
-    results.forEach(row => {
-      settings[row.setting_key] = row.setting_value;
-    });
-    res.json(settings);
-  } catch (err) {
-    console.error('Error fetching clinic settings:', err);
-    res.status(500).json({ error: 'Database error' });
-  }
+  // This model was removed. This route is no longer valid.
+  // We can re-implement this later if needed, perhaps with a different strategy.
+  res.status(404).json({ error: 'This endpoint is deprecated.' });
 });
 
 /**
@@ -142,12 +132,11 @@ router.get('/announcements/active', async (req, res) => {
   try {
     const results = await Announcement.findAll({
       where: {
-        is_active: true,
-        show_on_homepage: true,
-        start_date: { [Op.lte]: new Date() },
+        isActive: true,
+        startDate: { [Op.lte]: new Date() },
         [Op.or]: [
-          { end_date: null },
-          { end_date: { [Op.gte]: new Date() } }
+          { endDate: null },
+          { endDate: { [Op.gte]: new Date() } }
         ]
       },
       order: [['priority', 'DESC'], ['created_at', 'DESC']]
@@ -172,32 +161,22 @@ router.get('/available-slots/:date', async (req, res) => {
   const dayOfWeek = days[dateObj.getDay()];
   console.log(`[API] /available-slots/${dayISO} | dayOfWeek: ${dayOfWeek}`);
   try {
-    // Try scheduled_business_hours first
-    let bh = await ScheduledBusinessHour.findOne({
-      where: {
-        day_of_week: dayOfWeek,
-        effective_date: { [Op.lte]: dayISO },
-        is_active: true
-      },
-      order: [['effective_date', 'DESC']]
-    });
+    // Refactor: Use the new BusinessHour model logic
+    const latestEffectiveDate = await BusinessHour.max('effectiveDate', { where: { effectiveDate: { [Op.lte]: dayISO } } });
 
-    // If not found, fall back to business_hours
-    if (!bh) {
-      bh = await BusinessHour.findOne({
-        where: {
-          day_of_week: dayOfWeek,
-          is_active: true
-        }
-      });
-    }
+    const bh = await BusinessHour.findOne({
+      where: {
+        effectiveDate: latestEffectiveDate,
+        dayOfWeek: dayOfWeek,
+      }
+    });
 
     if (!bh || !bh.is_open) {
       console.log(`[API] Day is closed or no hours found for ${dayOfWeek} on ${dayISO}`);
       return res.json({ availableSlots: [] });
     }
 
-    const allSlots = generateTimeSlots(bh.open_time, bh.close_time);
+    const allSlots = generateTimeSlots(bh.openTime, bh.closeTime);
     
     // Get taken appointments
     const takenRows = await Appointment.findAll({
@@ -268,37 +247,29 @@ router.get('/business-hours', async (req, res) => {
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
   try {
-    const promises = days.map(async (dow) => {
-      let bh = await ScheduledBusinessHour.findOne({
-        where: {
-          day_of_week: dow,
-          effective_date: { [Op.lte]: dayISO },
-          is_active: true
-        },
-        order: [['effective_date', 'DESC']]
-      });
-
-      if (!bh) {
-        bh = await BusinessHour.findOne({
-          where: {
-            day_of_week: dow,
-            is_active: true
-          }
-        });
+    // 1. Find the most recent effectiveDate that is on or before today.
+    const latestEffectiveDate = await BusinessHour.max('effectiveDate', {
+      where: {
+        effectiveDate: {
+          [Op.lte]: new Date()
+        }
       }
-      
-      if (bh) {
-        const plain = bh.get({ plain: true });
-        plain.day_of_week = (plain.day_of_week || dow).toLowerCase();
-        return plain;
-      }
-      return { day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null };
     });
 
-    const weekHours = await Promise.all(promises);
-    const ordered = days.map(dow => {
-      return weekHours.find(bh => (bh.day_of_week || '').toLowerCase() === dow) 
-          || { day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null };
+    if (!latestEffectiveDate) {
+      // If no schedule has been set at all.
+      return res.json({ businessHours: [] });
+    }
+
+    // 2. Fetch the 7 records that make up the active weekly schedule.
+    const ordered = await BusinessHour.findAll({
+      where: {
+        effectiveDate: latestEffectiveDate
+      },
+      order: [
+        // Custom order to ensure Monday is first, Sunday is last, etc.
+        sequelize.literal("FIELD(dayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')")
+      ]
     });
     res.json({ businessHours: ordered });
   } catch (err) {
@@ -317,37 +288,27 @@ router.get('/business-hours/:date', async (req, res) => {
 
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   try {
-    const promises = days.map(async (dow) => {
-      let bh = await ScheduledBusinessHour.findOne({
-        where: {
-          day_of_week: dow,
-          effective_date: { [Op.lte]: dayISO },
-          is_active: true
-        },
-        order: [['effective_date', 'DESC']]
-      });
-
-      if (!bh) {
-        bh = await BusinessHour.findOne({
-          where: {
-            day_of_week: dow,
-            is_active: true
-          }
-        });
+    // 1. Find the most recent effectiveDate that is on or before the requested date.
+    const latestEffectiveDate = await BusinessHour.max('effectiveDate', {
+      where: {
+        effectiveDate: {
+          [Op.lte]: dayISO
+        }
       }
-      
-      if (bh) {
-        const plain = bh.get({ plain: true });
-        plain.day_of_week = (plain.day_of_week || dow).toLowerCase();
-        return plain;
-      }
-      return { day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null };
     });
 
-    const weekHours = await Promise.all(promises);
-    const ordered = days.map(dow => {
-      return weekHours.find(bh => (bh.day_of_week || '').toLowerCase() === dow) 
-          || { day_of_week: dow, is_open: false, open_time: null, close_time: null, break_start: null, break_end: null };
+    if (!latestEffectiveDate) {
+      return res.json({ business_hours: [] });
+    }
+
+    // 2. Fetch the 7 records for that effective date.
+    const ordered = await BusinessHour.findAll({
+      where: {
+        effectiveDate: latestEffectiveDate
+      },
+      order: [
+        sequelize.literal("FIELD(dayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')")
+      ]
     });
     res.json({ business_hours: ordered });
   } catch (err) {
@@ -739,35 +700,26 @@ router.get('/calendar', async (req, res) => {
 
   try {
     // 1. Fetch all business_hours (base template)
-    const businessHours = await BusinessHour.findAll({ where: { is_active: true } });
+    const businessHours = await BusinessHour.findAll(); // No is_active column anymore
 
     // 2. Fetch all scheduled_business_hours to determine the future schedule
-    const scheduledBusinessHours = await ScheduledBusinessHour.findAll({ order: [['effective_date', 'DESC']] });
+    // This is now handled by the BusinessHour model itself. This can be removed.
 
     // Get the single effective_date from the future schedule, if it exists.
     // Format it as a 'YYYY-MM-DD' string to prevent timezone issues during comparison.
-    const effectiveDateStr = scheduledBusinessHours.length > 0 
-      ? new Date(scheduledBusinessHours[0].effective_date).toISOString().split('T')[0] 
-      : null;
 
     // 3. Fetch all schedule_exceptions overlapping the range
     const scheduleExceptions = await ScheduleException.findAll({
       where: {
-        is_active: true,
-        start_date: { [Op.lte]: end },
+        isActive: true,
+        startDate: { [Op.lte]: end },
         [Op.or]: [{ end_date: null }, { end_date: { [Op.gte]: start } }]
       }
     });
 
 
     // 4. Fetch all holiday_templates (active)
-    const holidayTemplates = await HolidayTemplate.findAll({ where: { is_active: true } });
-
-    // --- DEBUG LOGGING ---
-    console.log('[DEBUG] GET /api/calendar: Fetched businessHours:', JSON.stringify(businessHours, null, 2));
-    console.log('[DEBUG] GET /api/calendar: Fetched scheduledBusinessHours:', JSON.stringify(scheduledBusinessHours, null, 2));
-    console.log('[DEBUG] GET /api/calendar: Fetched scheduleExceptions:', JSON.stringify(scheduleExceptions, null, 2));
-    console.log('[DEBUG] GET /api/calendar: Fetched holidayTemplates:', JSON.stringify(holidayTemplates, null, 2));
+    // This is now part of ScheduleException. This can be removed.
 
     // --- Merging logic: build day map for each date in range ---
     const days = getDatesInRange(start, end);
@@ -775,41 +727,29 @@ router.get('/calendar', async (req, res) => {
     for (const date of days) {
       const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }).toLowerCase();
       let activeSchedule;
-
-      // --- DEBUG LOGGING (Before decision) ---
-      console.log(`\n[DEBUG] Processing Date: ${date}`);
-      console.log(`  > Effective Date: ${effectiveDateStr}`);
-      console.log(`  > Has business_hours? ${businessHours.length > 0}`);
-      console.log(`  > Has scheduled_business_hours? ${scheduledBusinessHours.length > 0}`);
-
-      // Determine which schedule to use for this day
-      if (effectiveDateStr && date >= effectiveDateStr) {
-        console.log(`  [DECISION] Using FUTURE schedule (scheduled_business_hours)`);
-        // Use the future schedule if the day is on or after the effective date
-        activeSchedule = getBusinessHoursForDay(dayOfWeek, scheduledBusinessHours);
-      } else {
-        console.log(`  [DECISION] Using CURRENT schedule (business_hours)`);
-        // Otherwise, use the current (base) schedule
-        activeSchedule = getBusinessHoursForDay(dayOfWeek, businessHours);
-      }
-
-      console.log(`  > Active schedule for ${dayOfWeek}:`, activeSchedule || 'None');
+      
+      // Refactor: Find the correct schedule for the date
+      const applicableSchedules = businessHours.filter(bh => bh.effectiveDate <= date);
+      const latestEffectiveDate = Math.max(...applicableSchedules.map(bh => new Date(bh.effectiveDate)));
+      
+      activeSchedule = businessHours.find(bh => 
+        new Date(bh.effectiveDate).getTime() === latestEffectiveDate && 
+        bh.dayOfWeek.toLowerCase() === dayOfWeek
+      );
 
       // 1. Start with base
       let dayInfo = {
         date,
         is_open: activeSchedule ? !!activeSchedule.is_open : false, // Correctly use the determined active schedule
-        open_time: activeSchedule ? activeSchedule.open_time : null,
-        close_time: activeSchedule ? activeSchedule.close_time : null,
+        open_time: activeSchedule ? activeSchedule.openTime : null,
+        close_time: activeSchedule ? activeSchedule.closeTime : null,
         reason: null
       };
-      console.log('[DEBUG] 1. After base hours:', JSON.stringify(dayInfo));
 
       // 3. Overlay holiday_templates
-      const holiday = holidayTemplates.find(ht => isFixedHoliday(date, ht));
+      const holiday = scheduleExceptions.find(ex => ex.type === 'YEARLY_FIXED' && ex.month === (new Date(date).getUTCMonth() + 1) && ex.day === new Date(date).getUTCDate());
       if (holiday) {
         dayInfo.is_open = false;
-        console.log('[DEBUG] 3. After holiday template:', JSON.stringify(dayInfo));
         dayInfo.reason = `Holiday - ${holiday.name}`;
       }
 
@@ -817,10 +757,9 @@ router.get('/calendar', async (req, res) => {
       const exception = getExceptionForDate(date, scheduleExceptions);
       if (exception) {
         dayInfo.is_open = !exception.is_closed;
-        if (exception.custom_open_time) dayInfo.open_time = exception.custom_open_time;
-        if (exception.custom_close_time) dayInfo.close_time = exception.custom_close_time;
+        if (exception.customOpenTime) dayInfo.open_time = exception.customOpenTime;
+        if (exception.customCloseTime) dayInfo.close_time = exception.customCloseTime;
         dayInfo.reason = exception.reason || 'Exception';
-        console.log('[DEBUG] 4. After schedule exception:', JSON.stringify(dayInfo));
       }
 
       result.push(dayInfo);

@@ -27,25 +27,25 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   });
 
   const email = profile.emails[0].value;
-  const full_name = profile.displayName;
-  const google_id = profile.id;
+  const fullName = profile.displayName; // Use camelCase to match the model attribute
+  const googleId = profile.id;
 
   try {
     // First check by google_id, then by email
     let user = await User.findOne({
       where: {
         [Op.or]: [
-          { google_id: google_id },
+          { googleId: googleId },
           { email: email }
         ]
       }
     });
 
     if (user) {
-      // If user exists but doesn't have google_id, update it
-      if (!user.google_id) {
-        user.google_id = google_id;
-        user.auth_provider = 'google';
+      // If user exists but doesn't have googleId, update it
+      if (!user.googleId) {
+        user.googleId = googleId;
+        user.authProvider = 'google';
         await user.save();
       }
       
@@ -55,10 +55,10 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 
     // New Google user -> insert into users table
     const newUser = await User.create({
-      full_name,
+      fullName, // Pass the camelCase variable here
       email,
-      auth_provider: 'google',
-      google_id,
+      authProvider: 'google',
+      googleId,
       role: 'user'
     });
 

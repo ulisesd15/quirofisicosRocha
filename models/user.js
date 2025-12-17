@@ -47,6 +47,11 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: 'user',
         allowNull: false,
       },
+      isVerified: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
     },
     {
       sequelize,
