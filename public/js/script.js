@@ -1,244 +1,15 @@
+/**
+ * script.js
+ *
+ * Handles the main landing page and shared UI logic for Quirofísicos Rocha:
+ * - Initializes Google Maps, announcements, business hours, and clinic info.
+ * - Manages navigation and button events for login, register, and guest access.
+ * - Loads and displays announcements and business hours in the UI.
+ * - Updates the footer with clinic and business info.
+ * - Provides utility functions for formatting and displaying data.
+ */
+
 document.addEventListener('DOMContentLoaded', () => {
-  // DOM references
-  const guestBtn = document.getElementById('guestBtn');
-  const registerBtn = document.getElementById('registerBtn');
-  const loginBtn = document.getElementById('loginBtn');
-  const bABtn = document.getElementById('bABtn');
-  const navItems = document.getElementById('nav-items');
-  const menuToggle = document.getElementById('menu_toggle');
-  const offcanvas = document.getElementById('sideNav');
-  const signOutBtn = document.getElementById('logoutBtn');
-
-  // Add loading animation to menu toggle
-  if (menuToggle) {
-    menuToggle.style.opacity = '0';
-    menuToggle.style.transform = 'translateY(-20px) scale(0.8)';
-    
-    setTimeout(() => {
-      menuToggle.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
-      menuToggle.style.opacity = '1';
-      menuToggle.style.transform = 'translateY(0) scale(1)';
-    }, 100);
-  }
-
-  // Check authentication using AuthManager
-  const isLoggedIn = window.authManager && window.authManager.isLoggedIn();
-  const currentUser = isLoggedIn ? window.authManager.getCurrentUser() : null;
-  const userRole = isLoggedIn ? window.authManager.userRole : null;
-
-  // Navigation menu
-  if (navItems) {
-    if (isLoggedIn && currentUser) {
-      const adminButton = userRole === 'admin' ? 
-        `<div class="nav-section">
-          <div class="nav-section-title">
-            <i class="fas fa-shield-alt"></i> Administración
-          </div>
-          <li><a href="/admin/adminOptions.html" class="nav-link-item admin-link">
-            <i class="fas fa-user-shield"></i> Panel Administrativo
-          </a></li>
-          <li><a href="/admin/schedule.html" class="nav-link-item admin-link">
-            <i class="fas fa-calendar-alt"></i> Gestionar Horarios
-          </a></li>
-        </div>` : '';
-      
-      navItems.innerHTML = `
-        <!-- User Profile Section -->
-        <li class="user-profile-section">
-          <div class="user-profile-card">
-            <div class="user-avatar-container">
-              <div class="user-avatar-circle">
-                <i class="fas fa-user"></i>
-              </div>
-              <div class="user-status-indicator"></div>
-            </div>
-            <div class="user-profile-info">
-              <div class="user-name">Hola, ${currentUser.full_name || currentUser.name || 'Usuario'}</div>
-              <div class="user-role-badge ${userRole === 'admin' ? 'admin-badge' : 'patient-badge'}">
-                <i class="fas ${userRole === 'admin' ? 'fa-crown' : 'fa-heart'}"></i>
-                ${userRole === 'admin' ? 'Administrador' : 'Paciente'}
-              </div>
-            </div>
-          </div>
-        </li>
-        
-        <!-- Primary Actions Section -->
-        <div class="nav-section">
-          <div class="nav-section-title">
-            <i class="fas fa-calendar"></i> Mis Citas
-          </div>
-          <li><a href="/appointment.html" class="nav-link-item primary-action">
-            <i class="fas fa-calendar-plus"></i> 
-            <span class="nav-text">Agendar Nueva Cita</span>
-            <span class="nav-badge">Nuevo</span>
-          </a></li>
-          <li><a href="/mis-citas.html" class="nav-link-item">
-            <i class="fas fa-calendar-check"></i> 
-            <span class="nav-text">Mis Citas Programadas</span>
-          </a></li>
-        </div>
-        
-        <!-- Information Section -->
-        <div class="nav-section">
-          <div class="nav-section-title">
-            <i class="fas fa-info-circle"></i> Información
-          </div>
-          <li><a href="#about" class="nav-link-item" data-scroll="about">
-            <i class="fas fa-user-md"></i> 
-            <span class="nav-text">Sobre Nosotros</span>
-          </a></li>
-          <li><a href="#servicios" class="nav-link-item" data-scroll="servicios">
-            <i class="fas fa-hand-holding-medical"></i> 
-            <span class="nav-text">Nuestros Servicios</span>
-          </a></li>
-          <li><a href="#contacto-section" class="nav-link-item" data-scroll="contacto-section">
-            <i class="fas fa-map-marker-alt"></i> 
-            <span class="nav-text">Ubicación y Contacto</span>
-          </a></li>
-        </div>
-        
-        <!-- Account Section -->
-        <div class="nav-section">
-          <div class="nav-section-title">
-            <i class="fas fa-user-cog"></i> Mi Cuenta
-          </div>
-          <li><a href="/user-settings.html" class="nav-link-item">
-            <i class="fas fa-cog"></i> 
-            <span class="nav-text">Configuración</span>
-          </a></li>
-        </div>
-        
-        ${adminButton}
-        
-        <!-- Logout Section -->
-        <div class="nav-section logout-section">
-          <li><a href="#" id="logoutBtn" class="nav-link-item logout-link">
-            <i class="fas fa-sign-out-alt"></i> 
-            <span class="nav-text">Cerrar Sesión</span>
-          </a></li>
-        </div>
-      `;
-    } else {
-      navItems.innerHTML = `
-        <li><a href="/login.html" class="nav-link-item login-link">
-          <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
-        </a></li>
-        <li><a href="/register.html" class="nav-link-item register-link">
-          <i class="fas fa-user-plus"></i> Crear Cuenta Nueva
-        </a></li>
-        <li><a href="/appointment.html?guest=true" class="nav-link-item guest-link">
-          <i class="fas fa-user"></i> Continuar como Invitado
-        </a></li>
-        <li class="nav-divider"><div class="divider-line"></div></li>
-        <li><a href="#about" class="nav-link-item" data-scroll="about">
-          <i class="fas fa-info-circle"></i> Sobre Nosotros
-        </a></li>
-        <li><a href="#servicios" class="nav-link-item" data-scroll="servicios">
-          <i class="fas fa-hand-holding-medical"></i> Nuestros Servicios
-        </a></li>
-        <li><a href="#contacto-section" class="nav-link-item" data-scroll="contacto-section">
-          <i class="fas fa-phone"></i> Información de Contacto
-        </a></li>
-      `;
-    }
-
-    // Add smooth scrolling for navigation links
-    if (navItems) {
-      navItems.addEventListener('click', (e) => {
-        const target = e.target.closest('[data-scroll]');
-        if (target) {
-          e.preventDefault();
-          
-          const targetId = target.getAttribute('data-scroll');
-          const targetElement = document.getElementById(targetId);
-          
-          if (targetElement) {
-            // Close the sidebar if open
-            const sidebar = document.getElementById('sideNav');
-            if (sidebar && sidebar.classList.contains('show')) {
-              const bsOffcanvas = bootstrap.Offcanvas.getInstance(sidebar);
-              if (bsOffcanvas) {
-                bsOffcanvas.hide();
-              }
-            }
-            
-            // Smooth scroll to target
-            setTimeout(() => {
-              targetElement.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
-              });
-            }, 300);
-          }
-        }
-      });
-    }
-
-    // Re-attach logoutBtn listener after injecting it dynamically
-    if (isLoggedIn) {
-      // Use setTimeout to ensure DOM is updated
-      setTimeout(() => {
-        const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) {
-          logoutBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            window.authManager.logout();
-            alert('Sesión cerrada exitosamente.');
-            window.location.href = '/index.html';
-          });
-        }
-      }, 100);
-    }
-  }
-
-  // UI control visibility
-  if (isLoggedIn) {
-    guestBtn?.style?.setProperty('display', 'none');
-    registerBtn?.style?.setProperty('display', 'none');
-    loginBtn?.style?.setProperty('display', 'none');
-    signOutBtn?.style?.setProperty('display', 'block');
-    bABtn?.style?.setProperty('display', 'block');
-  } else {
-    guestBtn?.style?.setProperty('display', 'block');
-    registerBtn?.style?.setProperty('display', 'block');
-    loginBtn?.style?.setProperty('display', 'block');
-    signOutBtn?.style?.setProperty('display', 'none');
-    bABtn?.style?.setProperty('display', 'none');
-  }
-
-  // Button click listeners
-  registerBtn?.addEventListener('click', () => {
-    window.location.href = 'register.html';
-  });
-
-  loginBtn?.addEventListener('click', () => {
-    window.location.href = 'login.html';
-  });
-
-  guestBtn?.addEventListener('click', () => {
-    window.location.href = 'appointment.html?guest=true';
-  });
-
-  bABtn?.addEventListener('click', () => {
-    window.location.href = 'appointment.html';
-  });
-
-  signOutBtn?.addEventListener('click', () => {
-    window.authManager.logout();
-    window.location.href = '/index.html';
-  });
-
-  // Offcanvas toggle visibility
-  if (offcanvas && menuToggle) {
-    offcanvas.addEventListener('show.bs.offcanvas', () => {
-      menuToggle.style.display = 'none';
-    });
-
-    offcanvas.addEventListener('hidden.bs.offcanvas', () => {
-      menuToggle.style.display = 'block';
-    });
-  }
-
   // Initialize Google Maps
   if (window.MapsManager) {
     const mapsManager = new MapsManager();
@@ -247,16 +18,83 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load and display announcements
   loadAnnouncements();
-  
+
   // Load business hours
   loadBusinessHours();
+
+  // Load and display clinic settings in the footer
+  loadClinicSettingsFooter();
+
+  // Remove guestBtn, loginBtn, and registerBtn if user is logged in
+  const isLoggedIn = localStorage.getItem('token') || localStorage.getItem('user_token');
+  if (isLoggedIn) {
+    const guestBtn = document.getElementById('guestBtn');
+    if (guestBtn) guestBtn.remove();
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) loginBtn.remove();
+    const registerBtn = document.getElementById('registerBtn');
+    if (registerBtn) registerBtn.remove();
+  }
+
+  // Add event listeners for landing page buttons
+  document.getElementById('registerBtn')?.addEventListener('click', () => {
+    window.location.href = '/register.html';
+  });
+  document.getElementById('loginBtn')?.addEventListener('click', () => {
+    window.location.href = '/login.html';
+  });
+  document.getElementById('guestBtn')?.addEventListener('click', () => {
+    // Example: continue as guest, maybe redirect or show guest view
+    window.location.href = '/appointment.html';
+  });
+  document.getElementById('bABtn')?.addEventListener('click', () => {
+    window.location.href = '/appointment.html';
+  });
 });
 
+/**
+ * Fetches and displays clinic settings in the footer.
+ */
+async function loadClinicSettingsFooter() {
+  try {
+    const response = await fetch('/api/clinic-settings');
+    console.log('Clinic settings fetch response:', response);
+    if (!response.ok) throw new Error('No se pudo cargar la información de la clínica');
+    const settings = await response.json();
+    console.log('Clinic settings JSON:', settings);
+  const name = settings.clinic_name || 'Quirofísicos Rocha';
+  const address = settings.clinic_address || 'Plaza Johnson, Av. Josefa Ortiz de Domínguez 1993, Independencia, 22055 Tijuana, B.C., México';
+  const phone = settings.clinic_phone || '664-123-4567';
+  const email = settings.clinic_email || 'info@quirofisicosrocha.com';
+  const description = settings.clinic_description || '';
 
-// Announcements Management
+  // Update footer fields
+  const nameEl = document.querySelector('footer h5.text-white');
+  if (nameEl) nameEl.textContent = name;
+  const addressIcon = document.querySelector('footer .fa-map-marker-alt');
+  const addressEl = addressIcon ? addressIcon.parentElement : null;
+  if (addressEl) addressEl.innerHTML = `<i class="fas fa-map-marker-alt me-2"></i>${address}`;
+
+  const phoneIcon = document.querySelector('footer .fa-phone');
+  const phoneEl = phoneIcon ? phoneIcon.parentElement : null;
+  if (phoneEl) phoneEl.innerHTML = `<i class="fas fa-phone me-2"></i>${phone}`;
+
+  const emailIcon = document.querySelector('footer .fa-envelope');
+  const emailEl = emailIcon ? emailIcon.parentElement : null;
+  if (emailEl) emailEl.innerHTML = `<i class="fas fa-envelope me-2"></i>${email}`;
+  const descEl = document.getElementById('clinic-description');
+  if (descEl) descEl.textContent = description;
+  } catch (error) {
+    console.error('Error loading clinic settings for footer:', error);
+  }
+}
+
+/**
+ * Loads and displays public announcements.
+ */
 async function loadAnnouncements() {
   try {
-    const response = await fetch('/api/announcements/public');
+  const response = await fetch('/api/announcements/active');
     if (!response.ok) return; // Silently fail if no announcements
 
     const announcements = await response.json();
@@ -268,6 +106,18 @@ async function loadAnnouncements() {
   }
 }
 
+/**
+ * Formats a date string (YYYY-MM-DD) into a more readable format.
+ */
+function formatDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString + 'T00:00:00'); // Treat as local date
+    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/**
+ * Renders the announcements banner in the UI.
+ */
 function displayAnnouncements(announcements) {
   const container = document.getElementById('announcements-banner');
   if (!container) return;
@@ -300,6 +150,9 @@ function displayAnnouncements(announcements) {
   container.style.display = 'block';
 }
 
+/**
+ * Returns the CSS class for an announcement type.
+ */
 function getAnnouncementTypeClass(type) {
   const classes = {
     'info': 'info',
@@ -310,6 +163,9 @@ function getAnnouncementTypeClass(type) {
   return classes[type] || 'info';
 }
 
+/**
+ * Returns the icon class for an announcement type.
+ */
 function getAnnouncementIcon(type) {
   const icons = {
     'info': 'fa-info-circle',
@@ -320,14 +176,9 @@ function getAnnouncementIcon(type) {
   return icons[type] || 'fa-info-circle';
 }
 
-function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString('es-ES', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-}
-
+/**
+ * Dismisses an announcement banner and hides the container if empty.
+ */
 function dismissAnnouncement(id) {
   const banner = document.querySelector(`[data-id="${id}"]`);
   if (banner) {
@@ -352,32 +203,39 @@ function dismissAnnouncement(id) {
   }
 }
 
-// Load and display business hours
+/**
+ * Loads and displays business hours in the info and footer sections.
+ */
 async function loadBusinessHours() {
   try {
-    const response = await fetch('/api/business-hours');
+  const response = await fetch('/api/business-hours', {
+      headers: window.authManager ? window.authManager.getAuthHeaders() : {}
+    });
     if (!response.ok) {
       throw new Error('Failed to load business hours');
     }
-    
     const data = await response.json();
-    const businessHours = data.business_hours;
-    
+    console.log('Business hours API response:', data); // Debug log
+    let businessHours = Array.isArray(data.business_hours)
+      ? data.business_hours
+      : Array.isArray(data.businessHours)
+        ? data.businessHours
+        : [];
+    if (!Array.isArray(data.business_hours) && !Array.isArray(data.businessHours)) {
+      console.warn('API did not return business_hours or businessHours as an array:', data);
+    }
     // Update info section
     const infoSection = document.getElementById('business-hours-info');
     if (infoSection) {
       infoSection.innerHTML = formatBusinessHoursForInfo(businessHours);
     }
-    
     // Update footer section
     const footerSection = document.getElementById('business-hours-footer');
     if (footerSection) {
       footerSection.innerHTML = formatBusinessHoursForFooter(businessHours);
     }
-    
   } catch (error) {
     console.error('Error loading business hours:', error);
-    
     // Fallback to default hours if API fails
     const fallbackInfo = '<p class="mb-0">Lunes a Viernes<br>9:00 AM - 6:00 PM</p>';
     const fallbackFooter = `
@@ -385,22 +243,26 @@ async function loadBusinessHours() {
       <p class="text-white-50 mb-1">Sábados: 9:00 AM - 2:00 PM</p>
       <p class="text-white-50">Domingos: Cerrado</p>
     `;
-    
     const infoSection = document.getElementById('business-hours-info');
     if (infoSection) infoSection.innerHTML = fallbackInfo;
-    
     const footerSection = document.getElementById('business-hours-footer');
     if (footerSection) footerSection.innerHTML = fallbackFooter;
   }
 }
 
+/**
+ * Formats business hours for the info section.
+ */
 function formatBusinessHoursForInfo(businessHours) {
+  if (!Array.isArray(businessHours)) {
+    console.error('formatBusinessHoursForInfo: businessHours is not an array', businessHours);
+    return '<p class="mb-0">Actualmente cerrado</p>';
+  }
   const openDays = businessHours.filter(day => day.is_open);
   
   if (openDays.length === 0) {
     return '<p class="mb-0">Actualmente cerrado</p>';
   }
-  
   // Group consecutive days with same hours
   const groups = [];
   let currentGroup = null;
@@ -454,6 +316,9 @@ function formatBusinessHoursForInfo(businessHours) {
   return `<p class="mb-0">${lines.join('<br><br>')}</p>`;
 }
 
+/**
+ * Formats business hours for the footer section.
+ */
 function formatBusinessHoursForFooter(businessHours) {
   const dayNames = {
     'Monday': 'Lunes',
@@ -464,17 +329,20 @@ function formatBusinessHoursForFooter(businessHours) {
     'Saturday': 'Sábado',
     'Sunday': 'Domingo'
   };
-  
+  if (!Array.isArray(businessHours)) {
+    console.error('formatBusinessHoursForFooter: businessHours is not an array', businessHours);
+    return '';
+  }
   const lines = businessHours.map(day => {
     const dayName = dayNames[day.day_of_week];
-    
+    // Remove trailing ':00' if present
+    const formatTime = t => t ? t.replace(/:00$/, '') : '';
     if (day.is_open) {
-      return `<p class="text-white-50 mb-1">${dayName}: ${day.open_time} - ${day.close_time}</p>`;
+      return `<p class="text-white-50 mb-1">${dayName}: ${formatTime(day.open_time)} - ${formatTime(day.close_time)}</p>`;
     } else {
       return `<p class="text-white-50 mb-1">${dayName}: Cerrado</p>`;
     }
   });
-  
   return lines.join('');
 }
 

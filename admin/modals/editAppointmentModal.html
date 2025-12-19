@@ -1,0 +1,55 @@
+<!-- Edit Appointment Modal extracted from adminOptions.html
+     This modal allows admins to edit appointment details. -->
+<div class="modal fade" id="editAppointmentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Cita</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="edit-appointment-form">
+          <input type="hidden" id="edit-appointment-id">
+          <div class="mb-3 p-3 bg-light rounded border">
+            <h6 class="text-muted mb-2"><i class="fas fa-user-circle me-2"></i>Información del Paciente</h6>
+            <p class="mb-1"><strong>Nombre:</strong> <span id="edit-appointment-name"></span></p>
+            <p class="mb-1"><strong>Email:</strong> <span id="edit-appointment-email"></span></p>
+            <p class="mb-0"><strong>Teléfono:</strong> <span id="edit-appointment-phone"></span></p>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="edit-appointment-date" class="form-label">Fecha</label>
+                <input type="date" class="form-control" id="edit-appointment-date" required>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="edit-appointment-time" class="form-label">Hora</label>
+                <input type="time" class="form-control" id="edit-appointment-time" required>
+              </div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="edit-appointment-status" class="form-label">Estado</label>
+            <select class="form-select" id="edit-appointment-status" required>
+              <option value="pending">Pendiente</option>
+              <option value="confirmed">Confirmada</option>
+              <option value="completed">Completada</option>
+              <option value="cancelled">Cancelada</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="edit-appointment-note" class="form-label">Notas</label>
+            <textarea class="form-control" id="edit-appointment-note" rows="2"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="save-appointment-btn">Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+</div>

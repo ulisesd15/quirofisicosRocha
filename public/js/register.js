@@ -1,6 +1,22 @@
+/**
+ * register.js
+ *
+ * Handles the registration page logic for new user sign-up:
+ * - Validates registration form fields and provides user feedback.
+ * - Submits registration data to the backend and handles the response.
+ * - Supports Google OAuth registration.
+ * - Redirects to the appointment page if already logged in.
+ * - Manages navigation menu toggle visibility for mobile/offcanvas UI.
+ */
 
 const menuToggle = document.getElementById('menu_toggle');
 
+/**
+ * Handles registration form submission:
+ * - Validates input fields.
+ * - Submits data to backend.
+ * - Handles success and error feedback.
+ */
 document.getElementById('register-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   document.getElementById('registerMessage').textContent = ''; // Clear previous messages
@@ -82,11 +98,23 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
   }
 });
 
+/**
+ * Handles Google OAuth registration button click by redirecting to the backend Google auth endpoint.
+ */
 document.getElementById('google-login').addEventListener('click', () => {
   window.location.href = '/api/auth/google';
 });
 
+/**
+ * On DOMContentLoaded, redirects if already logged in and manages menu toggle visibility for offcanvas UI.
+ */
 document.addEventListener('DOMContentLoaded', () => {
+  // Redirect if already logged in
+  const token = localStorage.getItem('token') || localStorage.getItem('user_token');
+  if (token) {
+    window.location.href = '/appointment.html'; // or your dashboard page
+    return;
+  }
   const menuToggle = document.querySelector('#menu_toggle');
   const offcanvas = document.getElementById('sideNav');
 

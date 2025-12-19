@@ -1,10 +1,27 @@
+/**
+ * maps.js
+ *
+ * Integrates Google Maps into the site, displaying the business location.
+ * - Loads the Google Maps API key from the backend.
+ * - Embeds a Google Map for Quirofísicos Rocha, with fallback to a static map if the API key is missing or invalid.
+ * - Handles iframe loading errors and displays a visual indicator in fallback mode.
+ * - Initializes the map and error handlers on DOMContentLoaded.
+ */
+
 // Google Maps integration
 class MapsManager {
+  /**
+   * Initializes the MapsManager instance and sets up references.
+   */
   constructor() {
     this.apiKey = null;
     this.mapContainer = document.getElementById('map-container');
   }
 
+  /**
+   * Loads the Google Maps API key from the backend.
+   * @returns {Promise<string|null>} The API key, or null if not available.
+   */
   async loadApiKey() {
     try {
       const response = await fetch('/api/config/maps-key');
@@ -20,6 +37,9 @@ class MapsManager {
     }
   }
 
+  /**
+   * Initializes the map: loads API key, tries to embed Google Map, falls back if needed.
+   */
   async initializeMap() {
     const apiKey = await this.loadApiKey();
     
@@ -40,6 +60,11 @@ class MapsManager {
     }
   }
 
+  /**
+   * Embeds the Google Map using the API key and business location.
+   * Handles iframe loading and error events, with timeout fallback.
+   * @returns {Promise<void>}
+   */
   async loadGoogleMapsEmbed() {
     return new Promise((resolve, reject) => {
       // Quirofísicos Rocha actual location
@@ -99,6 +124,9 @@ class MapsManager {
     });
   }
 
+  /**
+   * Shows a static fallback map if the Google Maps API is unavailable or fails.
+   */
   showFallbackMap() {
     // Fallback map showing Quirofísicos Rocha location without API key
     const iframe = document.getElementById('google-map');
@@ -118,6 +146,9 @@ class MapsManager {
     }
   }
 
+  /**
+   * Adds a visual indicator to the map container when fallback mode is active.
+   */
   addFallbackIndicator() {
     // Add a subtle indicator that we're using fallback mode
     const mapContainer = document.getElementById('map-container');
@@ -154,6 +185,9 @@ class MapsManager {
   }
 }
 
+/**
+ * Initializes the MapsManager and sets up global error handling for map resource loading.
+ */
 // Initialize maps when page loads
 document.addEventListener('DOMContentLoaded', () => {
   const mapsManager = new MapsManager();

@@ -12,11 +12,10 @@ require('dotenv').config();
 // Load passport strategy AFTER env variables are loaded
 require('./config/passport');
 
+const { sequelize } = require('./models');
 const routes = require('./routes/apiRoutes');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const appointmentRoutes = require('./routes/appointmentRoutes');
-const scheduleController = require('./controllers/scheduleController');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -28,15 +27,15 @@ if (isProduction) {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-        scriptSrcAttr: ["'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "https://accounts.google.com"],
-        fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
-        objectSrc: ["'none'"],
-        mediaSrc: ["'self'"],
-        frameSrc: ["'self'", "https://accounts.google.com", "https://content.googleapis.com"],
+  styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+  scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+  scriptSrcAttr: ["'unsafe-inline'"],
+  imgSrc: ["'self'", "data:", "https:", "http:"],
+  connectSrc: ["'self'", "https://accounts.google.com", "https://www.googleapis.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+  fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
+  objectSrc: ["'none'"],
+  mediaSrc: ["'self'"],
+  frameSrc: ["'self'", "https://accounts.google.com", "https://content.googleapis.com", "https://www.google.com"],
       },
     },
   }));
@@ -46,15 +45,15 @@ if (isProduction) {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-        scriptSrcAttr: ["'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:", "http:"],
-        connectSrc: ["'self'", "https://accounts.google.com", "https://www.googleapis.com"],
-        fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
-        objectSrc: ["'none'"],
-        mediaSrc: ["'self'"],
-        frameSrc: ["'self'", "https://accounts.google.com", "https://content.googleapis.com", "https://www.google.com"],
+  styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+  scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+  scriptSrcAttr: ["'unsafe-inline'"],
+  imgSrc: ["'self'", "data:", "https:", "http:"],
+  connectSrc: ["'self'", "https://accounts.google.com", "https://www.googleapis.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+  fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
+  objectSrc: ["'none'"],
+  mediaSrc: ["'self'"],
+  frameSrc: ["'self'", "https://accounts.google.com", "https://content.googleapis.com", "https://www.google.com"],
       },
     },
   }));
@@ -93,16 +92,30 @@ app.use(compression());
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+app.use(passport.initialize());
+
+// Mount API routers BEFORE static and catch-all routes
+if (typeof authRoutes !== 'function' && typeof authRoutes !== 'object') {
+  console.error('authRoutes is not a valid router. Check your export in routes/authRoutes.js');
+} else {
+  // app.use('/api/auth', authLimiter, authRoutes);
+  app.use('/api/auth', authRoutes);
+}
+if (typeof adminRoutes !== 'function' && typeof adminRoutes !== 'object') {
+  console.error('adminRoutes is not a valid router. Check your export in routes/adminRoutes.js');
+} else {
+  app.use('/api/admin', adminRoutes);
+}
+if (typeof routes !== 'function' && typeof routes !== 'object') {
+  console.error('routes is not a valid router. Check your export in routes/apiRoutes.js');
+} else {
+  app.use('/api', routes);
+}
+
+// Static file serving AFTER API routers
 app.use(express.static('public'));
 app.use('/admin', express.static('admin')); // Serve admin files under /admin path
-
-app.use(passport.initialize()); 
-
-// Apply auth rate limiting to auth routes
-app.use('/api/auth', authLimiter, authRoutes); 
-app.use('/api/admin', adminRoutes);
-app.use('/api/appointments', appointmentRoutes);
-app.use('/api', routes);          
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -130,17 +143,64 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-// Cron job to apply scheduled business hours every day at midnight
-cron.schedule('0 0 * * *', () => {
-  console.log('Running scheduled business hours check...');
-  scheduleController.applyScheduledBusinessHours();
-}, {
-  timezone: "America/Tijuana"
-});
-
-// Also check on server startup for any missed scheduled hours
-console.log('Checking for any scheduled business hours to apply on startup...');
-scheduleController.applyScheduledBusinessHours();
+// /**
+//  * Checks if a scheduled business hours update is due and applies it.
+//  * This runs on server startup to handle pending schedule changes.
+//  */
+// async function promoteScheduleIfEffective() {
+//   try {
+//     // 1. Check for a scheduled update
+//     const scheduledUpdate = await ScheduledBusinessHour.findOne({
+//       attributes: ['effective_date'],
+//       limit: 1
+//     });
+// 
+//     if (!scheduledUpdate) {
+//       console.log('No pending schedule updates found.');
+//       return;
+//     }
+// 
+//     const effectiveDate = new Date(scheduledUpdate.effective_date);
+//     const today = new Date();
+//     // Set time to 00:00:00 to compare dates only
+//     effectiveDate.setUTCHours(0, 0, 0, 0);
+//     today.setUTCHours(0, 0, 0, 0);
+// 
+//     // 2. If the effective date is today or in the past, promote the schedule
+//     if (effectiveDate <= today) {
+//       console.log(`Effective date ${effectiveDate.toISOString().split('T')[0]} reached. Promoting new schedule...`);
+// 
+//       await sequelize.transaction(async (t) => {
+//         // 3. Clear the current business_hours
+//         await BusinessHour.destroy({ where: {}, transaction: t });
+// 
+//         // 4. Copy the scheduled hours into the current business_hours table
+//         const scheduledHours = await ScheduledBusinessHour.findAll({ transaction: t });
+//         
+//         if (scheduledHours.length > 0) {
+//           const hoursToInsert = scheduledHours.map(h => ({
+//             day_of_week: h.day_of_week,
+//             is_open: h.is_open,
+//             open_time: h.open_time,
+//             close_time: h.close_time,
+//             break_start: h.break_start,
+//             break_end: h.break_end,
+//             is_active: h.is_active
+//           }));
+//           
+//           await BusinessHour.bulkCreate(hoursToInsert, { transaction: t });
+//         }
+// 
+//         // 5. Clear the scheduled_business_hours table
+//         await ScheduledBusinessHour.destroy({ where: {}, transaction: t });
+//       });
+// 
+//       console.log('✅ New schedule promoted to primary.');
+//     }
+//   } catch (error) {
+//     console.error('Error promoting scheduled business hours:', error);
+//   }
+// }
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
@@ -148,3 +208,6 @@ app.listen(PORT, () => {
   console.log(`🔒 Production mode: ${isProduction ? 'enabled' : 'disabled'}`);
   console.log('⏰ Scheduled business hours cron job active');
 });
+
+// Check for schedule updates on server startup.
+// promoteScheduleIfEffective();

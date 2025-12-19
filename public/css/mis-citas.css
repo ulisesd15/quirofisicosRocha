@@ -1,0 +1,136 @@
+/*
+ * mis-citas.css
+ * Custom styles for the "Mis Citas" (My Appointments) page.
+ */
+
+:root {
+    --mc-primary: #0d6efd;
+    --mc-secondary: #6c757d;
+    --mc-success: #198754;
+    --mc-danger: #dc3545;
+    --mc-warning: #ffc107;
+    --mc-info: #0dcaf0;
+    --mc-light: #f8f9fa;
+    --mc-dark: #212529;
+    --mc-card-bg: #ffffff;
+    --mc-body-bg: #f0f2f5;
+    --mc-border-color: #dee2e6;
+    --mc-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.card.appointment-card {
+    border-radius: 1rem;
+    background: var(--mc-card-bg);
+    box-shadow: var(--mc-shadow);
+    border: 1px solid var(--mc-border-color);
+    margin-bottom: 1.5rem;
+    transition: all 0.3s ease-in-out;
+    display: flex;
+    flex-direction: column;
+}
+
+.card.appointment-card:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+    transform: translateY(-4px);
+}
+
+.card-body {
+    padding: 1.5rem;
+    flex-grow: 1;
+}
+
+.status-badge {
+    border-radius: 20px;
+    padding: 0.35em 0.85em;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-badge.status-pending {
+    background-color: var(--mc-warning);
+    color: var(--mc-dark);
+}
+
+.status-badge.status-confirmed {
+    background-color: var(--mc-primary);
+    color: white;
+}
+
+.status-badge.status-completed {
+    background-color: var(--mc-secondary);
+    color: white;
+}
+
+.status-badge.status-cancelled {
+    background-color: var(--mc-danger);
+    color: white;
+}
+
+.appointment-date {
+    color: var(--mc-dark);
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+}
+
+.appointment-time {
+    color: var(--mc-secondary);
+    font-size: 1rem;
+}
+
+.appointment-details {
+    font-size: 0.8rem;
+    color: var(--mc-secondary);
+    border-top: 1px solid var(--mc-border-color);
+    padding-top: 0.75rem;
+    margin-top: 1rem;
+}
+
+.appointment-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.appointment-actions .btn {
+    border-radius: 20px;
+    font-weight: 600;
+    padding: 0.375rem 1rem;
+    font-size: 0.875rem;
+}
+
+.no-appointments {
+    text-align: center;
+    padding: 4rem 1rem;
+    background-color: var(--mc-card-bg);
+    border-radius: 1rem;
+    border: 2px dashed var(--mc-border-color);
+}
+
+.no-appointments h4 {
+    color: var(--mc-dark);
+}
+
+.no-appointments p {
+    color: var(--mc-secondary);
+}
+
+@media (max-width: 767px) {
+    .card-body {
+        padding: 1.25rem;
+    }
+
+    .card.appointment-card {
+        margin-bottom: 1rem;
+    }
+
+    .appointment-actions {
+        flex-direction: column;
+    }
+
+    .appointment-actions .btn {
+        width: 100%;
+    }
+}

@@ -1,14 +1,25 @@
 /**
- * User Settings JavaScript
- * Handles user profile updates, password changes, and preferences
+ * user-settings.js
+ *
+ * Handles the user settings page for Quirofísicos Rocha:
+ * - Loads and updates user profile information.
+ * - Handles password changes and notification preferences.
+ * - Integrates with AuthManager for authentication and session management.
+ * - Provides user feedback and error handling in the UI.
  */
 
 class UserSettings {
+    /**
+     * Initializes UserSettings and triggers initial load.
+     */
     constructor() {
         this.authManager = new AuthManager();
         this.init();
     }
 
+    /**
+     * Main initialization: checks auth, loads user data, sets up event listeners, updates UI.
+     */
     init() {
         // Check authentication
         if (!this.authManager.isLoggedIn()) {
@@ -21,11 +32,11 @@ class UserSettings {
         
         // Setup event listeners
         this.setupEventListeners();
-        
-        // Update UI with user info
-        this.updateUserDisplay();
     }
 
+    /**
+     * Sets up event listeners for forms and UI actions.
+     */
     setupEventListeners() {
         // Personal info form
         document.getElementById('personal-info-form').addEventListener('submit', (e) => {
@@ -45,12 +56,6 @@ class UserSettings {
             this.updateNotificationPreferences();
         });
 
-        // Logout button
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            this.authManager.logout();
-            window.location.href = 'index.html';
-        });
-
         // Password confirmation validation
         const newPassword = document.getElementById('new-password');
         const confirmPassword = document.getElementById('confirm-password');
@@ -58,12 +63,17 @@ class UserSettings {
         confirmPassword.addEventListener('input', () => {
             if (newPassword.value !== confirmPassword.value) {
                 confirmPassword.setCustomValidity('Las contraseñas no coinciden');
+                confirmPassword.classList.add('is-invalid');
             } else {
                 confirmPassword.setCustomValidity('');
+                confirmPassword.classList.remove('is-invalid');
             }
         });
     }
 
+    /**
+     * Loads the current user's profile data from the backend and populates the form.
+     */
     async loadUserData() {
         try {
             const response = await fetch('/api/auth/profile', {
@@ -83,12 +93,24 @@ class UserSettings {
         }
     }
 
+    /**
+     * Populates the personal info form with user data.
+     */
     populateForm(userData) {
         document.getElementById('full-name').value = userData.full_name || '';
         document.getElementById('email').value = userData.email || '';
         document.getElementById('phone').value = userData.phone || '';
+
+        // Hide password section if user is from an external provider like Google
+        if (userData.auth_provider && userData.auth_provider !== 'local') {
+            const passwordSection = document.getElementById('password-section');
+            if (passwordSection) passwordSection.style.display = 'none';
+        }
     }
 
+    /**
+     * Updates the account info section (verification, member since).
+     */
     updateAccountInfo(userData) {
         // Update verification status
         const verificationElement = document.getElementById('verification-status');
@@ -109,11 +131,21 @@ class UserSettings {
         }
     }
 
+    /**
+     * Updates the user name display in the UI.
+     */
     updateUserDisplay() {
         const userName = this.authManager.userName || 'Usuario';
-        document.getElementById('user-name').textContent = userName;
+        const userDisplayElement = document.querySelector('.user-name-display');
+        if (userDisplayElement) {
+            // Update the text content, keeping the icon
+            userDisplayElement.innerHTML = `<i class="fas fa-user me-1"></i>${userName}`;
+        }
     }
 
+    /**
+     * Handles personal info form submission and updates user profile.
+     */
     async updatePersonalInfo() {
         const formData = {
             full_name: document.getElementById('full-name').value,
@@ -148,6 +180,9 @@ class UserSettings {
         }
     }
 
+    /**
+     * Handles password form submission and updates the user's password.
+     */
     async updatePassword() {
         const currentPassword = document.getElementById('current-password').value;
         const newPassword = document.getElementById('new-password').value;
@@ -189,6 +224,9 @@ class UserSettings {
         }
     }
 
+    /**
+     * Handles notification preferences form submission and updates preferences.
+     */
     async updateNotificationPreferences() {
         const preferences = {
             email_notifications: document.getElementById('email-notifications').checked,
@@ -215,6 +253,9 @@ class UserSettings {
         }
     }
 
+    /**
+     * Shows an alert message in the UI.
+     */
     showAlert(message, type) {
         const alertContainer = document.getElementById('alert-container');
         const alertId = 'alert-' + Date.now();
@@ -243,6 +284,9 @@ class UserSettings {
 }
 
 // Initialize when DOM is loaded
+/**
+ * Initializes the UserSettings class on DOMContentLoaded.
+ */
 document.addEventListener('DOMContentLoaded', () => {
     new UserSettings();
 });

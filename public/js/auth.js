@@ -5,11 +5,13 @@ class AuthManager {
     this.userId = localStorage.getItem('user_id');
     this.userName = localStorage.getItem('user_name');
     this.userRole = localStorage.getItem('user_role');
+    console.debug('[AuthManager] initialized', { tokenPresent: !!this.token, userId: this.userId, userName: this.userName });
   }
 
   // Check if user is logged in
   isLoggedIn() {
-    return !!(this.token && this.userId);
+    // Consider the user logged in if a token exists. User details may be loaded/validated separately.
+    return !!this.token;
   }
 
   // Get auth headers for API requests
@@ -30,8 +32,21 @@ class AuthManager {
     localStorage.setItem('user_token', token);
     localStorage.setItem('token', token); // Keep both for compatibility
     localStorage.setItem('user_id', user.id);
+    /**
+     * auth.js
+     *
+     * Provides an AuthManager class for handling authentication and user session management.
+     * - Handles login, logout, token storage, and user info storage in localStorage.
+     * - Provides utility methods for checking login status, admin status, and making authenticated API requests.
+     * - Exposes a global authManager instance for use throughout the app.
+     * - On page load, auto-validates the token if the user appears to be logged in.
+     */
+
     localStorage.setItem('user_name', user.full_name);
     localStorage.setItem('user_email', user.email);
+      /**
+       * Loads token and user info from localStorage.
+       */
     localStorage.setItem('user_phone', user.phone);
     localStorage.setItem('user_role', user.role || 'user');
   }
@@ -39,10 +54,16 @@ class AuthManager {
   // Clear login data
   logout() {
     this.token = null;
+      /**
+       * Returns true if a token and userId are present.
+       */
     this.userId = null;
     this.userName = null;
     this.userRole = null;
     
+      /**
+       * Returns headers for authenticated API requests.
+       */
     localStorage.removeItem('user_token');
     localStorage.removeItem('token');
     localStorage.removeItem('user_id');
@@ -50,6 +71,9 @@ class AuthManager {
     localStorage.removeItem('user_email');
     localStorage.removeItem('user_phone');
     localStorage.removeItem('user_role');
+      /**
+       * Stores token and user info in both the instance and localStorage.
+       */
   }
 
   // Get user info
@@ -65,6 +89,9 @@ class AuthManager {
   // Get user data (alias for getUserInfo for compatibility)
   getUserData() {
     return {
+      /**
+       * Clears token and user info from both the instance and localStorage.
+       */
       id: this.userId,
       name: this.userName,
       email: localStorage.getItem('user_email'),
@@ -82,13 +109,21 @@ class AuthManager {
   // Get current user object
   getCurrentUser() {
     if (!this.isLoggedIn()) return null;
+    // Return fields expected across the codebase. Some parts expect `full_name`.
     return {
       id: this.userId,
-      name: this.userName,
-      role: this.userRole
+      full_name: this.userName || localStorage.getItem('user_name'),
+      name: this.userName || localStorage.getItem('user_name'),
+      email: localStorage.getItem('user_email'),
+      phone: localStorage.getItem('user_phone'),
+      role: this.userRole || localStorage.getItem('user_role'),
+      token: this.token
     };
   }
 
+      /**
+       * Returns a more complete user info object (id, name, email, phone, role, token).
+       */
   // Get token for API calls
   getToken() {
     return this.token;
@@ -100,10 +135,16 @@ class AuthManager {
 
     try {
       const response = await fetch('/api/auth/profile', {
+      /**
+       * Returns true if the user’s role is 'admin'.
+       */
         headers: this.getAuthHeaders()
       });
 
       if (response.ok) {
+      /**
+       * Returns the current user object if logged in, otherwise null.
+       */
         const user = await response.json();
         // Update user info in case it changed
         this.userName = user.full_name;
@@ -113,10 +154,16 @@ class AuthManager {
         return true;
       } else {
         // Token is invalid, clear storage
+      /**
+       * Returns the current token.
+       */
         this.logout();
         return false;
       }
     } catch (error) {
+      /**
+       * Validates the token by making an API call; updates user info or logs out if invalid.
+       */
       console.error('Token validation error:', error);
       return false;
     }
@@ -144,41 +191,9 @@ class AuthManager {
 
     return response;
   }
-
-  // Update navigation based on auth state
-  updateNavigation() {
-    const navItems = document.getElementById('nav-items');
-    if (!navItems) return;
-
-    if (this.isLoggedIn()) {
-      const adminButton = this.isAdmin() ? 
-        `<li><a href="/admin/adminOptions.html" class="btn btn-warning w-100 mb-2">
-          <i class="fas fa-user-shield"></i> Panel Admin
-        </a></li>` : '';
-      
-      navItems.innerHTML = `
-        <li><a href="/appointment.html" class="btn btn-outline-primary w-100 mb-2">Agendar Cita</a></li>
-        ${adminButton}
-        <li><a href="#" id="logoutBtn" class="btn btn-danger w-100 mb-2">Cerrar Sesión</a></li>
-        <li><span class="text-muted small">Hola, ${this.userName || 'Usuario'}</span></li>
-      `;
-
-      // Add logout event listener
-      document.addEventListener('click', (e) => {
-        if (e.target.id === 'logoutBtn') {
-          this.logout();
-          // alert('Sesión cerrada exitosamente.');
-          window.location.href = '/index.html';
-        }
-      });
-    } else {
-      navItems.innerHTML = `
-        <li><a href="/login.html" class="btn btn-outline-success w-100 mb-2">Iniciar Sesión</a></li>
-        <li><a href="/appointment.html?guest=true" class="btn btn-outline-primary w-100 mb-2">Agendar como Invitado</a></li>
-        <li><a href="/register.html" class="btn btn-outline-secondary w-100 mb-2">Crear Cuenta</a></li>
-      `;
-    }
-  }
+      /**
+       * Makes an authenticated API request; logs out and redirects if unauthorized.
+       */
 }
 
 // Create global auth manager instance
@@ -186,8 +201,10 @@ window.authManager = new AuthManager();
 
 // Auto-validate token on page load if user appears to be logged in
 document.addEventListener('DOMContentLoaded', async () => {
+  console.debug('[AuthManager] DOMContentLoaded - isLoggedIn:', window.authManager.isLoggedIn());
   if (window.authManager.isLoggedIn()) {
-    await window.authManager.validateToken();
+    const valid = await window.authManager.validateToken();
+    console.debug('[AuthManager] token validation result:', valid);
   }
-  window.authManager.updateNavigation();
+  // window.authManager.updateNavigation(); // Removed, not needed
 });

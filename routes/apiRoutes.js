@@ -1,593 +1,774 @@
-const express = require('express');
-const db = require('../config/connections'); // Adjust the path as necessary
-const router = express.Router();
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const authenticateToken = require('../middleware/auth'); // Adjust the path as necessary
-const scheduleController = require('../controllers/scheduleController');
-const appointmentController = require('../controllers/appointmentController');
-const secretKey = process.env.SECRET_KEY;
+/**
+ * apiRoutes.js
+ *
+ * Handles all public and authenticated API endpoints for the Quirofísicos Rocha backend.
+ * - Provides business hours, slot availability, appointments, schedule exceptions, and calendar merging logic.
+ * - Supports both authenticated and guest users for appointment creation and queries.
+ * - Implements robust merging of business hours, overrides, holidays, and exceptions for calendar display.
+ * - Handles user-specific actions like profile updates.
+ * - Exports an Express router for use in the main server.
+ */
 
-// Get Google Maps API key for frontend
+const express = require('express');
+const router = express.Router();
+const authenticateToken = require('../middleware/authenticateToken');
+const { Appointment, BusinessHour, Announcement, ScheduleException, User, sequelize } = require('../models');
+const { Op } = require('sequelize');
+
+/**
+ * Generates 30-minute time slots between open and close times.
+ */
+function generateTimeSlots(openTime, closeTime) {
+  const slots = [];
+  const [openHour, openMin] = openTime.split(':').map(Number);
+  const [closeHour, closeMin] = closeTime.split(':').map(Number);
+  let currentHour = openHour;
+  let currentMin = openMin;
+  while (currentHour < closeHour || (currentHour === closeHour && currentMin < closeMin)) {
+    const timeStr = `${String(currentHour).padStart(2, '0')}:${String(currentMin).padStart(2, '0')}`;
+    slots.push(timeStr);
+    currentMin += 30;
+    if (currentMin >= 60) {
+      currentMin = 0;
+      currentHour++;
+    }
+  }
+  return slots;
+}
+
+/**
+ * Returns available slots for a week (Monday-Sunday) given a week_start date (YYYY-MM-DD).
+ */
+router.get('/slots', async (req, res) => {
+  const weekStart = req.query.week_start;
+  if (!weekStart) return res.status(400).json({ error: 'Missing week_start' });
+  const startDate = new Date(weekStart);
+  if (isNaN(startDate)) return res.status(400).json({ error: 'Invalid week_start' });
+  // Build array of 7 dates (Mon-Sun)
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(startDate);
+    d.setDate(startDate.getDate() + i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  // Get day names for each date
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  try {
+    // 1. Get scheduled business hours for all days in week
+    const weekDayNames = days.map(d => dayNames[new Date(d).getDay()]);
+
+    // Refactor: Use the new BusinessHour model logic
+    const latestEffectiveDate = await BusinessHour.max('effectiveDate', { where: { effectiveDate: { [Op.lte]: days[6] } } });
+
+    const results = await BusinessHour.findAll({
+      where: {
+        effectiveDate: latestEffectiveDate,
+        dayOfWeek: weekDayNames,
+      },
+      order: [['effective_date', 'DESC']]
+    });
+
+    // Map most recent override for each day
+    const bhMap = {};
+    for (const dow of weekDayNames) {
+      const overrides = results.filter(r => (r.dayOfWeek || '').toLowerCase() === dow);
+      if (overrides.length > 0) bhMap[dow] = overrides[0];
+    }
+
+    // 2. Get all appointments for the week
+    const appts = await Appointment.findAll({
+      where: {
+        date: { [Op.in]: days },
+        status: ['pending', 'confirmed']
+      },
+      attributes: ['date', 'time']
+    });
+
+    // 3. Build slots for each day
+    const slotsByDay = {};
+    for (let i = 0; i < days.length; i++) {
+      const date = days[i];
+      const dow = weekDayNames[i];
+      const bh = bhMap[dow];
+      if (!bh || !bh.is_open) {
+        slotsByDay[date] = []; // Keep as is
+        continue;
+      }
+      const allSlots = generateTimeSlots(bh.openTime, bh.closeTime);
+      const taken = appts.filter(a => a.date === date).map(a => a.time);
+      let available = allSlots.filter(t => !taken.includes(t));
+      // Filter out slots less than 30 min from now (if today)
+      const now = new Date();
+      const todayISO = now.toISOString().split('T')[0];
+      if (date === todayISO) {
+        const thirtyMinFromNow = new Date(now.getTime() + 30 * 60 * 1000);
+        available = available.filter(timeSlot => {
+          const slotDateTime = new Date(`${date}T${timeSlot}:00`);
+          return slotDateTime >= thirtyMinFromNow;
+        });
+      }
+      slotsByDay[date] = available;
+    }
+    res.json({ slots: slotsByDay });
+  } catch (e) {
+    console.error('Error in /slots:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * Returns public clinic settings (name, address, phone, email).
+ */
+router.get('/clinic-settings', async (req, res) => {
+  // This model was removed. This route is no longer valid.
+  // We can re-implement this later if needed, perhaps with a different strategy.
+  res.status(404).json({ error: 'This endpoint is deprecated.' });
+});
+
+/**
+ * Returns all active announcements for public display.
+ */
+router.get('/announcements/active', async (req, res) => {
+  try {
+    const results = await Announcement.findAll({
+      where: {
+        isActive: true,
+        startDate: { [Op.lte]: new Date() },
+        [Op.or]: [
+          { endDate: null },
+          { endDate: { [Op.gte]: new Date() } }
+        ]
+      },
+      order: [['priority', 'DESC'], ['created_at', 'DESC']]
+    });
+    res.json(results);
+  } catch (err) {
+    console.error('Error fetching active announcements:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/**
+ * Returns available slots for a specific date.
+ */
+router.get('/available-slots/:date', async (req, res) => {
+  const dayISO = req.params.date;
+  // Parse as local date to avoid timezone issues
+  const [year, month, day] = dayISO.split('-').map(Number);
+  const dateObj = new Date(year, month - 1, day);
+  if (isNaN(dateObj)) return res.status(400).json({ availableSlots: [] });
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const dayOfWeek = days[dateObj.getDay()];
+  console.log(`[API] /available-slots/${dayISO} | dayOfWeek: ${dayOfWeek}`);
+  try {
+    // Refactor: Use the new BusinessHour model logic
+    const latestEffectiveDate = await BusinessHour.max('effectiveDate', { where: { effectiveDate: { [Op.lte]: dayISO } } });
+
+    const bh = await BusinessHour.findOne({
+      where: {
+        effectiveDate: latestEffectiveDate,
+        dayOfWeek: dayOfWeek,
+      }
+    });
+
+    if (!bh || !bh.is_open) {
+      console.log(`[API] Day is closed or no hours found for ${dayOfWeek} on ${dayISO}`);
+      return res.json({ availableSlots: [] });
+    }
+
+    const allSlots = generateTimeSlots(bh.openTime, bh.closeTime);
+    
+    // Get taken appointments
+    const takenRows = await Appointment.findAll({
+      where: {
+        date: dayISO,
+        status: ['pending', 'confirmed']
+      },
+      attributes: ['time', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
+      group: ['time']
+    });
+
+    const bookingCounts = {};
+    takenRows.forEach(row => {
+      bookingCounts[row.time] = row.get('count');
+    });
+
+    // A slot is available if it has been booked less than 2 times.
+    let available = allSlots.filter(slot => (bookingCounts[slot + ':00'] || 0) < 2);
+
+    // Filter out slots less than 30 min from now (if today)
+    const now = new Date();
+    const todayISO = now.toISOString().split('T')[0];
+    if (dayISO === todayISO) {
+      const thirtyMinFromNow = new Date(now.getTime() + 30 * 60 * 1000);
+      available = available.filter(timeSlot => {
+        const slotDateTime = new Date(`${dayISO}T${timeSlot}:00`);
+        return slotDateTime >= thirtyMinFromNow;
+      });
+    }
+    res.json({ availableSlots: available });
+  } catch (e) {
+    console.error('Error in /available-slots:', e);
+    res.json({ availableSlots: [] });
+  }
+});
+
+/**
+ * Returns all active schedule exceptions for the calendar/frontend.
+ */
+router.get('/schedule-exceptions', async (req, res) => {
+  try {
+    const results = await ScheduleException.findAll({
+      where: { is_active: true },
+      order: [['start_date', 'ASC']]
+    });
+    res.json(results);
+  } catch (err) {
+    console.error('Error fetching schedule exceptions:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/**
+ * Returns the Google Maps API key for the frontend.
+ */
 router.get('/config/maps-key', (req, res) => {
   res.json({ 
     apiKey: process.env.GOOGLE_MAPS_API_KEY || null 
   });
 });
 
-// Get current business hours for public display
-router.get('/business-hours', (req, res) => {
-  const query = `
-    SELECT day_of_week, is_open, 
-           TIME_FORMAT(open_time, '%H:%i') as open_time,
-           TIME_FORMAT(close_time, '%H:%i') as close_time,
-           TIME_FORMAT(break_start, '%H:%i') as break_start,
-           TIME_FORMAT(break_end, '%H:%i') as break_end
-    FROM business_hours 
-    ORDER BY FIELD(day_of_week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
-  `;
-  
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error getting business hours:', err);
-      return res.status(500).json({ error: 'Error getting business hours' });
+/**
+ * Returns all business hours (for admin/configuration).
+ */
+router.get('/business-hours', async (req, res) => {
+  // This endpoint now functions like /business-hours/:date, using today if no date is provided.
+  const dayISO = new Date().toISOString().split('T')[0]; // Default to today
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+  try {
+    // 1. Find the most recent effectiveDate that is on or before today.
+    const latestEffectiveDate = await BusinessHour.max('effectiveDate', {
+      where: {
+        effectiveDate: {
+          [Op.lte]: new Date()
+        }
+      }
+    });
+
+    if (!latestEffectiveDate) {
+      // If no schedule has been set at all.
+      return res.json({ businessHours: [] });
     }
-    
-    res.json({ business_hours: results });
-  });
+
+    // 2. Fetch the 7 records that make up the active weekly schedule.
+    const ordered = await BusinessHour.findAll({
+      where: {
+        effectiveDate: latestEffectiveDate
+      },
+      order: [
+        // Custom order to ensure Monday is first, Sunday is last, etc.
+        sequelize.literal("FIELD(dayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')")
+      ]
+    });
+    res.json({ businessHours: ordered });
+  } catch (err) {
+    console.error("Error fetching merged business hours:", err);
+    res.status(500).json({ businessHours: [] });
+  }
 });
 
-//get all appointments
-router.get('/appointments', authenticateToken, (req, res) => {
-  db.query('SELECT * FROM appointments', (err, results) => {
-    if (err) return res.status(500).json(err);
-    res.json(results);
-  });
-}); 
+/**
+ * Returns business hours for a specific date (uses scheduled-business-hours if available).
+ */
+router.get('/business-hours/:date', async (req, res) => {
+  const dayISO = req.params.date; // Expects YYYY-MM-DD
+  const dateObj = new Date(dayISO + 'T00:00:00'); // Treat as local date
+  if (isNaN(dateObj)) return res.status(400).json({ business_hours: [] });
 
-// Create new appointment (allow both authenticated and guest users)
-router.post('/appointments', (req, res) => {
-  let { full_name, email, phone, date, time, note, user_id } = req.body;
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  try {
+    // 1. Find the most recent effectiveDate that is on or before the requested date.
+    const latestEffectiveDate = await BusinessHour.max('effectiveDate', {
+      where: {
+        effectiveDate: {
+          [Op.lte]: dayISO
+        }
+      }
+    });
+
+    if (!latestEffectiveDate) {
+      return res.json({ business_hours: [] });
+    }
+
+    // 2. Fetch the 7 records for that effective date.
+    const ordered = await BusinessHour.findAll({
+      where: {
+        effectiveDate: latestEffectiveDate
+      },
+      order: [
+        sequelize.literal("FIELD(dayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')")
+      ]
+    });
+    res.json({ business_hours: ordered });
+  } catch (err) {
+    console.error(`Error fetching business hours for date ${dayISO}:`, err);
+    res.status(500).json({ business_hours: [] });
+  }
+});
+
+/**
+ * Creates a new appointment (supports guest and authenticated users).
+ */
+router.post('/appointments', async (req, res) => {
+  let { full_name, email, phone, date, time, note = '', user_id } = req.body;
 
   // Normalize empty user_id to null
   user_id = user_id ? user_id : null;
 
+  // --- 90-Day Booking Limit Validation ---
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalize to start of day
+  const maxBookingDate = new Date(today);
+  maxBookingDate.setDate(today.getDate() + 90);
+  const requestedDate = new Date(date);
+
+  if (requestedDate > maxBookingDate) {
+    return res.status(400).json({ error: 'Booking too far in advance', message: 'No se puede agendar con más de 90 días de antelación.' });
+  }
   // Validate required fields
   if (!full_name || !date || !time) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-  // Check if the time slot is already taken
-  db.query('SELECT id FROM appointments WHERE date = ? AND time = ? AND status IN ("pending", "confirmed")', 
-    [date, time], (err, existing) => {
-    if (err) {
-      console.error('Error checking existing appointments:', err);
-      return res.status(500).json({ error: 'Database error checking availability' });
-    }
+  try {
+    // Check if the time slot is available (allows up to 2 bookings per slot)
+    const count = await Appointment.count({
+      where: {
+        date,
+        time,
+        status: ['pending', 'confirmed']
+      }
+    });
 
-    if (existing.length > 0) {
+    if (count >= 2) {
       return res.status(409).json({ error: 'Time slot already taken', message: 'Este horario ya está ocupado' });
     }
 
-    const appointmentData = { full_name, email, phone, date, time, note, user_id, status: 'pending' };
-
-    db.query('INSERT INTO appointments SET ?', appointmentData, (err, result) => {
-      if (err) {
-        console.error('Error inserting appointment:', err);
-        return res.status(500).json({ error: 'Database error', details: err });
+    let status = 'pending';
+    if (user_id) {
+      // For registered users, check verification status to set appointment status
+      const user = await User.findByPk(user_id);
+      if (user && user.is_verified) {
+        status = 'confirmed';
       }
-      // res.json({ message: 'Cita agendada correctamente', id: result.insertId });
+    }
+
+    const appointment = await Appointment.create({
+      full_name, email, phone, date, time, note, user_id, status
     });
-  });
+
+    res.json({ 
+      message: status === 'confirmed' ? 'Cita agendada correctamente' : 'Cita agendada, pendiente de confirmación', 
+      id: appointment.id, 
+      status 
+    });
+
+  } catch (err) {
+    console.error('Error creating appointment:', err);
+    res.status(500).json({ error: 'Database error creating appointment' });
+  }
 });
 
-// Update appointment
-router.put('/appointments/:id', authenticateToken,(req, res) => {
+/**
+ * Updates an appointment (authenticated, user or admin).
+ */
+router.put('/appointments/:id', authenticateToken, async (req, res) => {
   const { full_name, email, phone, date, time, note } = req.body;
   const appointmentId = req.params.id;
   const userId = req.user.id;
   
-  // First verify the appointment belongs to the user (unless admin)
-  const verifyQuery = req.user.role === 'admin' 
-    ? 'SELECT * FROM appointments WHERE id = ?'
-    : 'SELECT * FROM appointments WHERE id = ? AND user_id = ?';
-  
-  const verifyParams = req.user.role === 'admin' 
-    ? [appointmentId]
-    : [appointmentId, userId];
-  
-  db.query(verifyQuery, verifyParams, (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (results.length === 0) {
+  try {
+    const whereClause = { id: appointmentId };
+    if (req.user.role !== 'admin') {
+      whereClause.user_id = userId;
+    }
+
+    const appointment = await Appointment.findOne({ where: whereClause });
+    if (!appointment) {
       return res.status(404).json({ error: 'Cita no encontrada o no autorizada' });
     }
 
-    // Update the appointment
-    db.query(
-      'UPDATE appointments SET full_name = ?, email = ?, phone = ?, date = ?, time = ?, note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', 
-      [full_name, email, phone, date, time, note, appointmentId], 
-      (err, updateResult) => {
-        if (err) return res.status(500).json({ error: 'Error actualizando la cita' });
-        if (updateResult.affectedRows === 0) {
-          return res.status(404).json({ error: 'Cita no encontrada' });
-        }
-        // res.json({ message: 'Cita actualizada exitosamente' });
-      }
-    );
-  });
+    await appointment.update({ full_name, email, phone, date, time, note });
+    res.json({ message: 'Cita actualizada exitosamente' });
+  } catch (err) {
+    console.error('Error updating appointment:', err);
+    res.status(500).json({ error: 'Error actualizando la cita' });
+  }
 });
 
-// Get user's own appointments (for "Mis Citas" page) - MUST come before :id route
-router.get('/appointments/my-appointments', authenticateToken, (req, res) => {
+/**
+ * Returns the authenticated user's own appointments.
+ */
+router.get('/appointments/my-appointments', authenticateToken, async (req, res) => {
   const userId = req.user.id;
-  const query = `
-    SELECT id, full_name, email, phone, date, time, note, status, created_at, updated_at
-    FROM appointments 
-    WHERE user_id = ? 
-    ORDER BY date DESC, time DESC
-  `;
-  
-  db.query(query, [userId], (err, results) => {
-    if (err) {
-      console.error('Error getting user appointments:', err);
-      return res.status(500).json({ error: 'Error getting appointments' });
-    }
-    
+  try {
+    const results = await Appointment.findAll({
+      where: { user_id: userId },
+      order: [['date', 'DESC'], ['time', 'DESC']]
+    });
     res.json({ appointments: results });
-  });
+  } catch (err) {
+    console.error('Error getting user appointments:', err);
+    res.status(500).json({ error: 'Error getting appointments' });
+  }
 });
 
-// Get single appointment by ID (for authenticated users)
-router.get('/appointments/:id', authenticateToken, (req, res) => {
+/**
+ * Returns a single appointment by ID (authenticated, user or admin).
+ */
+router.get('/appointments/:id', authenticateToken, async (req, res) => {
   const appointmentId = req.params.id;
   const userId = req.user.id;
   
-  // Verify the appointment belongs to the user (unless admin)
-  const query = req.user.role === 'admin' 
-    ? 'SELECT * FROM appointments WHERE id = ?'
-    : 'SELECT * FROM appointments WHERE id = ? AND user_id = ?';
-  
-  const params = req.user.role === 'admin' 
-    ? [appointmentId]
-    : [appointmentId, userId];
-  
-  db.query(query, params, (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (results.length === 0) {
+  try {
+    const whereClause = { id: appointmentId };
+    if (req.user.role !== 'admin') {
+      whereClause.user_id = userId;
+    }
+
+    const appointment = await Appointment.findOne({ where: whereClause });
+    if (!appointment) {
       return res.status(404).json({ error: 'Cita no encontrada o no autorizada' });
     }
-    
-    res.json(results[0]);
-  });
+    res.json(appointment);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-// Test endpoint for reschedule (temporarily without auth for debugging)
-router.get('/appointments-test/:id', (req, res) => {
+/**
+ * Test endpoint for reschedule (no auth, for debugging).
+ */
+router.get('/appointments-test/:id', async (req, res) => {
   const appointmentId = req.params.id;
-  
-  db.query('SELECT * FROM appointments WHERE id = ?', [appointmentId], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    if (results.length === 0) {
+  try {
+    const appointment = await Appointment.findByPk(appointmentId);
+    if (!appointment) {
       return res.status(404).json({ error: 'Cita no encontrada' });
     }
-    
-    res.json(results[0]);
-  });
+    res.json(appointment);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-// Reschedule an appointment
-router.put('/appointments/:id/reschedule', authenticateToken, appointmentController.rescheduleAppointment);
-router.post('/appointments/:id/reschedule', authenticateToken, appointmentController.rescheduleAppointment);
-
-// Get appointments by date (public endpoint for checking availability)
-router.get('/appointments/date/:date', (req, res) => {
+/**
+ * Returns minimal info for appointments by date (public, for availability checking).
+ */
+router.get('/appointments/date/:date', async (req, res) => {
   const date = req.params.date;
-  // Only return minimal info needed for availability checking
-  db.query('SELECT time FROM appointments WHERE date = ? AND status IN ("pending", "confirmed")', [date], (err, results) => {
-    if (err) return res.status(500).json(err);
+  try {
+    const results = await Appointment.findAll({
+      where: {
+        date,
+        status: ['pending', 'confirmed']
+      },
+      attributes: ['time']
+    });
     res.json(results);
-  });
+  } catch (err) {
+    res.status(500).json(err);
+  }
 });
 
-// Get full appointments by date (admin/authenticated endpoint)
-router.get('/appointments/date/:date/full', authenticateToken, (req, res) => {
+/**
+ * Returns full appointments by date (authenticated).
+ */
+router.get('/appointments/date/:date/full', authenticateToken, async (req, res) => {
   const date = req.params.date;
-  db.query('SELECT * FROM appointments WHERE date = ?', [date], (err, results) => {
-    if (err) return res.status(500).json(err);
+  try {
+    const results = await Appointment.findAll({ where: { date } });
     res.json(results);
-  });
+  } catch (err) {
+    res.status(500).json(err);
+  }
 });
 
-// Get appointments by user ID
-router.get('/appointments/user/:userId', authenticateToken,(req, res) => {
-  const userId = req.params.userId;
-  db.query('SELECT * FROM appointments WHERE user_id = ?', [userId], (err, results) => {
-    if (err) return res.status(500).json(err);
-    res.json(results);
-  });
-});
-
-// Get appointments by user ID and date
-router.get('/appointments/user/:userId/date/:date', authenticateToken,(req, res) => {
-  const userId = req.params.userId;
-  const date = req.params.date;
-  db.query('SELECT * FROM appointments WHERE user_id = ? AND date = ?', [userId, date], (err, results) => {
-    if (err) return res.status(500).json(err);
-    res.json(results);
-  });
-});
-
-// Get appointments by date and time
-router.get('/appointments/date/:date/time/:time', authenticateToken,(req, res) => {
+/**
+ * Returns appointments by date and time (authenticated).
+ */
+router.get('/appointments/date/:date/time/:time', authenticateToken, async (req, res) => {
   const date = req.params.date;
   const time = req.params.time;
-  db.query('SELECT * FROM appointments WHERE date = ? AND time = ?', [date, time], (err, results) => {
-    if (err) return res.status(500).json(err);
+  try {
+    const results = await Appointment.findAll({ where: { date, time } });
     res.json(results);
-  });
+  } catch (err) {
+    res.status(500).json(err);
+  }
 });
 
-;
-
-// Cancel appointment (user can cancel their own appointments) - MUST come before :id route
-router.put('/appointments/:id/cancel', authenticateToken, (req, res) => {
+/**
+ * Cancels an appointment (user can cancel their own appointments).
+ */
+router.put('/appointments/:id/cancel', authenticateToken, async (req, res) => {
   const appointmentId = req.params.id;
   const userId = req.user.id;
-  
-  // First check if the appointment belongs to the user
-  const checkQuery = 'SELECT id FROM appointments WHERE id = ? AND user_id = ?';
-  db.query(checkQuery, [appointmentId, userId], (err, results) => {
-    if (err) {
-      console.error('Error checking appointment ownership:', err);
-      return res.status(500).json({ error: 'Error processing request' });
-    }
-    
-    if (results.length === 0) {
+
+  try {
+    const [updated] = await Appointment.update(
+      { status: 'cancelled' },
+      { where: { id: appointmentId, user_id: userId } }
+    );
+
+    if (updated === 0) {
       return res.status(404).json({ error: 'Appointment not found or not authorized' });
     }
-    
-    // Update appointment status to cancelled
-    const updateQuery = 'UPDATE appointments SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
-    db.query(updateQuery, ['cancelled', appointmentId], (err, result) => {
-      if (err) {
-        console.error('Error cancelling appointment:', err);
-        return res.status(500).json({ error: 'Error cancelling appointment' });
-      }
-      
-      res.json({ message: 'Appointment cancelled successfully' });
-    });
-  });
+    res.json({ message: 'Appointment cancelled successfully' });
+  } catch (err) {
+    console.error('Error cancelling appointment:', err);
+    res.status(500).json({ error: 'Error cancelling appointment' });
+  }
 });
 
-// Delete appointment
-router.delete('/appointments/:id', authenticateToken,(req, res) => {
-  db.query('DELETE FROM appointments WHERE id = ?', [req.params.id], (err) => {
-    if (err) return res.status(500).json(err);
-    res.sendStatus(204);
-  });
-});
+/**
+ * POST /appointments/:id/reschedule
+ * Reschedules an existing appointment to a new date and time.
+ */
+router.post('/appointments/:id/reschedule', authenticateToken, async (req, res) => {
+  const appointmentId = req.params.id;
+  const userId = req.user.id;
+  const { newDate, newTime, note } = req.body;
 
-
-// Replace the existing /login route with /auth/login
-router.post('/auth/login', (req, res) => {
-  const { email, password } = req.body;
-  
-  console.log('🔐 Login attempt for:', email);
-
-  db.query(
-    'SELECT * FROM users WHERE email = ?',
-    [email],
-    (err, results) => {
-      if (err) {
-        console.error('Database error during login:', err);
-        return res.status(500).json({ 
-          success: false,
-          message: 'Error del servidor' 
-        });
-      }
-      
-      if (results.length === 0) {
-        console.log('❌ No user found with email:', email);
-        return res.status(401).json({ 
-          success: false,
-          message: 'Credenciales inválidas' 
-        });
-      }
-      
-      const user = results[0];
-      console.log('✅ User found:', { id: user.id, email: user.email, role: user.role });
-
-      bcrypt.compare(password, user.password, (err, isMatch) => {
-        if (err) {
-          console.error('Bcrypt error:', err);
-          return res.status(500).json({ 
-            success: false,
-            message: 'Error del servidor' 
-          });
-        }
-
-        if (!isMatch) {
-          console.log('❌ Password mismatch for user:', email);
-          return res.status(401).json({ 
-            success: false,
-            message: 'Credenciales inválidas' 
-          });
-        }
-
-        const token = jwt.sign({ 
-          id: user.id, 
-          email: user.email, 
-          role: user.role || 'user' 
-        }, secretKey, { expiresIn: '2h' });
-        
-        console.log('✅ Login successful for:', email);
-
-        res.status(200).json({
-          success: true,
-          message: 'Inicio de sesión exitoso',
-          user: {
-            id: user.id,
-            email: user.email,
-            full_name: user.full_name,
-            role: user.role || 'user'
-          },
-          token: token
-        });
-      });
-    }
-  );
-});
-
-// Also add the register route with proper structure
-router.post('/auth/register', async (req, res) => {
-  const { full_name, phone, email, password } = req.body;
-
-  if (!full_name || !phone || !email || !password) {
-    return res.status(400).json({ 
-      success: false,
-      message: "Faltan campos requeridos" 
-    });
+  if (!newDate || !newTime) {
+    return res.status(400).json({ message: 'La nueva fecha y hora son requeridas.' });
   }
 
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // 1. Verify the appointment belongs to the user (or user is admin)
+    const whereClause = { id: appointmentId };
+    if (req.user.role !== 'admin') {
+      whereClause.user_id = userId;
+    }
 
-    const insertUserSql = `
-      INSERT INTO users (full_name, email, phone, password, role, auth_provider, created_at) 
-      VALUES (?, ?, ?, ?, 'user', 'local', NOW())
-    `;
+    const appointment = await Appointment.findOne({ where: whereClause });
+    if (!appointment) return res.status(404).json({ message: 'Cita no encontrada o no autorizada.' });
 
-    db.query(insertUserSql, [full_name, email, phone, hashedPassword], (err, results) => {
-      if (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-          return res.status(400).json({ 
-            success: false,
-            message: 'El correo ya está registrado' 
-          });
-        }
-        console.error("Error al registrar el usuario:", err);
-        return res.status(500).json({ 
-          success: false,
-          message: "Error al registrar el usuario" 
-        });
+    // 2. Check if the new slot is available
+    const existing = await Appointment.count({
+      where: {
+        date: newDate,
+        time: newTime,
+        status: ['pending', 'confirmed']
       }
+    });
+    
+    if (existing > 0) return res.status(409).json({ message: 'El nuevo horario seleccionado ya no está disponible.' });
 
-      const token = jwt.sign({ 
-        id: results.insertId, 
-        email,
-        role: 'user'
-      }, secretKey, { expiresIn: '2h' });
+    // 3. Determine the new status based on user verification
+    const isVerified = req.user.is_verified || false;
+    const newStatus = isVerified ? 'confirmed' : 'pending';
+    const successMessage = isVerified 
+      ? 'Cita reagendada y confirmada exitosamente.'
+      : 'Cita reagendada exitosamente. Queda pendiente de confirmación.';
 
-      res.status(201).json({
-        success: true,
-        message: "Usuario registrado exitosamente",
-        user: {
-          id: results.insertId,
-          email: email,
-          full_name: full_name,
-          role: 'user'
-        },
-        token: token
-      });
+    // 4. Update the appointment
+    await appointment.update({
+      date: newDate,
+      time: newTime,
+      note: note,
+      status: newStatus
     });
 
+    res.json({ message: successMessage });
   } catch (err) {
-    console.error("Error hashing password:", err);
-    res.status(500).json({ 
-      success: false,
-      message: "Error interno del servidor" 
-    });
+    console.error('Error rescheduling appointment:', err);
+    res.status(500).json({ message: 'Error al reagendar la cita.' });
+  }
+});
+
+/**
+ * Deletes an appointment (authenticated).
+ */
+router.delete('/appointments/:id', authenticateToken, async (req, res) => {
+  try {
+    await Appointment.destroy({ where: { id: req.params.id } });
+    res.sendStatus(204);
+  } catch (err) {
+    res.status(500).json(err);
+  }
+});
+
+/**
+ * PUT /auth/update-profile
+ * Allows a logged-in user to update their own profile information (full_name, email, phone).
+ * This route is protected and uses the user's ID from the JWT.
+ */
+router.put('/auth/update-profile', authenticateToken, async (req, res) => {
+  const userId = req.user.id; // Get user ID from the token
+  const { full_name, email, phone } = req.body;
+
+  if (!full_name || !email) {
+    return res.status(400).json({ error: 'Full name and email are required.' });
+  }
+
+  try {
+    await User.update(
+      { full_name, email, phone },
+      { where: { id: userId } }
+    );
+    res.json({ message: 'Profile updated successfully.' });
+  } catch (err) {
+    if (err.name === 'SequelizeUniqueConstraintError') {
+      return res.status(400).json({ error: 'Email already in use by another account.' });
+    }
+    console.error('Error updating user profile:', err);
+    res.status(500).json({ error: 'Database error while updating profile.' });
   }
 });
 
 
-//get all registered users
-router.get("/registeredUsers", (req, res) => {
-  db.query("SELECT * FROM users", (err, results) => {
-    if (err) {
-      console.error("Error al obtener los usuarios registrados:", err);
-      return res.status(500).json({ message: "Error al obtener los usuarios registrados" });
-    }
-    res.status(200).json(results);
-  });
-});
-
-router.post('/login', (req, res) => {
-  const { email, password } = req.body;
-
-  db.query(
-    'SELECT * FROM users WHERE email = ?',
-    [email],
-    (err, results) => {
-      if (err) {
-        console.error('Error en login:', err);
-        return res.status(500).json({ message: 'Error del servidor' });
-      }
-      
-      if (results.length === 0) {
-        return res.status(401).json({ message: 'Credenciales inválidas' });
-      }
-      
-      const user = results[0];
-      console.log('User found during login:', { id: user.id, email: user.email, role: user.role });
-
-      bcrypt.compare(password, user.password, (err, isMatch) => {
-        if (err) return res.status(500).json({ message: 'Error del servidor' });
-
-        if (!isMatch) return res.status(401).json({ message: 'Credenciales inválidas' });
-
-        const token = jwt.sign({ 
-          id: user.id, 
-          email: user.email, 
-          role: user.role || 'user' 
-        }, secretKey, { expiresIn: '2h' });
-        
-        console.log('JWT payload created:', { id: user.id, email: user.email, role: user.role || 'user' });
-
-        res.status(200).json({
-          // message: 'Inicio de sesión exitoso',
-          user_id: user.id,
-          token
-        });
-      });
-    }
-  );
-});
-
-// Get user email, phone and name info by ID
-router.get('/user/:id', (req, res) => {
-  const userId = req.params.id;
-
-  db.query('SELECT id, full_name, email, phone FROM users WHERE id = ?', [userId], (err, results) => {
-    if (err) {
-      console.error('Error fetching user:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-
-    if (results.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    res.json(results[0]);
-  });
-});
-
-
-
-//Get registered user by ID
-router.get('/registered_users/:id', (req, res) => {
-  const userId = req.params.id;
-  db.query('SELECT * FROM users WHERE id = ?', [userId], (err, results) => {
-    if (err) {
-      console.error("Error al obtener el usuario:", err);
-      return res.status(500).json(err);
-    }
-    if (results.length === 0){
-       return res.status(404).json({ message: 'User not found' });
-    }
-    res.status(200).json(results[0]);
-  });
-});
-
-// Update user
-router.put('/registered_users/:id', (req, res) => {
-  const userId = req.params.id;
-  const { full_name, email, phone } = req.body;
-
-  db.query(
-    'UPDATE users SET full_name = ?, email = ?, phone = ? WHERE id = ?',
-    [full_name, email, email, phone, userId],
-    (err, results) => {
-      if (err) {
-        console.error("Error al actualizar el usuario:", err);
-        return res.status(500).json(err);
-      }
-      res.status(200).json({ message: 'User updated successfully' });
-    }
-  );
-});
-
-// Get business hours for appointment booking
-router.get('/business-hours', (req, res) => {
-  db.query('SELECT * FROM business_hours ORDER BY FIELD(day_of_week, "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")', (err, results) => {
-    if (err) {
-      console.error('Error fetching business hours:', err);
-      // Return default business hours if database query fails
-      return res.json({
-        businessHours: [
-          { day_of_week: 'monday', is_open: true, open_time: '09:00', close_time: '18:00' },
-          { day_of_week: 'tuesday', is_open: true, open_time: '09:00', close_time: '18:00' },
-          { day_of_week: 'wednesday', is_open: true, open_time: '09:00', close_time: '18:00' },
-          { day_of_week: 'thursday', is_open: true, open_time: '09:00', close_time: '18:00' },
-          { day_of_week: 'friday', is_open: true, open_time: '09:00', close_time: '18:00' },
-          { day_of_week: 'saturday', is_open: false, open_time: '09:00', close_time: '18:00' },
-          { day_of_week: 'sunday', is_open: false, open_time: '09:00', close_time: '18:00' }
-        ]
-      });
-    }
-    
-    // If no business hours are set, return defaults
-    if (results.length === 0) {
-      return res.json({
-        businessHours: [
-          { day_of_week: 'monday', is_open: true, open_time: '09:00', close_time: '18:00' },
-          { day_of_week: 'tuesday', is_open: true, open_time: '09:00', close_time: '18:00' },
-          { day_of_week: 'wednesday', is_open: true, open_time: '09:00', close_time: '18:00' },
-          { day_of_week: 'thursday', is_open: true, open_time: '09:00', close_time: '18:00' },
-          { day_of_week: 'friday', is_open: true, open_time: '09:00', close_time: '18:00' },
-          { day_of_week: 'saturday', is_open: false, open_time: '09:00', close_time: '18:00' },
-          { day_of_week: 'sunday', is_open: false, open_time: '09:00', close_time: '18:00' }
-        ]
-      });
-    }
-    
-    res.json({ businessHours: results });
-  });
-});
-
-// Get available slots for appointment booking (public endpoint with admin restrictions)
-router.get('/available-slots/:date', scheduleController.getAvailableSlots);
-
-// Get schedule exceptions for calendar display (public endpoint)
-router.get('/schedule-exceptions', (req, res) => {
-  const query = `
-    SELECT id, exception_type, start_date, end_date, is_closed, 
-           custom_open_time, custom_close_time, custom_break_start, custom_break_end,
-           reason, description, recurring_type
-    FROM schedule_exceptions 
-    WHERE is_active = TRUE
-    ORDER BY start_date ASC
-  `;
+// --- Helper functions for calendar merging logic ---
+/**
+ * Returns an array of dates in YYYY-MM-DD format between start and end (inclusive).
+ */
+function getDatesInRange(start, end) {
+  const dates = [];
+  let curr = new Date(start);
+  const last = new Date(end);
   
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error fetching schedule exceptions:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    res.json(results);
-  });
-});
+  // Ensure we are working with midnight UTC to avoid timezone shifts
+  curr.setUTCHours(0, 0, 0, 0);
+  last.setUTCHours(0, 0, 0, 0);
 
-// Get public announcements for display on homepage
-router.get('/announcements/public', (req, res) => {
-  const query = `
-    SELECT id, title, message, announcement_type, priority, start_date, end_date
-    FROM announcements 
-    WHERE is_active = TRUE 
-      AND show_on_homepage = TRUE
-      AND start_date <= CURDATE()
-      AND (end_date IS NULL OR end_date >= CURDATE())
-    ORDER BY priority DESC, created_at DESC
-    LIMIT 5
-  `;
-  
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error fetching public announcements:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    res.json(results);
+  while (curr <= last) {
+    dates.push(curr.toISOString().split('T')[0]);
+    curr.setDate(curr.getDate() + 1);
+  }
+  return dates;
+}
+
+/**
+ * Checks if a date matches a fixed holiday template.
+ */
+function isFixedHoliday(date, template) {
+  if (template.date_type !== 'fixed') return false;
+  const d = new Date(date);
+  // getMonth() is 0-indexed, so add 1
+  return (d.getUTCMonth() + 1) === template.month_number && d.getUTCDate() === template.day_number;
+}
+
+// TODO: Add calculated holiday logic if needed
+
+/**
+ * Gets business hours for a given day of week.
+ */
+function getBusinessHoursForDay(dayOfWeek, businessHours) {
+  return businessHours.find(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek.toLowerCase());
+}
+
+/**
+ * Gets the most recent scheduled override for a day and date.
+ */
+function getScheduledOverride(dayOfWeek, date, scheduledBusinessHours) {
+  // Find the most recent override for this day_of_week and date
+  return scheduledBusinessHours
+    .filter(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek.toLowerCase() && bh.effective_date <= date)
+    .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
+}
+
+/**
+ * Gets the highest priority exception for a date.
+ */
+function getExceptionForDate(date, exceptions) {
+  // Highest priority exception for this date
+  return exceptions.find(ex => {
+    if (ex.exception_type === 'single_day') return ex.start_date === date;
+    if (ex.exception_type === 'date_range') return ex.start_date <= date && ex.end_date >= date;
+    // TODO: Add recurring/special_schedule logic if needed
+    return false;
   });
+}
+
+/**
+ * Returns merged business hours, overrides, holidays, and exceptions for each date in the range.
+ */
+router.get('/calendar', async (req, res) => {
+  const { start, end } = req.query;
+  if (!start || !end) return res.status(400).json({ error: 'Missing start or end date' });
+
+  try {
+    // 1. Fetch all business_hours (base template)
+    const businessHours = await BusinessHour.findAll(); // No is_active column anymore
+
+    // 2. Fetch all scheduled_business_hours to determine the future schedule
+    // This is now handled by the BusinessHour model itself. This can be removed.
+
+    // Get the single effective_date from the future schedule, if it exists.
+    // Format it as a 'YYYY-MM-DD' string to prevent timezone issues during comparison.
+
+    // 3. Fetch all schedule_exceptions overlapping the range
+    const scheduleExceptions = await ScheduleException.findAll({
+      where: {
+        isActive: true,
+        startDate: { [Op.lte]: end },
+        [Op.or]: [{ end_date: null }, { end_date: { [Op.gte]: start } }]
+      }
+    });
+
+
+    // 4. Fetch all holiday_templates (active)
+    // This is now part of ScheduleException. This can be removed.
+
+    // --- Merging logic: build day map for each date in range ---
+    const days = getDatesInRange(start, end);
+    const result = [];
+    for (const date of days) {
+      const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }).toLowerCase();
+      let activeSchedule;
+      
+      // Refactor: Find the correct schedule for the date
+      const applicableSchedules = businessHours.filter(bh => bh.effectiveDate <= date);
+      const latestEffectiveDate = Math.max(...applicableSchedules.map(bh => new Date(bh.effectiveDate)));
+      
+      activeSchedule = businessHours.find(bh => 
+        new Date(bh.effectiveDate).getTime() === latestEffectiveDate && 
+        bh.dayOfWeek.toLowerCase() === dayOfWeek
+      );
+
+      // 1. Start with base
+      let dayInfo = {
+        date,
+        is_open: activeSchedule ? !!activeSchedule.is_open : false, // Correctly use the determined active schedule
+        open_time: activeSchedule ? activeSchedule.openTime : null,
+        close_time: activeSchedule ? activeSchedule.closeTime : null,
+        reason: null
+      };
+
+      // 3. Overlay holiday_templates
+      const holiday = scheduleExceptions.find(ex => ex.type === 'YEARLY_FIXED' && ex.month === (new Date(date).getUTCMonth() + 1) && ex.day === new Date(date).getUTCDate());
+      if (holiday) {
+        dayInfo.is_open = false;
+        dayInfo.reason = `Holiday - ${holiday.name}`;
+      }
+
+      // 4. Overlay schedule_exceptions
+      const exception = getExceptionForDate(date, scheduleExceptions);
+      if (exception) {
+        dayInfo.is_open = !exception.is_closed;
+        if (exception.customOpenTime) dayInfo.open_time = exception.customOpenTime;
+        if (exception.customCloseTime) dayInfo.close_time = exception.customCloseTime;
+        dayInfo.reason = exception.reason || 'Exception';
+      }
+
+      result.push(dayInfo);
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('Error in /api/calendar:', err);
+    res.status(500).json({ error: 'Database error', details: err.message });
+  }
 });
 
 module.exports = router;

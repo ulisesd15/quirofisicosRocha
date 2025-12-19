@@ -1,9 +1,17 @@
 /**
- * Mis Citas - User Appointments Management
- * Handles loading and displaying user appointments
+ * mis-citas.js
+ *
+ * Handles the user appointments ("Mis Citas") page logic:
+ * - Loads and displays the current user's appointments.
+ * - Supports filtering, canceling, rescheduling, and viewing appointment details.
+ * - Handles authentication and redirects to login if not authenticated.
+ * - Provides UI feedback for errors and actions.
  */
 
 class MisCitas {
+    /**
+     * Initializes MisCitas instance, sets up state, and triggers initial load.
+     */
     constructor() {
         this.appointments = [];
         this.currentFilter = 'all';
@@ -12,61 +20,72 @@ class MisCitas {
         this.init();
     }
 
+    /**
+     * Main initialization: checks auth, loads user data and appointments, sets up event listeners.
+     */
     async init() {
         // Check authentication
-        if (!this.authManager.isLoggedIn()) {
+        const loggedIn = this.authManager.isLoggedIn();
+        console.debug('[MisCitas] init - isLoggedIn:', loggedIn, { token: this.authManager.token, userId: this.authManager.userId });
+        if (!loggedIn) {
+            console.info('[MisCitas] User is not logged in; redirecting to login.html');
             this.redirectToLogin();
             return;
         }
 
         // Load user data and appointments
         await this.loadUserData();
-        await this.loadAppointments();
-        this.setupEventListeners();
+        this.setupFilterEventListeners();
     }
 
+    /**
+     * Returns the current user's auth token.
+     */
     getAuthToken() {
         return this.authManager.token;
     }
 
+    /**
+     * Redirects to the login page.
+     */
     redirectToLogin() {
         window.location.href = 'login.html';
     }
 
+    /**
+     * Loads the current user's profile data from the backend and displays it.
+     */
     async loadUserData() {
         try {
-            const token = this.getAuthToken();
-            const response = await fetch('/api/auth/me', {
+            const response = await fetch('/api/auth/profile', {
                 headers: {
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${this.getAuthToken()}`
                 }
             });
 
             if (response.ok) {
                 this.currentUser = await response.json();
-                this.displayUserInfo();
+                // User data is loaded, now load their appointments
+                await this.loadAppointments();
             } else {
                 throw new Error('Error loading user data');
             }
         } catch (error) {
             console.error('Error loading user data:', error);
-            this.redirectToLogin();
+            // If user data fails to load, it's an auth issue. Redirect to login.
+            window.location.href = 'login.html';
         }
     }
 
+    /**
+     * Updates the UI with the current user's info.
+     */
     displayUserInfo() {
-        if (!this.currentUser) return;
-
-        document.getElementById('userFullName').textContent = this.currentUser.full_name || 'Usuario';
-        document.getElementById('userEmail').textContent = this.currentUser.email || '';
-        
-        // Update navigation
-        const userNameDisplay = document.getElementById('userNameDisplay');
-        if (userNameDisplay) {
-            userNameDisplay.textContent = this.currentUser.full_name?.split(' ')[0] || 'Usuario';
-        }
     }
 
+    /**
+     * Loads the user's appointments from the backend and updates the UI.
+     */
     async loadAppointments() {
         try {
             const token = this.getAuthToken();
@@ -79,6 +98,10 @@ class MisCitas {
             if (response.ok) {
                 const data = await response.json();
                 this.appointments = data.appointments || [];
+                // Populate user info card with data from the first appointment if available
+                const userInfo = this.appointments.length > 0 ? this.appointments[0] : this.currentUser;
+                document.getElementById('userFullName').textContent = userInfo.full_name || 'Usuario';
+                document.getElementById('userEmail').textContent = userInfo.email || '';
                 this.updateAppointmentCount();
                 this.displayAppointments();
             } else {
@@ -92,61 +115,89 @@ class MisCitas {
         }
     }
 
+    /**
+     * Updates the UI with the current number of appointments.
+     */
     updateAppointmentCount() {
         const count = this.appointments.length;
         document.getElementById('appointmentCount').textContent = count;
     }
 
+    /**
+     * Renders the list of appointments in the UI, or shows a message if none exist.
+     */
     displayAppointments() {
         const container = document.getElementById('appointmentsContainer');
         const noAppointments = document.getElementById('noAppointments');
+        const loadingState = document.getElementById('loadingState');
 
-        if (this.appointments.length === 0) {
+        loadingState.style.display = 'none';
+
+        const filteredAppointments = this.filterAppointments();
+
+        if (this.appointments.length === 0) { // No appointments at all
             container.style.display = 'none';
             noAppointments.style.display = 'block';
+            noAppointments.querySelector('h4').textContent = 'No tienes citas registradas';
             return;
         }
 
-        container.style.display = 'block';
+        // Ensure the container uses flex display to align columns horizontally
+        container.style.display = 'flex'; 
         noAppointments.style.display = 'none';
 
-        const filteredAppointments = this.filterAppointments();
-        container.innerHTML = filteredAppointments.map(appointment => this.createAppointmentCard(appointment)).join('');
+        if (filteredAppointments.length === 0) {
+            container.innerHTML = `<div class="col-12"><p class="text-center text-muted mt-4">No hay citas que coincidan con este filtro.</p></div>`;
+        } else {
+            container.innerHTML = filteredAppointments.map(appointment => this.createAppointmentCard(appointment)).join('');
+        }
+
+        // After rendering cards, set up event listeners for the buttons inside them
+        this.setupCardEventListeners(container);
     }
 
+    /**
+     * Returns the filtered list of appointments based on the current filter.
+     */
     filterAppointments() {
         const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
         switch (this.currentFilter) {
             case 'upcoming':
                 return this.appointments.filter(apt => {
-                    const aptDate = new Date(apt.date);
-                    return aptDate >= today && apt.status !== 'cancelled' && apt.status !== 'completed';
+                    const dateOnly = apt.date.split('T')[0];
+                    const aptDateTime = new Date(`${dateOnly}T${apt.time}`);
+                    return aptDateTime >= now && apt.status !== 'cancelled' && apt.status !== 'completed';
                 });
             case 'past':
                 return this.appointments.filter(apt => {
-                    const aptDate = new Date(apt.date);
-                    return aptDate < today || apt.status === 'completed';
+                    const dateOnly = apt.date.split('T')[0];
+                    const aptDateTime = new Date(`${dateOnly}T${apt.time}`);
+                    return aptDateTime < now || apt.status === 'completed' || apt.status === 'cancelled';
                 });
             default:
-                return this.appointments;
+                // Return a sorted copy for 'all'
+                return [...this.appointments].sort((a, b) => {
+                    return new Date(`${b.date}T${b.time}`) - new Date(`${a.date}T${a.time}`);
+                });
         }
     }
 
+    /**
+     * Creates the HTML for a single appointment card.
+     */
     createAppointmentCard(appointment) {
-        const appointmentDate = new Date(appointment.date);
-        const appointmentTime = appointment.time;
+        const dateOnly = appointment.date.split('T')[0];
+        const appointmentDateTime = new Date(`${dateOnly}T${appointment.time}`);
         const now = new Date();
-        const isUpcoming = appointmentDate >= now && appointment.status !== 'cancelled' && appointment.status !== 'completed';
-        
+
         const statusConfig = this.getStatusConfig(appointment.status);
-        const formattedDate = this.formatDate(appointmentDate);
-        const formattedTime = this.formatTime(appointmentTime);
+        const formattedDate = this.formatDate(appointmentDateTime);
+        const formattedTime = this.formatTime(appointment.time);
 
         return `
             <div class="col-md-6 col-lg-4">
-                <div class="card appointment-card h-100 border-0 shadow-sm">
+                <div class="card appointment-card h-100">
                     <div class="card-header bg-transparent border-0 pb-0">
                         <div class="d-flex justify-content-between align-items-start">
                             <div class="appointment-date">${formattedDate}</div>
@@ -185,19 +236,16 @@ class MisCitas {
                     
                     <div class="card-footer bg-transparent border-0">
                         <div class="appointment-actions">
-                            ${isUpcoming && appointment.status === 'pending' ? `
-                                <button class="btn btn-outline-warning btn-sm" onclick="misCitas.cancelAppointment('${appointment.id}')">
-                                    <i class="fas fa-times me-1"></i>Cancelar
-                                </button>
-                            ` : ''}
-                            ${isUpcoming && (appointment.status === 'pending' || appointment.status === 'confirmed') ? `
-                                <button class="btn btn-outline-primary btn-sm" onclick="misCitas.rescheduleAppointment('${appointment.id}')">
+                            ${appointment.status === 'confirmed' && appointmentDateTime > now ? `
+                                <button class="btn btn-outline-primary btn-sm" data-action="reschedule" data-id="${appointment.id}">
                                     <i class="fas fa-calendar-alt me-1"></i>Reagendar
                                 </button>
                             ` : ''}
-                            <button class="btn btn-outline-info btn-sm" onclick="misCitas.viewAppointmentDetails('${appointment.id}')">
-                                <i class="fas fa-eye me-1"></i>Detalles
-                            </button>
+                            ${(appointment.status === 'confirmed' || appointment.status === 'pending') && appointmentDateTime > now ? `
+                                <button class="btn btn-outline-danger btn-sm" data-action="cancel" data-id="${appointment.id}">
+                                    <i class="fas fa-times me-1"></i>Cancelar
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
                 </div>
@@ -205,18 +253,24 @@ class MisCitas {
         `;
     }
 
+    /**
+     * Returns a config object for the given appointment status.
+     */
     getStatusConfig(status) {
         const configs = {
             pending: { text: 'Pendiente', class: 'warning' },
-            confirmed: { text: 'Confirmada', class: 'success' },
+            confirmed: { text: 'Confirmada', class: 'primary' },
             completed: { text: 'Completada', class: 'secondary' },
             cancelled: { text: 'Cancelada', class: 'danger' }
         };
         return configs[status] || { text: 'Desconocido', class: 'secondary' };
     }
 
+    /**
+     * Formats a date as a localized string for display.
+     */
     formatDate(date) {
-        return date.toLocaleDateString('es-ES', {
+        return new Date(date.getTime() + date.getTimezoneOffset() * 60000).toLocaleDateString('es-ES', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
@@ -224,17 +278,23 @@ class MisCitas {
         });
     }
 
+    /**
+     * Formats a time string as a localized time for display.
+     */
     formatTime(timeString) {
         const [hours, minutes] = timeString.split(':');
         const time = new Date();
         time.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-        return time.toLocaleTimeString('es-ES', {
+        return time.toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit',
             hour12: true
         });
     }
 
+    /**
+     * Formats a date-time string as a localized string for display.
+     */
     formatDateTime(dateTimeString) {
         const date = new Date(dateTimeString);
         return date.toLocaleDateString('es-ES', {
@@ -246,7 +306,10 @@ class MisCitas {
         });
     }
 
-    setupEventListeners() {
+    /**
+     * Sets up event listeners for appointment filter radio buttons.
+     */
+    setupFilterEventListeners() {
         // Filter buttons
         document.querySelectorAll('input[name="appointmentFilter"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
@@ -256,6 +319,34 @@ class MisCitas {
         });
     }
 
+    /**
+     * Sets up delegated event listeners for appointment card actions.
+     * @param {HTMLElement} container - The container holding the appointment cards.
+     */
+    setupCardEventListeners(container) {
+        container.addEventListener('click', (e) => {
+            const button = e.target.closest('button[data-action]');
+            if (!button) return;
+
+            const action = button.dataset.action;
+            const id = button.dataset.id;
+
+            if (!id) return;
+
+            switch (action) {
+                case 'cancel':
+                    this.cancelAppointment(id);
+                    break;
+                case 'reschedule':
+                    this.rescheduleAppointment(id);
+                    break;
+            }
+        });
+    }
+
+    /**
+     * Cancels an appointment by ID after user confirmation, then reloads appointments.
+     */
     async cancelAppointment(appointmentId) {
         if (!confirm('¿Estás seguro de que deseas cancelar esta cita?')) {
             return;
@@ -283,11 +374,17 @@ class MisCitas {
         }
     }
 
+    /**
+     * Redirects to the reschedule page for the given appointment ID.
+     */
     rescheduleAppointment(appointmentId) {
         // Redirect to reschedule page with appointment ID
         window.location.href = `reschedule.html?id=${appointmentId}`;
     }
 
+    /**
+     * Shows a modal with detailed information for the given appointment.
+     */
     async viewAppointmentDetails(appointmentId) {
         const appointment = this.appointments.find(apt => apt.id.toString() === appointmentId.toString());
         if (!appointment) return;
@@ -304,6 +401,9 @@ class MisCitas {
         });
     }
 
+    /**
+     * Creates and returns a Bootstrap modal element for appointment details.
+     */
     createDetailsModal(appointment) {
         const modal = document.createElement('div');
         modal.className = 'modal fade';
@@ -363,45 +463,47 @@ class MisCitas {
         return modal;
     }
 
+    /**
+     * Shows a success alert message in the UI.
+     */
     showSuccess(message) {
         this.showAlert(message, 'success');
     }
 
+    /**
+     * Shows an error alert message in the UI.
+     */
     showError(message) {
         this.showAlert(message, 'danger');
     }
 
+    /**
+     * Shows an alert message of the given type in the UI.
+     */
     showAlert(message, type) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-        alertDiv.style.cssText = 'top: 100px; right: 20px; z-index: 9999; min-width: 300px;';
-        alertDiv.innerHTML = `
+        const container = document.getElementById('notification-container');
+        if (!container) return;
+
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.role = 'alert';
+        alert.innerHTML = `
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
         
-        document.body.appendChild(alertDiv);
+        container.appendChild(alert);
         
         // Auto-dismiss after 5 seconds
         setTimeout(() => {
-            if (alertDiv.parentNode) {
-                alertDiv.parentNode.removeChild(alertDiv);
-            }
+            bootstrap.Alert.getOrCreateInstance(alert)?.close();
         }, 5000);
     }
 }
 
-// Global functions for button onclick handlers
-let misCitas;
-
-// Initialize when DOM is loaded
+/**
+ * Initializes the MisCitas instance when the DOM is loaded.
+ */
 document.addEventListener('DOMContentLoaded', () => {
-    misCitas = new MisCitas();
+    new MisCitas();
 });
-
-// Logout function (used by navigation)
-function logout() {
-    localStorage.removeItem('user_token');
-    localStorage.removeItem('token');
-    window.location.href = 'login.html';
-}

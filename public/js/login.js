@@ -1,8 +1,33 @@
+/**
+ * login.js
+ *
+ * Handles the login page logic for user authentication.
+ * - Redirects users to the appointment page if already logged in.
+ * - Handles login form submission, authenticates via API, and redirects based on user role.
+ * - Supports Google OAuth login.
+ * - Manages navigation menu toggle visibility for mobile/offcanvas UI.
+ */
+
 document.addEventListener('DOMContentLoaded', () => {
+  /**
+   * Redirects to the appointment page if a valid token is found in localStorage.
+   */
+  // Redirect if already logged in
+  const token = localStorage.getItem('token') || localStorage.getItem('user_token');
+  if (token) {
+    window.location.href = '/appointment.html'; // or your dashboard page
+    return;
+  }
   // Handle login form submission
   const loginForm = document.getElementById('loginForm');
   
   if (loginForm) {
+    /**
+     * Handles login form submission:
+     * - Sends credentials to backend API.
+     * - On success, stores token and user info, redirects by role.
+     * - On failure, displays error message.
+     */
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
@@ -25,7 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
             window.authManager.login(data.token, data.user);
           }
           
-          alert(data.message);
           
           // Redirect based on user role
           if (data.user.role === 'admin') {
@@ -49,41 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Quick Admin Login Button
-  const quickAdminBtn = document.getElementById('quickAdminLogin');
-  
-  if (quickAdminBtn) {
-    quickAdminBtn.addEventListener('click', async () => {
-      try {
-        const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            email: 'admin@quirofisicosrocha.com', 
-            password: 'admin123' 
-          })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-          // Use AuthManager to handle login
-          if (window.authManager) {
-            window.authManager.login(data.token, data.user);
-          }
-          
-          // alert('Admin login successful! Redirecting to admin panel...');
-          window.location.href = '/admin/adminOptions.html';
-        } else {
-          alert('Admin login failed: ' + data.error);
-        }
-      } catch (error) {
-        console.error('Admin login error:', error);
-        alert('Error during admin login');
-      }
-    });
-  }
-
+  /**
+   * Handles Google OAuth login button click by redirecting to the backend Google auth endpoint.
+   */
   // Google login handler
   const googleLoginBtn = document.getElementById('google-login');
   if (googleLoginBtn) {
@@ -92,6 +84,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  /**
+   * Manages navigation menu toggle visibility for offcanvas UI:
+   * - Hides toggle button when menu opens.
+   * - Shows toggle button when menu closes.
+   */
   // Navigation menu handlers
   const menuToggle = document.getElementById('menu_toggle');
   const offcanvas = document.getElementById('sideNav');

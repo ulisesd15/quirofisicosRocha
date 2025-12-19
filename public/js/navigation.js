@@ -1,38 +1,63 @@
+/**
+ * navigation.js
+ *
+ * Handles the navigation bar and sidebar logic for all public pages:
+ * - Dynamically renders the navigation bar and updates auth/user links.
+ * - Supports mobile sidebar, smooth scrolling, and section navigation.
+ * - Integrates with AuthManager for login/logout and user info.
+ * - Periodically checks and updates navigation state.
+ */
+
+// DEBUG: Log if navbar disappears
+setInterval(() => {
+    const nav = document.getElementById('main-navigation');
+    if (nav && (nav.offsetHeight === 0 || nav.offsetParent === null || window.getComputedStyle(nav).display === 'none')) {
+        console.warn('DEBUG: #main-navigation is hidden or removed!');
+    }
+}, 1000);
+
 // Navigation Component for all public pages
 class NavigationManager {
+    /**
+     * Initializes NavigationManager and renders navigation.
+     */
     constructor() {
         this.currentPage = this.getCurrentPage();
         this.initializeNavigation();
     }
 
+    /**
+     * Determines the current page based on the URL path.
+     */
     getCurrentPage() {
         const path = window.location.pathname;
-        if (path === '/' || path === '/index.html') return 'home';
+        if (path === '/' || path.endsWith('/index.html')) return 'home';
         if (path.includes('login')) return 'login';
         if (path.includes('register')) return 'register';
         if (path.includes('appointment')) return 'appointment';
         return 'other';
     }
 
+    /**
+     * Returns the HTML for the main navigation bar.
+     */
     createNavbar() {
         return `
-            <nav class="navbar navbar-expand-lg main-navbar">
+            <nav class="navbar navbar-expand-lg main-navbar shadow-sm bg-white py-3 custom-navbar">
                 <div class="container">
-                    <a class="navbar-brand" href="/index.html">
-                        <div class="brand-logo">
-                            <i class="fas fa-spine"></i>
-                        </div>
-                        Quiroprácticos Rocha
+                    <a class="navbar-brand d-flex align-items-center gap-2 fw-bold fs-3 text-primary" href="/index.html">
+                        <span class="brand-logo bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width:48px;height:48px;">
+                            <i class="fas fa-spine fa-lg"></i>
+                        </span>
+                        <span class="brand-title">Quiroprácticos Rocha</span>
                     </a>
-                    
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+                    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
                         <span class="navbar-toggler-icon"></span>
                     </button>
-                    
                     <div class="collapse navbar-collapse" id="mainNavbar">
-                        <ul class="navbar-nav ms-auto">
+                        <ul class="navbar-nav ms-auto align-items-center gap-3">
                             <li class="nav-item">
-                                <a class="nav-link main-nav-link ${this.currentPage === 'home' ? 'active' : ''}" href="/index.html">
+                                <a class="nav-link main-nav-link ${this.currentPage !== 'home' ? 'active' : ''}" href="/index.html">
                                     <i class="fas fa-home me-1"></i>Inicio
                                 </a>
                             </li>
@@ -42,8 +67,8 @@ class NavigationManager {
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link main-nav-link" href="#servicios" data-scroll="servicios">
-                                    <i class="fas fa-hand-holding-medical me-1"></i>Servicios
+                                <a class="nav-link main-nav-link" href="#contacto-section" data-scroll="contacto-section">
+                                    <i class="fas fa-map-marker-alt me-1"></i>Ubicación
                                 </a>
                             </li>
                             <li class="nav-item">
@@ -58,47 +83,19 @@ class NavigationManager {
                     </div>
                 </div>
             </nav>
-
-            <!-- Mobile Sidebar Overlay -->
-            <div class="mobile-sidebar-overlay" id="sidebarOverlay" onclick="this.closeMobileSidebar()"></div>
-            
-            <!-- Mobile Sidebar -->
-            <div class="mobile-sidebar" id="mobileSidebar">
-                <div class="sidebar-header">
-                    <i class="fas fa-spine me-2"></i>Navegación
-                </div>
-                <div class="sidebar-nav">
-                    <a href="/index.html" class="sidebar-nav-item ${this.currentPage === 'home' ? 'active' : ''}">
-                        <i class="fas fa-home"></i>Página Principal
-                    </a>
-                    <a href="/appointment.html" class="sidebar-nav-item ${this.currentPage === 'appointment' ? 'active' : ''}">
-                        <i class="fas fa-calendar-plus"></i>Agendar Cita
-                    </a>
-                    <a href="/index.html#servicios" class="sidebar-nav-item" data-scroll="servicios">
-                        <i class="fas fa-hand-holding-medical"></i>Nuestros Servicios
-                    </a>
-                    <a href="/index.html#about" class="sidebar-nav-item">
-                        <i class="fas fa-info-circle"></i>Acerca de Nosotros
-                    </a>
-                    <a href="/index.html#contacto-section" class="sidebar-nav-item" data-scroll="contacto-section">
-                        <i class="fas fa-phone"></i>Contacto
-                    </a>
-                    <div class="sidebar-nav" style="border-top: 1px solid #e9ecef; margin-top: 1rem; padding-top: 1rem;">
-                        ${this.getMobileAuthItems()}
-                    </div>
-                </div>
-            </div>
         `;
     }
 
+    /**
+     * Returns the HTML for the auth/user nav item (desktop).
+     */
     getAuthNavItem() {
         if (window.authManager && typeof window.authManager.isLoggedIn === 'function' && window.authManager.isLoggedIn()) {
             const user = window.authManager.getCurrentUser();
             const isAdmin = window.authManager.isAdmin();
-            
             return `
                 <div class="dropdown">
-                    <a class="nav-link main-nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                    <a class="nav-link main-nav-link dropdown-toggle user-name-display" href="#" role="button" data-bs-toggle="dropdown">
                         <i class="fas fa-user me-1"></i>${user?.full_name || 'Usuario'}
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
@@ -108,13 +105,7 @@ class NavigationManager {
                         <li><a class="dropdown-item" href="/user-settings.html">
                             <i class="fas fa-user-cog me-2"></i>Configuración
                         </a></li>
-                        ${isAdmin ? `
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/admin/adminOptions.html">
-                                <i class="fas fa-cog me-2"></i>Panel Admin
-                            </a></li>
-                        ` : ''}
-                        <li><hr class="dropdown-divider"></li>
+                        ${isAdmin ? `<li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="/admin/adminOptions.html"><i class="fas fa-cog me-2"></i>Panel Admin</a></li>` : ''}
                         <li><a class="dropdown-item" href="#" onclick="window.authManager.logout(); window.location.reload();">
                             <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
                         </a></li>
@@ -130,25 +121,35 @@ class NavigationManager {
         }
     }
 
+    /**
+     * Returns the HTML for the auth/user nav items (mobile sidebar).
+     */
     getMobileAuthItems() {
         if (window.authManager && typeof window.authManager.isLoggedIn === 'function' && window.authManager.isLoggedIn()) {
             const user = window.authManager.getCurrentUser();
             const isAdmin = window.authManager.isAdmin();
             
             return `
+                <div class="sidebar-user-info d-flex align-items-center gap-2 mb-3 px-2 py-2 rounded bg-light">
+                    <span class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width:32px;height:32px;">
+                        <i class="fas fa-user"></i>
+                    </span>
+                    <span class="fw-semibold">${user?.full_name || 'Usuario'}</span>
+                </div>
                 <a href="/mis-citas.html" class="sidebar-nav-item">
-                    <i class="fas fa-calendar-check"></i>Mis Citas
+                    <i class="fas fa-calendar-check me-2"></i>Mis Citas
                 </a>
                 <a href="/user-settings.html" class="sidebar-nav-item">
-                    <i class="fas fa-user-cog"></i>Configuración
+                    <i class="fas fa-user-cog me-2"></i>Configuración
                 </a>
                 ${isAdmin ? `
                     <a href="/admin/adminOptions.html" class="sidebar-nav-item">
-                        <i class="fas fa-cog"></i>Panel Admin
+                        <i class="fas fa-cog me-2"></i>Panel Admin
                     </a>
                 ` : ''}
-                <a href="#" class="sidebar-nav-item" onclick="window.authManager.logout(); window.location.reload();">
-                    <i class="fas fa-sign-out-alt"></i>Cerrar Sesión
+                <hr class="my-2">
+                <a href="#" class="sidebar-nav-item text-danger" onclick="window.authManager.logout(); window.location.reload();">
+                    <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
                 </a>
             `;
         } else {
@@ -163,6 +164,9 @@ class NavigationManager {
         }
     }
 
+    /**
+     * Scrolls smoothly to a section by ID, or navigates to home if not on home page.
+     */
     scrollToSection(sectionId) {
         // If we're not on the home page, navigate there first
         if (this.currentPage !== 'home') {
@@ -177,6 +181,9 @@ class NavigationManager {
         }
     }
 
+    /**
+     * Sets up event listeners for scroll links and handles hash navigation.
+     */
     handleScrollLinks() {
         // Handle scroll links in navigation
         document.addEventListener('click', (e) => {
@@ -201,6 +208,9 @@ class NavigationManager {
         }
     }
 
+    /**
+     * Toggles the mobile sidebar open/closed.
+     */
     toggleMobileSidebar() {
         const sidebar = document.getElementById('mobileSidebar');
         const overlay = document.getElementById('sidebarOverlay');
@@ -209,51 +219,68 @@ class NavigationManager {
         overlay.classList.toggle('show');
     }
 
+    /**
+     * Closes the mobile sidebar if open.
+     */
     closeMobileSidebar() {
         const sidebar = document.getElementById('mobileSidebar');
         const overlay = document.getElementById('sidebarOverlay');
-        
-        sidebar.classList.remove('show');
-        overlay.classList.remove('show');
+        if (sidebar) sidebar.classList.remove('show');
+        if (overlay) overlay.classList.remove('show');
     }
 
+    /**
+     * Initializes navigation rendering and visibility on DOM ready.
+     */
     initializeNavigation() {
         // Wait for DOM to be ready
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => this.renderNavigation());
+            document.addEventListener('DOMContentLoaded', () => this.setupNavigationVisibility());
         } else {
-            this.renderNavigation();
+            this.setupNavigationVisibility();
         }
     }
 
-    init() {
+    /**
+     * Renders the navigation bar and sets up visibility.
+     */
+    setupNavigationVisibility() {
         this.renderNavigation();
+        const navContainer = document.getElementById('main-navigation');
+        if (navContainer) {
+            navContainer.classList.add('visible');
+            navContainer.classList.remove('pop-in');
+        }
     }
 
+    /**
+     * Renders the navigation bar and sets up scroll/auth handlers.
+     */
     renderNavigation() {
-        // Create navbar container if it doesn't exist
-        let navContainer = document.getElementById('main-navigation');
-        if (!navContainer) {
-            navContainer = document.createElement('div');
-            navContainer.id = 'main-navigation';
-            document.body.insertBefore(navContainer, document.body.firstChild);
+        // Render the main navbar as before
+        const navContainer = document.getElementById('main-navigation');
+        if (navContainer) {
+            navContainer.innerHTML = this.createNavbar();
+            // Debug: log clicks on mis-citas/appointment links to diagnose redirect issues
+            navContainer.addEventListener('click', (e) => {
+                const a = e.target.closest('a');
+                if (!a) return;
+                const href = a.getAttribute('href');
+                if (href && (href.includes('mis-citas') || href.includes('appointment'))) {
+                    console.debug('[Navigation] link click detected', { href });
+                }
+            });
         }
-        
-        navContainer.innerHTML = this.createNavbar();
-        
-        // Add mobile sidebar toggle functionality
-        const toggler = document.querySelector('.navbar-toggler');
-        if (toggler) {
-            toggler.addEventListener('click', () => this.toggleMobileSidebar());
-        }
-        
+
         // Initialize scroll link handlers
         this.handleScrollLinks();
-        
         // Update auth nav item periodically
-        setInterval(() => this.updateAuthNavigation(), 5000);
+        this.authNavInterval = setInterval(() => this.updateAuthNavigation(), 5000);
     }
 
+    /**
+     * Updates the auth/user nav item (desktop) periodically.
+     */
     updateAuthNavigation() {
         const authNavItem = document.getElementById('authNavItem');
         if (authNavItem) {
@@ -262,5 +289,7 @@ class NavigationManager {
     }
 }
 
-// Initialize navigation when the script loads
+/**
+ * Initializes the NavigationManager and exposes it globally.
+ */
 window.navigationManager = new NavigationManager();

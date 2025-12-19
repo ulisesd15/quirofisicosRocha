@@ -1,0 +1,119 @@
+/*
+ * reschedule.css
+ * Custom styles for the reschedule page. Use this file to override or add styles specific to reschedule.html.
+ */
+
+:root {
+    --res-primary: #2563eb;
+    --res-primary-dark: #1d4ed8;
+    --res-bg: #f3f6fb;
+    --res-card-bg: #ffffff;
+    --res-border: #e2e8f0;
+    --res-text: #334155;
+    --res-muted: #64748b;
+    --res-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+}
+
+body.reschedule-page {
+    background-color: var(--res-bg);
+}
+
+.services-section {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+}
+
+.reschedule-page .card {
+    border-radius: 0.75rem;
+    border-color: var(--res-border);
+    box-shadow: var(--res-shadow);
+}
+
+.reschedule-page .card-body {
+    padding: 2rem;
+}
+
+.reschedule-page .alert {
+    border-radius: 0.75rem;
+}
+
+.reschedule-page .alert-warning {
+    background-color: #fffbeb;
+    color: #92400e;
+    border-color: #fde68a;
+}
+
+.reschedule-page .alert-info {
+    background-color: #eff6ff;
+    color: var(--res-primary-dark);
+    border-color: #bfdbfe;
+}
+
+.reschedule-page .btn-primary {
+    background-color: var(--res-primary);
+    border-color: var(--res-primary);
+}
+
+.reschedule-page .btn-primary:hover {
+    background-color: var(--res-primary-dark);
+    border-color: var(--res-primary-dark);
+}
+
+.reschedule-page .calendar-day-btn.selected,
+.reschedule-page .time-slot.btn-primary {
+    background-color: var(--res-primary-dark) !important;
+    border-color: var(--res-primary-dark) !important;
+    color: white !important;
+}
+
+.reschedule-page .calendar-day-btn.today {
+    border-color: var(--res-primary) !important;
+    box-shadow: 0 0 0 2px var(--res-primary);
+}
+
+.reschedule-page .form-label {
+    font-weight: 500;
+    color: var(--res-text);
+}
+
+.reschedule-page .form-control {
+    border-radius: 0.5rem;
+    border-color: var(--res-border);
+}
+
+.reschedule-page .form-control:focus {
+    border-color: var(--res-primary);
+    box-shadow: 0 0 0 0.25rem rgba(37, 99, 235, 0.15);
+}
+
+.reschedule-page h2,
+.reschedule-page h3,
+.reschedule-page h5 {
+    color: var(--res-text);
+    font-weight: 600;
+}
+
+.reschedule-page .lead {
+    color: var(--res-muted);
+}
+
+.reschedule-page .time-slot {
+    border-radius: 0.5rem;
+}
+
+.reschedule-page .time-slot:disabled {
+    background-color: #e5e7eb !important;
+    color: #9ca3af !important;
+    border-color: #e5e7eb !important;
+}
+
+.footer {
+    background-color: var(--res-primary-dark);
+    color: white;
+}
+
+@media (max-width: 767px) {
+    .reschedule-page .card-body {
+        padding: 1.5rem;
+    }
+}
