@@ -28,7 +28,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     try {
         const user = await User.findByPk(userId, {
-            attributes: ['id', 'full_name', 'email', 'phone', 'role', 'auth_provider', 'is_verified', 'created_at']
+            attributes: ['id', 'fullName', 'email', 'phone', 'role', 'authProvider', 'isVerified', 'createdAt']
         });
         if (!user) return res.status(404).json({ error: 'User not found' });
         res.json(user);
@@ -102,7 +102,7 @@ router.post('/login', async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        full_name: user.full_name,
+        fullName: user.fullName,
         role: user.role || 'user'
       },
       token: token
@@ -117,14 +117,14 @@ router.post('/login', async (req, res) => {
  * Registers a new user with email, phone, and password, returns JWT on success.
  */
 router.post('/auth/register', async (req, res) => {
-  const { full_name, phone, email, password } = req.body;
-  if (!full_name || !phone || !email || !password) {
+  const { fullName, phone, email, password } = req.body;
+  if (!fullName || !phone || !email || !password) {
     return res.status(400).json({ success: false, message: 'Faltan campos requeridos' });
   }
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await User.create({
-      full_name,
+      fullName,
       email,
       phone,
       password: hashedPassword,
@@ -139,7 +139,7 @@ router.post('/auth/register', async (req, res) => {
       user: {
         id: newUser.id,
         email: email,
-        full_name: full_name,
+        fullName: fullName,
         role: 'user'
       },
       token: token

@@ -607,15 +607,15 @@ router.delete('/appointments/:id', authenticateToken, async (req, res) => {
  */
 router.put('/auth/update-profile', authenticateToken, async (req, res) => {
   const userId = req.user.id; // Get user ID from the token
-  const { full_name, email, phone } = req.body;
+  const { fullName, email, phone } = req.body;
 
-  if (!full_name || !email) {
+  if (!fullName || !email) {
     return res.status(400).json({ error: 'Full name and email are required.' });
   }
 
   try {
     await User.update(
-      { full_name, email, phone },
+      { fullName, email, phone },
       { where: { id: userId } }
     );
     res.json({ message: 'Profile updated successfully.' });
