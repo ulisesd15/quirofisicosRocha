@@ -37,11 +37,16 @@
                 <input name="email" id="email" type="email" class="form-control" placeholder="tu@email.com" required />
               </div>
               
-              <div class="mb-3">
+              <div class="mb-3 password-container">
                 <label for="password" class="form-label">
                   <i class="fas fa-lock me-2"></i>Contraseña
                 </label>
-                <input name="password" id="password" type="password" class="form-control" placeholder="Tu contraseña" required />
+                <div class="input-wrapper position-relative">
+                  <input name="password" id="password" type="password" class="form-control" placeholder="Tu contraseña" required />
+                  <span class="toggle-icon position-absolute top-50 end-0 translate-middle-y me-3" style="cursor: pointer;" onclick="togglePassword('password', this)">
+                    <i class="fas fa-eye"></i>
+                  </span>
+                </div>
               </div>
               
               <button class="btn btn-primary w-100 mb-3" type="submit">

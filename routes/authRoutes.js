@@ -94,7 +94,8 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
     }
 
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '2h' });
+    const userRole = user.role || user.getDataValue('role') || 'user';
+    const token = jwt.sign({ id: user.id, email: user.email, role: userRole }, JWT_SECRET, { expiresIn: '2h' });
     console.log('✅ Login successful for:', email);
     res.status(200).json({
       success: true,
@@ -103,7 +104,7 @@ router.post('/login', async (req, res) => {
         id: user.id,
         email: user.email,
         fullName: user.fullName,
-        role: user.role || 'user'
+        role: userRole
       },
       token: token
     });

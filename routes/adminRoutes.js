@@ -19,29 +19,14 @@
 
 const express = require('express');
 const requireAdmin = require('../middleware/requireAdmin');
+const authenticateToken = require('../middleware/authenticateToken');
 const router = express.Router();
 
 const { User, Appointment, BusinessHour, ScheduleException, Announcement, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
-
-/**
- * adminRoutes.js
- *
- * Express router for all admin-related endpoints in the medical appointment system.
- * Handles dashboard stats, business hours, schedule exceptions, user management, appointment management,
- * clinic settings, announcements, and notification testing. All routes are protected by requireAdmin middleware.
- *
- * Key Features:
- * - Dashboard statistics for admin panel
- * - CRUD for business hours and scheduled business hours
- * - Schedule exceptions (e.g., holidays, special hours)
- * - User management (CRUD, verification)
- * - Appointment management (CRUD, approval/rejection)
- * - Clinic settings management
- * - Announcements (CRUD, public display)
- * - Notification testing endpoints (email/SMS)
- */
+// Apply authentication middleware to all admin routes before checking for admin role
+router.use(authenticateToken);
 
 
 /**
@@ -253,7 +238,7 @@ router.get('/schedule-exceptions', requireAdmin, async (req, res) => {
  */
 router.post('/schedule-exceptions', requireAdmin, async (req, res) => {
   const {
-    exceptionType,
+    type,
     startDate,
     endDate,
     isClosed,
@@ -268,17 +253,17 @@ router.post('/schedule-exceptions', requireAdmin, async (req, res) => {
 
   try {
     const result = await ScheduleException.create({
-      exceptionType: exceptionType || 'singleDay',
+      type: type || (isClosed ? 'CLOSURE' : 'OVERRIDE_HOURS'),
       startDate,
       endDate: endDate || null,
-      isClosed: isClosed || false,
       customOpenTime: customOpenTime || null,
       customCloseTime: customCloseTime || null,
       customBreakStart: customBreakStart || null,
       customBreakEnd: customBreakEnd || null,
       reason: reason || '',
       description: description || '',
-      yearlyRecurring: recurringType === 'yearly', // Mapping recurringType to boolean
+      isRecurring: recurringType === 'yearly',
+      recurringType: recurringType || null,
       isActive: true
     });
     res.json({ message: 'Schedule exception added successfully', id: result.id });
@@ -297,7 +282,7 @@ router.post('/schedule-exceptions', requireAdmin, async (req, res) => {
 router.put('/schedule-exceptions/:id', requireAdmin, async (req, res) => {
   const exceptionId = req.params.id;
   const {
-    exceptionType,
+    type,
     startDate,
     endDate,
     isClosed,
@@ -313,17 +298,17 @@ router.put('/schedule-exceptions/:id', requireAdmin, async (req, res) => {
 
   try {
     const [updated] = await ScheduleException.update({
-      exceptionType,
+      type,
       startDate,
       endDate,
-      isClosed,
       customOpenTime,
       customCloseTime,
       customBreakStart,
       customBreakEnd,
       reason,
       description,
-      yearlyRecurring: recurringType === 'yearly',
+      isRecurring: recurringType === 'yearly',
+      recurringType,
       isActive
     }, { where: { id: exceptionId } });
 
@@ -680,58 +665,18 @@ router.put('/appointments/:id/approve', requireAdmin, async (req, res) => {
 
 // Get clinic settings
 router.get('/settings', requireAdmin, async (req, res) => {
-  try {
-    const results = await ClinicSetting.findAll({ order: [['settingKey', 'ASC']] });
-    const settings = {};
-    results.forEach(row => {
-      settings[row.settingKey] = {
-        value: row.settingValue,
-        description: row.description
-      };
-    });
-    res.json(settings);
-  } catch (err) { res.status(500).json({ error: 'Database error' }); }
+  // Model removed, returning empty object to prevent crash
+  res.json({});
 });
 
 // Update multiple clinic settings
 router.put('/settings', requireAdmin, async (req, res) => {
-  const { settings } = req.body;
-  
-  if (!settings || !Array.isArray(settings)) {
-    return res.status(400).json({ error: 'Settings array is required' });
-  }
-
-  try {
-    const updatePromises = settings.map(async (setting) => {
-      const { key, value } = setting;
-      const existing = await ClinicSetting.findOne({ where: { settingKey: key } });
-      if (existing) {
-        return existing.update({ settingValue: value });
-      } else {
-        return ClinicSetting.create({ settingKey: key, settingValue: value });
-      }
-    });
-
-    await Promise.all(updatePromises);
-    res.json({ message: 'Settings updated successfully' });
-  } catch (err) {
-    console.error('Error updating settings:', err);
-    res.status(500).json({ error: 'Database error' });
-  }
+  res.json({ message: 'Settings management is currently disabled.' });
 });
 
 // Update clinic setting
 router.put('/settings/:key', requireAdmin, async (req, res) => {
-  const settingKey = req.params.key;
-  const { value } = req.body;
-  
-  try {
-    const [updated] = await ClinicSetting.update({ settingValue: value }, { where: { settingKey: settingKey } });
-    if (updated === 0) return res.status(404).json({ error: 'Setting not found' });
-    res.json({ message: 'Setting updated successfully' });
-  } catch (err) {
-    res.status(500).json({ error: 'Database error' });
-  }
+  res.json({ message: 'Settings management is currently disabled.' });
 });
 
 // Server status endpoint for admin dashboard

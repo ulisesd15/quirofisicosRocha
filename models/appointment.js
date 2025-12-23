@@ -1,3 +1,4 @@
+// models/appointment.js
 'use strict';
 
 const { Model } = require('sequelize');
@@ -19,58 +20,45 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         autoIncrement: true,
       },
-
       fullName: {
         type: DataTypes.STRING(255),
         allowNull: true,
       },
-
       email: {
         type: DataTypes.STRING(255),
         allowNull: true,
       },
-
       phone: {
         type: DataTypes.STRING(255),
         allowNull: true,
       },
-
-      startDateTime: {
-        type: DataTypes.DATE,
+      date: {
+        type: DataTypes.DATEONLY,
         allowNull: false,
       },
-
-      endDateTime: {
-        type: DataTypes.DATE,
+      time: {
+        type: DataTypes.TIME,
         allowNull: false,
       },
-
       note: {
         type: DataTypes.TEXT,
         allowNull: true,
       },
-
       userId: {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
-
       status: {
-        type: DataTypes.ENUM(
-          'BOOKED',
-          'CANCELLED',
-          'NO_SHOW',
-          'COMPLETED'
-        ), // enum on model side. [web:23][web:25]
+        type: DataTypes.ENUM('pending', 'confirmed', 'cancelled', 'no_show', 'completed'),
         allowNull: false,
-        defaultValue: 'BOOKED',
+        defaultValue: 'pending',
       },
     },
     {
       sequelize,
       modelName: 'Appointment',
       tableName: 'appointments',
-      timestamps: true, // auto-handles createdAt/updatedAt. [web:3][web:40]
+      timestamps: true,
     }
   );
 

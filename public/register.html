@@ -54,19 +54,30 @@
               </div>
               
               <div class="row">
-                <div class="col-md-6 mb-3">
+                <div class="col-md-6 mb-3 password-container">
                   <label for="password" class="form-label">
                     <i class="fas fa-lock me-2"></i>Contraseña
                   </label>
-                  <input class="form-control" name="password" id="password" type="password" placeholder="Mínimo 6 caracteres" required />
+                  <div class="input-wrapper position-relative">
+                    <input class="form-control" name="password" id="password" type="password" placeholder="Mínimo 6 caracteres" required />
+                    <span class="toggle-icon position-absolute top-50 end-0 translate-middle-y me-3" style="cursor: pointer;" onclick="togglePassword('password', this)">
+                      <i class="fas fa-eye"></i>
+                    </span>
+                  </div>
                 </div>
-                <div class="col-md-6 mb-3">
+                <div class="col-md-6 mb-3 password-container">
                   <label for="confirm_password" class="form-label">
                     <i class="fas fa-lock me-2"></i>Confirmar Contraseña
                   </label>
-                  <input class="form-control" name="confirm_password" id="confirm_password" type="password" placeholder="Repite la contraseña" required />
+                  <div class="input-wrapper position-relative">
+                    <input class="form-control" name="confirm_password" id="confirm_password" type="password" placeholder="Confirma tu contraseña" required />
+                    <span class="toggle-icon position-absolute top-50 end-0 translate-middle-y me-3" style="cursor: pointer;" onclick="togglePassword('confirm_password', this)">
+                      <i class="fas fa-eye"></i>
+                    </span>
+                  </div>
                 </div>
               </div>
+              
               
               <button class="btn btn-success w-100 mb-3" type="submit">
                 <i class="fas fa-user-plus me-2"></i>Crear Cuenta

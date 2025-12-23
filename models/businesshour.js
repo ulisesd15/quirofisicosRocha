@@ -5,11 +5,7 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class BusinessHour extends Model {
     static associate(models) {
-      // Example association if you add FK later:
-      // BusinessHour.belongsTo(models.ServiceProvider, {
-      //   foreignKey: 'serviceProviderId',
-      //   as: 'serviceProvider',
-      // });
+      // Define associations here if needed
     }
   }
 
@@ -21,11 +17,14 @@ module.exports = (sequelize, DataTypes) => {
         autoIncrement: true,
       },
       dayOfWeek: {
-        type: DataTypes.TINYINT, // 0–6
+        type: DataTypes.STRING(20),
         allowNull: false,
+        validate: {
+          isIn: [['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']]
+        }
       },
       isOpen: {
-        type: DataTypes.BOOLEAN, // mapped to tinyint-like boolean in SQL. [web:3][web:8]
+        type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: false,
       },
@@ -37,30 +36,16 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TIME,
         allowNull: true,
       },
-      breakStart: {
-        type: DataTypes.TIME,
-        allowNull: true,
-      },
-      breakEnd: {
-        type: DataTypes.TIME,
-        allowNull: true,
-      },
       effectiveDate: {
         type: DataTypes.DATEONLY,
         allowNull: false,
-        defaultValue: DataTypes.NOW,
       },
-      // serviceProviderId: {
-      //   type: DataTypes.INTEGER,
-      //   allowNull: true,
-      // },
     },
     {
       sequelize,
       modelName: 'BusinessHour',
-      tableName: 'BusinessHours',
-      timestamps: true, // manages createdAt/updatedAt automatically. [web:6]
-      underscored: false,
+      tableName: 'business_hours',
+      timestamps: true,
     }
   );
 

@@ -346,5 +346,48 @@ function formatBusinessHoursForFooter(businessHours) {
   return lines.join('');
 }
 
+function togglePassword(inputId, toggleElement) {
+    const input = document.getElementById(inputId);
+    const icon = toggleElement.querySelector('i') || toggleElement;
+
+    if (input.type === "password") {
+        input.type = "text";
+        // If using FontAwesome, switch to eye-slash
+        if (icon.classList.contains('fa-eye')) {
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            icon.innerText = "Hide"; // Fallback text
+        }
+    } else {
+        input.type = "password";
+        // If using FontAwesome, switch back to eye
+        if (icon.classList.contains('fa-eye-slash')) {
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        } else {
+            icon.innerText = "Show"; // Fallback text
+        }
+    }
+}
+
+
 // Load business hours when page loads
 loadBusinessHours();
+
+// Diagnostic: Log user role to console to help diagnose "Access Denied" errors
+document.addEventListener('DOMContentLoaded', () => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+        try {
+            const user = JSON.parse(userStr);
+            console.log('🔐 Auth Debug - User:', user.email);
+            console.log('🔐 Auth Debug - Role:', user.role);
+            if (window.location.href.includes('admin') && user.role !== 'admin') {
+                console.warn('⚠️ ACCESS DENIED DIAGNOSTIC: User is trying to access admin page but role is:', user.role);
+            }
+        } catch (e) {
+            console.error('Error parsing user info:', e);
+        }
+    }
+});

@@ -79,7 +79,7 @@ router.get('/slots', async (req, res) => {
     const appts = await Appointment.findAll({
       where: {
         date: { [Op.in]: days },
-        status: ['pending', 'confirmed']
+        status: ['pending', 'confirmed', 'completed', 'no_show']
       },
       attributes: ['date', 'time']
     });
@@ -120,9 +120,13 @@ router.get('/slots', async (req, res) => {
  * Returns public clinic settings (name, address, phone, email).
  */
 router.get('/clinic-settings', async (req, res) => {
-  // This model was removed. This route is no longer valid.
-  // We can re-implement this later if needed, perhaps with a different strategy.
-  res.status(404).json({ error: 'This endpoint is deprecated.' });
+  // Return default settings to prevent frontend errors since the model was removed
+  res.json({
+    name: 'Quirofísicos Rocha',
+    address: 'Ubicación pendiente',
+    phone: '555-000-0000',
+    email: 'contacto@quirofisicosrocha.com'
+  });
 });
 
 /**
@@ -182,7 +186,7 @@ router.get('/available-slots/:date', async (req, res) => {
     const takenRows = await Appointment.findAll({
       where: {
         date: dayISO,
-        status: ['pending', 'confirmed']
+        status: ['pending', 'confirmed', 'completed', 'no_show']
       },
       attributes: ['time', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
       group: ['time']
@@ -347,7 +351,7 @@ router.post('/appointments', async (req, res) => {
       where: {
         date,
         time,
-        status: ['pending', 'confirmed']
+        status: ['pending', 'confirmed', 'completed', 'no_show']
       }
     });
 
@@ -472,7 +476,7 @@ router.get('/appointments/date/:date', async (req, res) => {
     const results = await Appointment.findAll({
       where: {
         date,
-        status: ['pending', 'confirmed']
+        status: ['pending', 'confirmed', 'completed', 'no_show']
       },
       attributes: ['time']
     });
@@ -560,7 +564,7 @@ router.post('/appointments/:id/reschedule', authenticateToken, async (req, res) 
       where: {
         date: newDate,
         time: newTime,
-        status: ['pending', 'confirmed']
+        status: ['pending', 'confirmed', 'completed', 'no_show']
       }
     });
     
@@ -747,16 +751,16 @@ router.get('/calendar', async (req, res) => {
       };
 
       // 3. Overlay holiday_templates
-      const holiday = scheduleExceptions.find(ex => ex.type === 'YEARLY_FIXED' && ex.month === (new Date(date).getUTCMonth() + 1) && ex.day === new Date(date).getUTCDate());
+      const holiday = scheduleExceptions.find(ex => ex.recurringType === 'YEARLY' && ex.month === (new Date(date).getUTCMonth() + 1) && ex.day === new Date(date).getUTCDate());
       if (holiday) {
-        dayInfo.is_open = false;
+        dayInfo.isOpen = false;
         dayInfo.reason = `Holiday - ${holiday.name}`;
       }
 
       // 4. Overlay schedule_exceptions
       const exception = getExceptionForDate(date, scheduleExceptions);
       if (exception) {
-        dayInfo.isOpen = !exception.isClosed;
+        dayInfo.isOpen = exception.type !== 'CLOSURE';
         if (exception.customOpenTime) dayInfo.openTime = exception.customOpenTime;
         if (exception.customCloseTime) dayInfo.closeTime = exception.customCloseTime;
         dayInfo.reason = exception.reason || 'Exception';

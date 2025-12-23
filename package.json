@@ -21,6 +21,7 @@
     "db:migrate:undo:all": "sequelize db:migrate:undo:all",
     "db:seed": "sequelize db:seed:all",
     "db:reset": "sequelize db:migrate:undo:all && sequelize db:migrate && sequelize db:seed:all",
+    "db:rebuild": "npx sequelize-cli db:drop && npx sequelize-cli db:create && npm run db:migrate && npm run db:seed",
     "test": "echo \"Tests will be implemented\" && exit 0",
     "lint": "echo \"Linting will be implemented\" && exit 0",
     "security-audit": "npm audit",
