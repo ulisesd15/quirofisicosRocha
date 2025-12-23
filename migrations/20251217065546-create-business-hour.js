@@ -38,7 +38,7 @@ module.exports = {
       effectiveDate: {
         type: Sequelize.DATEONLY,
         allowNull: false,
-        defaultValue: Sequelize.fn('NOW'),
+        // defaultValue: Sequelize.fn('NOW'),
       },
       // optional: if you want to scope hours per provider/location later
       // serviceProviderId: {

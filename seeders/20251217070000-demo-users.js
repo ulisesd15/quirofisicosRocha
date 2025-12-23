@@ -16,6 +16,7 @@ module.exports = {
         phone: '555-000-0000',
         password: adminPasswordHash,
         role: 'admin',
+        authProvider: 'local',
         isVerified: true,
         createdAt: new Date(),
         updatedAt: new Date()
@@ -27,11 +28,14 @@ module.exports = {
         phone: '555-987-6543',
         password: userPasswordHash,
         role: 'admin',
+        authProvider: 'local',
+        isVerified: true,
         createdAt: new Date(),
-        updatedAt: new Date(),
-        isVerified: true
+        updatedAt: new Date()
       }
-    ], {});
+    ], {
+      updateOnDuplicate: ['fullName', 'password', 'role', 'isVerified', 'authProvider', 'updatedAt']
+    });
   },
 
   async down(queryInterface, Sequelize) {
