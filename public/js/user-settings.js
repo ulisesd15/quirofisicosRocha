@@ -97,12 +97,12 @@ class UserSettings {
      * Populates the personal info form with user data.
      */
     populateForm(userData) {
-        document.getElementById('full-name').value = userData.full_name || '';
+        document.getElementById('full-name').value = userData.fullName || '';
         document.getElementById('email').value = userData.email || '';
         document.getElementById('phone').value = userData.phone || '';
 
         // Hide password section if user is from an external provider like Google
-        if (userData.auth_provider && userData.auth_provider !== 'local') {
+        if (userData.authProvider && userData.authProvider !== 'local') {
             const passwordSection = document.getElementById('password-section');
             if (passwordSection) passwordSection.style.display = 'none';
         }
@@ -114,15 +114,15 @@ class UserSettings {
     updateAccountInfo(userData) {
         // Update verification status
         const verificationElement = document.getElementById('verification-status');
-        if (userData.is_verified) {
+        if (userData.isVerified) {
             verificationElement.innerHTML = '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Verificado</span>';
         } else {
             verificationElement.innerHTML = '<span class="badge bg-warning"><i class="fas fa-clock me-1"></i>Pendiente de Verificación</span>';
         }
 
         // Update member since date
-        if (userData.created_at) {
-            const memberDate = new Date(userData.created_at).toLocaleDateString('es-ES', {
+        if (userData.createdAt) {
+            const memberDate = new Date(userData.createdAt).toLocaleDateString('es-ES', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
@@ -148,7 +148,7 @@ class UserSettings {
      */
     async updatePersonalInfo() {
         const formData = {
-            full_name: document.getElementById('full-name').value,
+            fullName: document.getElementById('full-name').value,
             email: document.getElementById('email').value,
             phone: document.getElementById('phone').value
         };
@@ -166,9 +166,9 @@ class UserSettings {
                 this.showAlert('Información personal actualizada correctamente', 'success');
                 
                 // Update stored user name if it changed
-                if (formData.full_name !== this.authManager.userName) {
-                    localStorage.setItem('user_name', formData.full_name);
-                    this.authManager.userName = formData.full_name;
+                if (formData.fullName !== this.authManager.userName) {
+                    localStorage.setItem('userName', formData.fullName);
+                    this.authManager.userName = formData.fullName;
                     this.updateUserDisplay();
                 }
             } else {
@@ -229,8 +229,8 @@ class UserSettings {
      */
     async updateNotificationPreferences() {
         const preferences = {
-            email_notifications: document.getElementById('email-notifications').checked,
-            sms_notifications: document.getElementById('sms-notifications').checked
+            emailNotifications: document.getElementById('email-notifications').checked,
+            smsNotifications: document.getElementById('sms-notifications').checked
         };
 
         try {

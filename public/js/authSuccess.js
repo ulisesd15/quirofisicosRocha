@@ -19,7 +19,7 @@ const token = params.get('token');
 if (token) {
     // --- Main Logic: If token is present ---
     // Store token in localStorage for session persistence
-    localStorage.setItem('user_token', token);
+    localStorage.setItem('userToken', token);
     localStorage.setItem('token', token); // Keep both for compatibility
 
     // Fetch user profile using the token
@@ -40,7 +40,7 @@ if (token) {
         // Create user object
         const userObj = {
             id: user.id,
-            full_name: user.full_name,
+            fullName: user.fullName,
             email: user.email,
             role: user.role || 'user'
         };
@@ -50,9 +50,9 @@ if (token) {
             window.authManager.login(token, userObj);
         } else {
             // Fallback: store user info in localStorage
-            localStorage.setItem('user_id', user.id);
-            localStorage.setItem('user_name', user.full_name);
-            localStorage.setItem('user_role', user.role || 'user');
+            localStorage.setItem('userId', user.id);
+            localStorage.setItem('userName', user.fullName);
+            localStorage.setItem('userRole', user.role || 'user');
         }
 
         // Redirect to main page

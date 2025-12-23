@@ -127,12 +127,12 @@ function setupFormSubmission() {
 
     if (authManager.isLoggedIn()) {
       const user = authManager.getCurrentUser();
-      appointmentData.user_id = user.id;
-      appointmentData.full_name = user.full_name;
+      appointmentData.userId = user.id;
+      appointmentData.fullName = user.fullName;
       appointmentData.email = user.email;
       appointmentData.phone = user.phone;
     } else {
-      appointmentData.full_name = document.getElementById('guestName').value;
+      appointmentData.fullName = document.getElementById('guestName').value;
       appointmentData.email = document.getElementById('guestEmail').value;
       appointmentData.phone = document.getElementById('guestPhone').value;
     }

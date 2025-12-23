@@ -1,11 +1,11 @@
 'use strict';
+
 const { Model } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
   class Appointment extends Model {
     static associate(models) {
-      // Each appointment belongs to one user
-      this.belongsTo(models.User, {
+      Appointment.belongsTo(models.User, {
         foreignKey: 'userId',
         as: 'user',
       });
@@ -14,30 +14,63 @@ module.exports = (sequelize, DataTypes) => {
 
   Appointment.init(
     {
-      fullName: {
-        type: DataTypes.STRING,
-        field: 'full_name',
+      id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
       },
-      email: DataTypes.STRING,
-      phone: DataTypes.STRING,
-      date: DataTypes.DATE,
-      time: DataTypes.TIME,
-      note: DataTypes.TEXT,
-      status: {
-        type: DataTypes.ENUM('pending', 'confirmed', 'completed', 'cancelled'),
-        defaultValue: 'pending',
+
+      fullName: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+      },
+
+      email: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+      },
+
+      phone: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+      },
+
+      startDateTime: {
+        type: DataTypes.DATE,
         allowNull: false,
       },
+
+      endDateTime: {
+        type: DataTypes.DATE,
+        allowNull: false,
+      },
+
+      note: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+
       userId: {
         type: DataTypes.INTEGER,
-        field: 'user_id',
+        allowNull: true,
+      },
+
+      status: {
+        type: DataTypes.ENUM(
+          'BOOKED',
+          'CANCELLED',
+          'NO_SHOW',
+          'COMPLETED'
+        ), // enum on model side. [web:23][web:25]
+        allowNull: false,
+        defaultValue: 'BOOKED',
       },
     },
     {
       sequelize,
       modelName: 'Appointment',
-      tableName: 'appointments',   // match migration
-      underscored: true,           // created_at / updated_at
+      tableName: 'appointments',
+      timestamps: true, // auto-handles createdAt/updatedAt. [web:3][web:40]
     }
   );
 

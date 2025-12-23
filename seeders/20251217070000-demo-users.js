@@ -10,22 +10,26 @@ module.exports = {
 
     await queryInterface.bulkInsert('users', [
       {
+        id: 1,
         fullName: 'Admin Quirofisicos Rocha',
         email: 'admin@quirofisicosrocha.com',
-        phone: '555-123-4567', // Example phone number
+        phone: '555-000-0000',
         password: adminPasswordHash,
         role: 'admin',
+        isVerified: true,
         createdAt: new Date(),
         updatedAt: new Date()
       },
       {
+        id: 2,
         fullName: 'Ulises Quirofisicos Rocha',
         email: 'ulises@quirofisicosrocha.com',
-        phone: '555-987-6543', // Example phone number
+        phone: '555-987-6543',
         password: userPasswordHash,
-        role: 'user',
+        role: 'admin',
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        isVerified: true
       }
     ], {});
   },

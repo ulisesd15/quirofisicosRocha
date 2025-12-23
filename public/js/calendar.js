@@ -76,8 +76,8 @@ export class Calendar {
   getScheduleException(dateStr) {
     if (!this.scheduleExceptions.length) return null;
     for (const ex of this.scheduleExceptions) {
-      if (ex.exception_type === 'single_day' && ex.start_date === dateStr) return ex;
-      if (ex.exception_type === 'date_range' && dateStr >= ex.start_date && dateStr <= ex.end_date) return ex;
+      if (ex.exceptionType === 'singleDay' && ex.startDate === dateStr) return ex;
+      if (ex.exceptionType === 'dateRange' && dateStr >= ex.startDate && dateStr <= ex.endDate) return ex;
     }
     return null;
   }
@@ -193,8 +193,8 @@ export class Calendar {
               isOpenDay,
               isTodayDate,
               isSelectedDate,
-              openTime: this.businessHoursMap[this.getDayOfWeekString(thisDate).toLowerCase()]?.open_time,
-              closeTime: this.businessHoursMap[this.getDayOfWeekString(thisDate).toLowerCase()]?.close_time,
+              openTime: this.businessHoursMap[this.getDayOfWeekString(thisDate).toLowerCase()]?.openTime,
+              closeTime: this.businessHoursMap[this.getDayOfWeekString(thisDate).toLowerCase()]?.closeTime,
               businessDay: this.businessHoursMap[this.getDayOfWeekString(thisDate).toLowerCase()]
             });
             document.querySelectorAll('.calendar-day.selected').forEach(day => day.classList.remove('selected'));
@@ -352,14 +352,14 @@ export class Calendar {
       console.warn(`[renderTimeSlots] No businessDay for this day`, { dayOfWeek });
       return;
     }
-    if (!businessDay.is_open) {
+    if (!businessDay.isOpen) {
       slotContainer.innerHTML = '<div class="alert alert-warning text-center">Sin horarios disponibles para este día</div>';
       console.warn(`[renderTimeSlots] Business is closed for this day`, { businessDay });
       return;
     }
-    if (typeof businessDay.open_time !== 'string' || typeof businessDay.close_time !== 'string') {
+    if (typeof businessDay.openTime !== 'string' || typeof businessDay.closeTime !== 'string') {
       slotContainer.innerHTML = '<div class="alert alert-warning text-center">Sin horarios disponibles para este día</div>';
-      console.warn(`[renderTimeSlots] open_time or close_time missing or not string`, { businessDay });
+      console.warn(`[renderTimeSlots] openTime or closeTime missing or not string`, { businessDay });
       return;
     }
     const slots = await this.fetchAvailableSlots(date);
@@ -375,8 +375,8 @@ export class Calendar {
   row.className = 'row g-3';
     slots.forEach(time => {
       const slotHM = time.slice(0,5);
-      const openHM = businessDay.open_time.slice(0,5);
-      const closeHM = businessDay.close_time.slice(0,5);
+      const openHM = businessDay.openTime.slice(0,5);
+      const closeHM = businessDay.closeTime.slice(0,5);
       if (slotHM < openHM || slotHM > closeHM) {
         console.log(`[renderTimeSlots] Slot ${slotHM} out of business hours (${openHM} - ${closeHM})`);
         return;
@@ -506,13 +506,13 @@ export class Calendar {
       const data = await response.json();
       let arr = Array.isArray(data)
         ? data
-        : (Array.isArray(data.business_hours) ? data.business_hours
+        : (Array.isArray(data.businessHours) ? data.businessHours
           : (Array.isArray(data.businessHours) ? data.businessHours : []));
-      this.businessHours = arr.map(bh => ({ ...bh, day_of_week: bh.day_of_week.toLowerCase() }));
+      this.businessHours = arr.map(bh => ({ ...bh, dayOfWeek: bh.dayOfWeek.toLowerCase() }));
       this.businessHoursMap = {};
       this.businessHours.forEach(bh => {
         // Always use lowercased keys for mapping
-        this.businessHoursMap[bh.day_of_week.toLowerCase()] = bh;
+        this.businessHoursMap[bh.dayOfWeek.toLowerCase()] = bh;
       });
       // Debug: log the mapping for weekly view
   // console.log('[fetchBusinessHours] businessHoursMap:', this.businessHoursMap);
@@ -545,15 +545,15 @@ export class Calendar {
     const dateStr = this.formatDate(date);
     const exception = this.getScheduleException(dateStr);
     if (exception) {
-      if (exception.is_closed) return false;
-      if (exception.custom_open_time && exception.custom_close_time) return true;
+      if (exception.isClosed) return false;
+      if (exception.customOpenTime && exception.customCloseTime) return true;
     }
     if (!this.businessHours.length) return false;
     const dayOfWeek = this.getDayOfWeekString(date).toLowerCase();
     const businessDay = this.businessHoursMap[dayOfWeek];
     if (!businessDay) return false;
-    if (!businessDay.is_open) return false;
-    if (!businessDay.open_time || !businessDay.close_time) return false;
+    if (!businessDay.isOpen) return false;
+    if (!businessDay.openTime || !businessDay.closeTime) return false;
     return true;
   }
 
@@ -618,7 +618,7 @@ export class Calendar {
     const weekStart = `${yyyy}-${mm}-${dd}`;
         console.log('[fetchSlotsForWeek] Fetching slots for week starting:', weekStart);
     try {
-      const resp = await fetch(`/api/slots?week_start=${weekStart}`);
+      const resp = await fetch(`/api/slots?weekStart=${weekStart}`);
       if (!resp.ok) throw new Error('Error fetching slots');
       const data = await resp.json();
       // Normalize: convert { slots: {date: [times] } } to [{date, time, filled: false}]

@@ -1,57 +1,82 @@
 'use strict';
-/** @type {import('sequelize-cli').Migration} */
+
 module.exports = {
-  async up(queryInterface, Sequelize) {
+  up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable('users', {
       id: {
-        allowNull: false,
-        autoIncrement: true,
+        type: Sequelize.INTEGER,
         primaryKey: true,
-        type: Sequelize.INTEGER
+        autoIncrement: true,
+        allowNull: false,
       },
+
       fullName: {
-        type: Sequelize.STRING(100),
+        type: Sequelize.STRING(255),
         allowNull: false,
-        field: 'full_name' // Explicitly map to snake_case
       },
+
       email: {
-        type: Sequelize.STRING(100),
+        type: Sequelize.STRING(255),
         allowNull: false,
-        unique: true
+        unique: true, // unique email is common for users. [web:70][web:74]
       },
+
       phone: {
-        type: Sequelize.STRING(20)
+        type: Sequelize.STRING(20),
+        allowNull: true,
       },
+
       password: {
-        type: Sequelize.STRING(255)
+        type: Sequelize.STRING(255),
+        allowNull: true, // nullable for pure OAuth accounts
       },
+
+      // 'user' | 'admin'
+      role: {
+        type: Sequelize.ENUM('user', 'admin'), // enum for roles. [web:22][web:21]
+        allowNull: false,
+        defaultValue: 'user',
+      },
+
+      // auth provider: 'local' | 'google' | 'github' | ...
       authProvider: {
         type: Sequelize.STRING(50),
+        allowNull: false,
         defaultValue: 'local',
-        field: 'auth_provider'
       },
+
+      // generic external provider user id
       googleId: {
         type: Sequelize.STRING(255),
-        field: 'google_id'
+        allowNull: true,
       },
-      role: {
-        type: Sequelize.ENUM('user', 'admin'),
-        defaultValue: 'user',
-        allowNull: false
+
+      isVerified: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
       },
+
       createdAt: {
-        allowNull: false,
         type: Sequelize.DATE,
-        field: 'created_at'
+        allowNull: false,
+        defaultValue: Sequelize.fn('NOW'),
       },
+
       updatedAt: {
-        allowNull: false,
         type: Sequelize.DATE,
-        field: 'updated_at'
-      }
+        allowNull: false,
+        defaultValue: Sequelize.fn('NOW'),
+      },
     });
   },
-  async down(queryInterface, Sequelize) {
+
+  down: async (queryInterface, Sequelize) => {
     await queryInterface.dropTable('users');
-  }
+    if (queryInterface.sequelize.getDialect() === 'postgres') {
+      await queryInterface.sequelize.query(
+        'DROP TYPE IF EXISTS "enum_users_role";'
+      ); // clean up enum type on Postgres. [web:29][web:56]
+    }
+  },
 };

@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadClinicSettingsFooter();
 
   // Remove guestBtn, loginBtn, and registerBtn if user is logged in
-  const isLoggedIn = localStorage.getItem('token') || localStorage.getItem('user_token');
+  const isLoggedIn = localStorage.getItem('token') || localStorage.getItem('userToken');
   if (isLoggedIn) {
     const guestBtn = document.getElementById('guestBtn');
     if (guestBtn) guestBtn.remove();
@@ -62,11 +62,11 @@ async function loadClinicSettingsFooter() {
     if (!response.ok) throw new Error('No se pudo cargar la información de la clínica');
     const settings = await response.json();
     console.log('Clinic settings JSON:', settings);
-  const name = settings.clinic_name || 'Quirofísicos Rocha';
-  const address = settings.clinic_address || 'Plaza Johnson, Av. Josefa Ortiz de Domínguez 1993, Independencia, 22055 Tijuana, B.C., México';
-  const phone = settings.clinic_phone || '664-123-4567';
-  const email = settings.clinic_email || 'info@quirofisicosrocha.com';
-  const description = settings.clinic_description || '';
+  const name = settings.clinicName || 'Quirofísicos Rocha';
+  const address = settings.clinicAddress || 'Plaza Johnson, Av. Josefa Ortiz de Domínguez 1993, Independencia, 22055 Tijuana, B.C., México';
+  const phone = settings.clinicPhone || '664-123-4567';
+  const email = settings.clinicEmail || 'info@quirofisicosrocha.com';
+  const description = settings.clinicDescription || '';
 
   // Update footer fields
   const nameEl = document.querySelector('footer h5.text-white');
@@ -123,8 +123,8 @@ function displayAnnouncements(announcements) {
   if (!container) return;
 
   const announcementsHtml = announcements.map(announcement => {
-    const typeClass = getAnnouncementTypeClass(announcement.announcement_type);
-    const icon = getAnnouncementIcon(announcement.announcement_type);
+    const typeClass = getAnnouncementTypeClass(announcement.announcementType);
+    const icon = getAnnouncementIcon(announcement.announcementType);
     const priorityClass = announcement.priority === 'high' || announcement.priority === 'urgent' ? 'announcement-priority-high' : '';
     
     return `
@@ -135,7 +135,7 @@ function displayAnnouncements(announcements) {
             <div>
               <div class="announcement-title">${announcement.title}</div>
               <div class="announcement-message">${announcement.message}</div>
-              ${announcement.end_date ? `<div class="announcement-dates">Válido hasta: ${formatDate(announcement.end_date)}</div>` : ''}
+              ${announcement.endDate ? `<div class="announcement-dates">Válido hasta: ${formatDate(announcement.endDate)}</div>` : ''}
             </div>
           </div>
           <button class="announcement-close" onclick="dismissAnnouncement(${announcement.id})" aria-label="Cerrar anuncio">
@@ -221,7 +221,7 @@ async function loadBusinessHours() {
       : Array.isArray(data.businessHours)
         ? data.businessHours
         : [];
-    if (!Array.isArray(data.business_hours) && !Array.isArray(data.businessHours)) {
+    if (!Array.isArray(data.businessHours) && !Array.isArray(data.businessHours)) {
       console.warn('API did not return business_hours or businessHours as an array:', data);
     }
     // Update info section
@@ -258,7 +258,7 @@ function formatBusinessHoursForInfo(businessHours) {
     console.error('formatBusinessHoursForInfo: businessHours is not an array', businessHours);
     return '<p class="mb-0">Actualmente cerrado</p>';
   }
-  const openDays = businessHours.filter(day => day.is_open);
+  const openDays = businessHours.filter(day => day.isOpen);
   
   if (openDays.length === 0) {
     return '<p class="mb-0">Actualmente cerrado</p>';
@@ -279,10 +279,10 @@ function formatBusinessHoursForInfo(businessHours) {
   };
   
   dayOrder.forEach(day => {
-    const dayData = businessHours.find(h => h.day_of_week === day);
+    const dayData = businessHours.find(h => h.dayOfWeek === day);
     
-    if (dayData && dayData.is_open) {
-      const timeString = `${dayData.open_time} - ${dayData.close_time}`;
+    if (dayData && dayData.isOpen) {
+      const timeString = `${dayData.openTime} - ${dayData.closeTime}`;
       
       if (currentGroup && currentGroup.time === timeString) {
         currentGroup.days.push(dayNames[day]);
@@ -334,11 +334,11 @@ function formatBusinessHoursForFooter(businessHours) {
     return '';
   }
   const lines = businessHours.map(day => {
-    const dayName = dayNames[day.day_of_week];
+    const dayName = dayNames[day.dayOfWeek];
     // Remove trailing ':00' if present
     const formatTime = t => t ? t.replace(/:00$/, '') : '';
-    if (day.is_open) {
-      return `<p class="text-white-50 mb-1">${dayName}: ${formatTime(day.open_time)} - ${formatTime(day.close_time)}</p>`;
+    if (day.isOpen) {
+      return `<p class="text-white-50 mb-1">${dayName}: ${formatTime(day.openTime)} - ${formatTime(day.closeTime)}</p>`;
     } else {
       return `<p class="text-white-50 mb-1">${dayName}: Cerrado</p>`;
     }

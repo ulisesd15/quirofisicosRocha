@@ -1,58 +1,111 @@
 'use strict';
-/** @type {import('sequelize-cli').Migration} */
+
 module.exports = {
-  async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('ScheduleExceptions', {
+  up: async (queryInterface, Sequelize) => {
+    await queryInterface.createTable('schedule_exceptions', {
       id: {
-        allowNull: false,
-        autoIncrement: true,
+        type: Sequelize.INTEGER,
         primaryKey: true,
-        type: Sequelize.INTEGER
+        autoIncrement: true,
+        allowNull: false,
       },
+
       name: {
-        type: Sequelize.STRING
+        type: Sequelize.STRING(255),
+        allowNull: true,
       },
+
+      // 'CLOSURE' | 'OVERRIDE_HOURS' | 'BLOCK_SLOT'
       type: {
-        type: Sequelize.STRING
+        type: Sequelize.ENUM('CLOSURE', 'OVERRIDE_HOURS', 'BLOCK_SLOT'), // enum usage in migrations. [web:25][web:21]
+        allowNull: false,
       },
-      startDate: {
-        type: Sequelize.DATE
+
+      startDateTime: {
+        type: Sequelize.DATE,
+        allowNull: false,
       },
-      endDate: {
-        type: Sequelize.DATE
+
+      endDateTime: {
+        type: Sequelize.DATE,
+        allowNull: false,
       },
-      month: {
-        type: Sequelize.INTEGER
-      },
-      day: {
-        type: Sequelize.INTEGER
-      },
-      calculationRule: {
-        type: Sequelize.STRING
-      },
+
+      // For OVERRIDE_HOURS only
       customOpenTime: {
-        type: Sequelize.STRING
+        type: Sequelize.TIME,
+        allowNull: true,
       },
       customCloseTime: {
-        type: Sequelize.STRING
+        type: Sequelize.TIME,
+        allowNull: true,
       },
+
       reason: {
-        type: Sequelize.TEXT
+        type: Sequelize.TEXT,
+        allowNull: true,
       },
+
       isActive: {
-        type: Sequelize.BOOLEAN
-      },
-      createdAt: {
+        type: Sequelize.BOOLEAN, // maps to TINYINT(1) in MySQL. [web:33]
         allowNull: false,
-        type: Sequelize.DATE
+        defaultValue: true,
+      },
+
+      // Recurrence / advanced rules (optional)
+      isRecurring: {
+        type: Sequelize.BOOLEAN,
+        allowNull: true,
+      },
+      recurringType: {
+        type: Sequelize.STRING(255),
+        allowNull: true, // e.g. 'WEEKLY','YEARLY'
+      },
+      month: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+      },
+      day: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+      },
+      calculationRule: {
+        type: Sequelize.STRING(255),
+        allowNull: true,
+      },
+
+      // Optional: scope by provider/location in future
+      // serviceProviderId: {
+      //   type: Sequelize.INTEGER,
+      //   allowNull: true,
+      //   references: { model: 'ServiceProviders', key: 'id' },
+      //   onUpdate: 'CASCADE',
+      //   onDelete: 'SET NULL',
+      // },
+
+      createdAt: {
+        type: Sequelize.DATE,
+        allowNull: false,
+        defaultValue: Sequelize.fn('NOW'),
       },
       updatedAt: {
+        type: Sequelize.DATE,
         allowNull: false,
-        type: Sequelize.DATE
-      }
+        defaultValue: Sequelize.fn('NOW'),
+      },
     });
+
+    // If you are replacing an old blockedtimeslots table, you would drop it in this migration:
+    // await queryInterface.dropTable('blockedtimeslots');
   },
-  async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('ScheduleExceptions');
-  }
+
+  down: async (queryInterface, Sequelize) => {
+    // For Postgres, you must drop the enum type explicitly after dropping the table. [web:25][web:26]
+    await queryInterface.dropTable('schedule_exceptions');
+    if (queryInterface.sequelize.getDialect() === 'postgres') {
+      await queryInterface.sequelize.query(
+        'DROP TYPE IF EXISTS "enum_schedule_exceptions_type";'
+      );
+    }
+  },
 };

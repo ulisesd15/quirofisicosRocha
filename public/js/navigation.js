@@ -96,7 +96,7 @@ class NavigationManager {
             return `
                 <div class="dropdown">
                     <a class="nav-link main-nav-link dropdown-toggle user-name-display" href="#" role="button" data-bs-toggle="dropdown">
-                        <i class="fas fa-user me-1"></i>${user?.full_name || 'Usuario'}
+                        <i class="fas fa-user me-1"></i>${user?.fullName || 'Usuario'}
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="/mis-citas.html">
@@ -134,7 +134,7 @@ class NavigationManager {
                     <span class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width:32px;height:32px;">
                         <i class="fas fa-user"></i>
                     </span>
-                    <span class="fw-semibold">${user?.full_name || 'Usuario'}</span>
+                    <span class="fw-semibold">${user?.fullName || 'Usuario'}</span>
                 </div>
                 <a href="/mis-citas.html" class="sidebar-nav-item">
                     <i class="fas fa-calendar-check me-2"></i>Mis Citas

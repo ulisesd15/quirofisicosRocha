@@ -1,56 +1,102 @@
 'use strict';
+
 const { Model } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
   class ScheduleException extends Model {
     static associate(models) {
-      // define association here if needed later
+      // Example if you add a foreign key later:
+      // ScheduleException.belongsTo(models.ServiceProvider, {
+      //   foreignKey: 'serviceProviderId',
+      //   as: 'serviceProvider',
+      // });
     }
   }
 
   ScheduleException.init(
     {
+      id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+      },
+
       name: {
-        type: DataTypes.STRING
+        type: DataTypes.STRING(255),
+        allowNull: true,
       },
+
       type: {
-        type: DataTypes.ENUM('BLOCK', 'CUSTOM_HOURS', 'YEARLY_FIXED', 'YEARLY_CALCULATED'),
-        allowNull: false
+        type: DataTypes.ENUM('CLOSURE', 'OVERRIDE_HOURS', 'BLOCK_SLOT'), // enum usage in models. [web:25][web:23]
+        allowNull: false,
       },
-      startDate: {
+
+      startDateTime: {
         type: DataTypes.DATE,
-        field: 'start_date'
+        allowNull: false,
       },
-      endDate: {
+
+      endDateTime: {
         type: DataTypes.DATE,
-        field: 'end_date'
+        allowNull: false,
       },
-      month: DataTypes.INTEGER,
-      day: DataTypes.INTEGER,
-      calculationRule: {
-        type: DataTypes.STRING,
-        field: 'calculation_rule'
-      },
+
       customOpenTime: {
         type: DataTypes.TIME,
-        field: 'custom_open_time'
+        allowNull: true,
       },
+
       customCloseTime: {
         type: DataTypes.TIME,
-        field: 'custom_close_time'
+        allowNull: true,
       },
-      reason: DataTypes.TEXT,
+
+      reason: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+
       isActive: {
+        type: DataTypes.BOOLEAN, // boolean backed by tinyint(1) for MySQL/SQLite. [web:33]
+        allowNull: false,
+        defaultValue: true,
+      },
+
+      isRecurring: {
         type: DataTypes.BOOLEAN,
-        field: 'is_active',
-        defaultValue: true
-      }
+        allowNull: true,
+      },
+
+      recurringType: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+      },
+
+      month: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+
+      day: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+
+      calculationRule: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+      },
+
+      // serviceProviderId: {
+      //   type: DataTypes.INTEGER,
+      //   allowNull: true,
+      // },
     },
     {
       sequelize,
       modelName: 'ScheduleException',
       tableName: 'schedule_exceptions',
-      underscored: true
+      timestamps: true, // adds createdAt / updatedAt. [web:4]
     }
   );
 

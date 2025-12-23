@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
    * Redirects to the appointment page if a valid token is found in localStorage.
    */
   // Redirect if already logged in
-  const token = localStorage.getItem('token') || localStorage.getItem('user_token');
+  const token = localStorage.getItem('token') || localStorage.getItem('userToken');
   if (token) {
     window.location.href = '/appointment.html'; // or your dashboard page
     return;

@@ -100,7 +100,7 @@ class MisCitas {
                 this.appointments = data.appointments || [];
                 // Populate user info card with data from the first appointment if available
                 const userInfo = this.appointments.length > 0 ? this.appointments[0] : this.currentUser;
-                document.getElementById('userFullName').textContent = userInfo.full_name || 'Usuario';
+                document.getElementById('userFullName').textContent = userInfo.fullName || 'Usuario';
                 document.getElementById('userEmail').textContent = userInfo.email || '';
                 this.updateAppointmentCount();
                 this.displayAppointments();
@@ -223,12 +223,12 @@ class MisCitas {
                         <div class="appointment-details mb-3">
                             <small class="text-muted d-block">
                                 <i class="fas fa-calendar-plus me-1"></i>
-                                Agendada: ${this.formatDateTime(appointment.created_at)}
+                                Agendada: ${this.formatDateTime(appointment.createdAt)}
                             </small>
-                            ${appointment.updated_at !== appointment.created_at ? `
+                            ${appointment.updatedAt !== appointment.createdAt ? `
                                 <small class="text-muted d-block">
                                     <i class="fas fa-edit me-1"></i>
-                                    Actualizada: ${this.formatDateTime(appointment.updated_at)}
+                                    Actualizada: ${this.formatDateTime(appointment.updatedAt)}
                                 </small>
                             ` : ''}
                         </div>
@@ -431,7 +431,7 @@ class MisCitas {
                             </div>
                             <div class="col-md-6">
                                 <h6><i class="fas fa-user me-2"></i>Información Personal</h6>
-                                <p><strong>Nombre:</strong> ${appointment.full_name}<br>
+                                <p><strong>Nombre:</strong> ${appointment.fullName}<br>
                                    <strong>Email:</strong> ${appointment.email}<br>
                                    ${appointment.phone ? `<strong>Teléfono:</strong> ${appointment.phone}` : ''}</p>
                             </div>
@@ -447,9 +447,9 @@ class MisCitas {
                         <div class="mt-3">
                             <h6><i class="fas fa-clock me-2"></i>Historial</h6>
                             <small class="text-muted">
-                                <strong>Creada:</strong> ${this.formatDateTime(appointment.created_at)}<br>
-                                ${appointment.updated_at !== appointment.created_at ? 
-                                    `<strong>Última actualización:</strong> ${this.formatDateTime(appointment.updated_at)}` : ''
+                                <strong>Creada:</strong> ${this.formatDateTime(appointment.createdAt)}<br>
+                                ${appointment.updatedAt !== appointment.createdAt ? 
+                                    `<strong>Última actualización:</strong> ${this.formatDateTime(appointment.updatedAt)}` : ''
                                 }
                             </small>
                         </div>

@@ -20,8 +20,28 @@
 const express = require('express');
 const requireAdmin = require('../middleware/requireAdmin');
 const router = express.Router();
+
 const { User, Appointment, BusinessHour, ScheduleException, Announcement, sequelize } = require('../models');
 const { Op } = require('sequelize');
+
+
+/**
+ * adminRoutes.js
+ *
+ * Express router for all admin-related endpoints in the medical appointment system.
+ * Handles dashboard stats, business hours, schedule exceptions, user management, appointment management,
+ * clinic settings, announcements, and notification testing. All routes are protected by requireAdmin middleware.
+ *
+ * Key Features:
+ * - Dashboard statistics for admin panel
+ * - CRUD for business hours and scheduled business hours
+ * - Schedule exceptions (e.g., holidays, special hours)
+ * - User management (CRUD, verification)
+ * - Appointment management (CRUD, approval/rejection)
+ * - Clinic settings management
+ * - Announcements (CRUD, public display)
+ * - Notification testing endpoints (email/SMS)
+ */
 
 
 /**
@@ -90,10 +110,10 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
  */
 router.put('/business-hours/:id', requireAdmin, async (req, res) => {
   const id = req.params.id;
-  const { is_open, open_time, close_time, break_start, break_end } = req.body;
+  const { isOpen, openTime, closeTime, breakStart, breakEnd } = req.body;
   try {
     const [updated] = await BusinessHour.update(
-      { is_open, open_time, close_time, break_start, break_end },
+      { isOpen, openTime, closeTime, breakStart, breakEnd },
       { where: { id } }
     );
     if (updated === 0) return res.status(404).json({ error: 'Business hour not found' });
@@ -118,7 +138,7 @@ router.put('/business-hours', requireAdmin, async (req, res) => {
   try {
     const updatePromises = businessHours.map(async (hours) => {
       const existing = await BusinessHour.findOne({
-        where: { day_of_week: hours.day_of_week }
+        where: { dayOfWeek: hours.dayOfWeek }
       });
 
       const data = {
@@ -149,15 +169,10 @@ router.put('/business-hours', requireAdmin, async (req, res) => {
  * Returns all scheduled business hours, ordered by effective date and day of week.
  */
 router.get('/scheduled-business-hours', requireAdmin, async (req, res) => {
-  // Refactor: This route now shows all schedules grouped by their effective date.
   try {
-    const results = await BusinessHour.findAll({ 
-      order: [['effectiveDate', 'DESC'], [sequelize.literal("FIELD(dayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')"), 'ASC']] 
-    });
+    const results = await BusinessHour.findAll({ order: [['effectiveDate', 'DESC'], ['dayOfWeek', 'ASC']] });
     res.json({ scheduledBusinessHours: results });
-  } catch (err) { 
-    res.status(500).json({ error: 'Database error' }); 
-  }
+  } catch (err) { res.status(500).json({ error: 'Database error' }); }
 });
 
 // Get single scheduled business hour by ID
@@ -169,12 +184,10 @@ router.get('/scheduled-business-hours', requireAdmin, async (req, res) => {
 router.get('/scheduled-business-hours/:id', requireAdmin, async (req, res) => {
   const id = req.params.id;
   try {
-    // Refactor: This now gets a single BusinessHour entry.
     const result = await BusinessHour.findByPk(id);
     if (!result) return res.status(404).json({ error: 'Scheduled business hour not found' });
     res.json({ scheduledBusinessHour: result });
-  } catch (err) { 
-    res.status(500).json({ error: 'Database error' }); }
+  } catch (err) { res.status(500).json({ error: 'Database error' }); }
 });
 
 // Create new scheduled business hours
@@ -191,7 +204,10 @@ router.post('/scheduled-business-hours', requireAdmin, async (req, res) => {
 
   try {
     await sequelize.transaction(async (t) => {
-      // Insert the new schedule. The logic to "promote" it is handled by queries now.
+      // 3. Delete all existing scheduled hours
+      await BusinessHour.destroy({ where: { effectiveDate }, transaction: t }); 
+
+      // 4. Insert the new schedule
       const records = businessHours.map(bh => ({
         dayOfWeek: bh.dayOfWeek,
         isOpen: bh.isOpen,
@@ -252,7 +268,7 @@ router.post('/schedule-exceptions', requireAdmin, async (req, res) => {
 
   try {
     const result = await ScheduleException.create({
-      exceptionType: exceptionType || 'single_day',
+      exceptionType: exceptionType || 'singleDay',
       startDate,
       endDate: endDate || null,
       isClosed: isClosed || false,
@@ -262,7 +278,7 @@ router.post('/schedule-exceptions', requireAdmin, async (req, res) => {
       customBreakEnd: customBreakEnd || null,
       reason: reason || '',
       description: description || '',
-      yearlyRecurring: recurringType === 'yearly', // Mapping recurring_type to boolean
+      yearlyRecurring: recurringType === 'yearly', // Mapping recurringType to boolean
       isActive: true
     });
     res.json({ message: 'Schedule exception added successfully', id: result.id });
@@ -360,7 +376,7 @@ router.get('/users', requireAdmin, async (req, res) => {
   if (search) {
     where[Op.or] = [
       { fullName: { [Op.like]: `%${search}%` } },
-      { email: { [Op.like]: `%${search}%` } }
+      { email: { [Op.like]: `%%` } }
     ];
   }
 
@@ -376,9 +392,9 @@ router.get('/users', requireAdmin, async (req, res) => {
     res.json({
       users: rows,
       pagination: {
-        current_page: page,
-        total_pages: Math.ceil(count / limit),
-        total_records: count,
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        totalRecords: count,
         limit: limit
       }
     });
@@ -418,7 +434,7 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
   const userId = req.params.id;
   const { name, fullName, email, phone, role, provider } = req.body;
   
-  // Accept both 'name' and 'full_name' for backward compatibility
+  // Accept both 'name' and 'fullName' for backward compatibility
   const userName = fullName || name;
   
   try {
@@ -501,8 +517,8 @@ router.get('/appointments', requireAdmin, async (req, res) => {
   const offset = (page - 1) * limit;
   const status = req.query.status || '';
   const date = req.query.date || '';
-  const startDate = req.query.start_date || '';
-  const endDate = req.query.end_date || '';
+  const startDate = req.query.startDate || '';
+  const endDate = req.query.endDate || '';
   const search = req.query.search || '';
   
   const where = {};
@@ -514,9 +530,9 @@ router.get('/appointments', requireAdmin, async (req, res) => {
 
   if (search) {
     where[Op.or] = [
-      { fullName: { [Op.like]: `%${search}%` } },
-      { email: { [Op.like]: `%${search}%` } },
-      { phone: { [Op.like]: `%${search}%` } }
+      { fullName: { [Op.like]: `%%` } },
+      { email: { [Op.like]: `%%` } },
+      { phone: { [Op.like]: `%%` } }
     ];
   }
 
@@ -532,9 +548,9 @@ router.get('/appointments', requireAdmin, async (req, res) => {
     res.json({
       appointments: rows,
       pagination: {
-        current_page: page,
-        total_pages: Math.ceil(count / limit),
-        total_records: count,
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        totalRecords: count,
         limit: limit
       }
     });
@@ -663,13 +679,60 @@ router.put('/appointments/:id/approve', requireAdmin, async (req, res) => {
 // =================
 
 // Get clinic settings
-router.get('/settings', requireAdmin, async (req, res) => { res.status(404).json({ error: 'This endpoint is deprecated.' }); });
+router.get('/settings', requireAdmin, async (req, res) => {
+  try {
+    const results = await ClinicSetting.findAll({ order: [['settingKey', 'ASC']] });
+    const settings = {};
+    results.forEach(row => {
+      settings[row.settingKey] = {
+        value: row.settingValue,
+        description: row.description
+      };
+    });
+    res.json(settings);
+  } catch (err) { res.status(500).json({ error: 'Database error' }); }
+});
 
 // Update multiple clinic settings
-router.put('/settings', requireAdmin, async (req, res) => { res.status(404).json({ error: 'This endpoint is deprecated.' }); });
+router.put('/settings', requireAdmin, async (req, res) => {
+  const { settings } = req.body;
+  
+  if (!settings || !Array.isArray(settings)) {
+    return res.status(400).json({ error: 'Settings array is required' });
+  }
+
+  try {
+    const updatePromises = settings.map(async (setting) => {
+      const { key, value } = setting;
+      const existing = await ClinicSetting.findOne({ where: { settingKey: key } });
+      if (existing) {
+        return existing.update({ settingValue: value });
+      } else {
+        return ClinicSetting.create({ settingKey: key, settingValue: value });
+      }
+    });
+
+    await Promise.all(updatePromises);
+    res.json({ message: 'Settings updated successfully' });
+  } catch (err) {
+    console.error('Error updating settings:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
 
 // Update clinic setting
-router.put('/settings/:key', requireAdmin, async (req, res) => { res.status(404).json({ error: 'This endpoint is deprecated.' }); });
+router.put('/settings/:key', requireAdmin, async (req, res) => {
+  const settingKey = req.params.key;
+  const { value } = req.body;
+  
+  try {
+    const [updated] = await ClinicSetting.update({ settingValue: value }, { where: { settingKey: settingKey } });
+    if (updated === 0) return res.status(404).json({ error: 'Setting not found' });
+    res.json({ message: 'Setting updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
 
 // Server status endpoint for admin dashboard
 
@@ -679,10 +742,10 @@ router.put('/settings/:key', requireAdmin, async (req, res) => { res.status(404)
  */
 router.get('/server/status', requireAdmin, (req, res) => {
   res.json({
-    is_healthy: true,
+    isHealthy: true,
     uptime: process.uptime() + ' seconds',
-    cpu_usage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
-    memory_usage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
+    cpuUsage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
+    memoryUsage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
   });
 });
 
@@ -904,16 +967,6 @@ router.post('/test-sms-notification', requireAdmin, async (req, res) => {
     console.error('Error testing SMS notification:', error);
     res.status(500).json({ error: 'Error sending test SMS' });
   }
-});
-
-// Server status endpoint for admin dashboard
-router.get('/server/status', requireAdmin, (req, res) => {
-  res.json({
-    is_healthy: true,
-    uptime: process.uptime() + ' seconds',
-    cpu_usage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
-    memory_usage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
-  });
 });
 
 module.exports = router;

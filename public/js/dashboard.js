@@ -14,7 +14,7 @@
  * @returns {string|null} The JWT token, or null if not found.
  */
 function getToken() {
-  return localStorage.getItem('token') || localStorage.getItem('user_token');
+  return localStorage.getItem('token') || localStorage.getItem('userToken');
 }
 
 // Example: Fetch dashboard stats with JWT

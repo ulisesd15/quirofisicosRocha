@@ -1,43 +1,12 @@
 'use strict';
-/** @type {import('sequelize-cli').Migration} */
+
 module.exports = {
-  async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('BlockedTimeSlots', {
-      id: {
-        allowNull: false,
-        autoIncrement: true,
-        primaryKey: true,
-        type: Sequelize.INTEGER
-      },
-      blockDate: {
-        type: Sequelize.DATE
-      },
-      startTime: {
-        type: Sequelize.STRING
-      },
-      endTime: {
-        type: Sequelize.STRING
-      },
-      reason: {
-        type: Sequelize.STRING
-      },
-      isRecurring: {
-        type: Sequelize.BOOLEAN
-      },
-      recurringType: {
-        type: Sequelize.STRING
-      },
-      createdAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      },
-      updatedAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      }
-    });
+  up: async (queryInterface, Sequelize) => {
+    // This file is restored to fix a "missing migration" error during undo.
   },
-  async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('BlockedTimeSlots');
+
+  down: async (queryInterface, Sequelize) => {
+    // Attempt to drop the old table if it exists
+    await queryInterface.dropTable('blocked_time_slots').catch(() => {});
   }
 };

@@ -1,46 +1,70 @@
 'use strict';
-/** @type {import('sequelize-cli').Migration} */
+
 module.exports = {
-  async up(queryInterface, Sequelize) {
+  up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable('BusinessHours', {
       id: {
-        allowNull: false,
-        autoIncrement: true,
+        type: Sequelize.INTEGER,
         primaryKey: true,
-        type: Sequelize.INTEGER
+        autoIncrement: true,
+        allowNull: false,
       },
-      effectiveDate: {
-        type: Sequelize.DATE
-      },
+      // 0 = Sunday, 1 = Monday, ... 6 = Saturday
       dayOfWeek: {
-        type: Sequelize.STRING
+        type: Sequelize.TINYINT, // maps to SMALLINT in some dialects but behaves as tinyint-style enum for 0–6. [web:2]
+        allowNull: false,
       },
       isOpen: {
-        type: Sequelize.BOOLEAN
+        type: Sequelize.BOOLEAN, // stored as TINYINT(1) in MySQL. [web:3]
+        allowNull: false,
+        defaultValue: false,
       },
       openTime: {
-        type: Sequelize.STRING
+        type: Sequelize.TIME,
+        allowNull: true, // can be null when isOpen = false
       },
       closeTime: {
-        type: Sequelize.STRING
+        type: Sequelize.TIME,
+        allowNull: true,
       },
       breakStart: {
-        type: Sequelize.STRING
+        type: Sequelize.TIME,
+        allowNull: true,
       },
       breakEnd: {
-        type: Sequelize.STRING
+        type: Sequelize.TIME,
+        allowNull: true,
       },
-      createdAt: {
+      effectiveDate: {
+        type: Sequelize.DATEONLY,
         allowNull: false,
-        type: Sequelize.DATE
+        defaultValue: Sequelize.fn('NOW'),
+      },
+      // optional: if you want to scope hours per provider/location later
+      // serviceProviderId: {
+      //   type: Sequelize.INTEGER,
+      //   allowNull: true,
+      //   references: {
+      //     model: 'ServiceProviders',
+      //     key: 'id',
+      //   },
+      //   onUpdate: 'CASCADE',
+      //   onDelete: 'SET NULL',
+      // },
+      createdAt: {
+        type: Sequelize.DATE,
+        allowNull: false,
+        defaultValue: Sequelize.fn('NOW'),
       },
       updatedAt: {
+        type: Sequelize.DATE,
         allowNull: false,
-        type: Sequelize.DATE
-      }
+        defaultValue: Sequelize.fn('NOW'),
+      },
     });
   },
-  async down(queryInterface, Sequelize) {
+
+  down: async (queryInterface) => {
     await queryInterface.dropTable('BusinessHours');
-  }
+  },
 };

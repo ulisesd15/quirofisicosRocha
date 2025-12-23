@@ -23,7 +23,7 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
   document.getElementById('registerMessage').className = 'text-danger text-center mb-3'; // Reset to error styling
 
   const data = Object.fromEntries(new FormData(e.target).entries());
-  const { full_name, phone, email, password, confirm_password } = data;
+  const { fullName, phone, email, password, confirmPassword } = data;
 
   // Helper validation functions
   const isPasswordStrong = (password) =>
@@ -33,12 +33,12 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   // Validations
-  if (!full_name || !phone || !email || !password || !confirm_password) {
+  if (!fullName || !phone || !email || !password || !confirmPassword) {
     document.getElementById('registerMessage').textContent = 'Faltan campos requeridos';
     return;
   }
 
-  if (password !== confirm_password) {
+  if (password !== confirmPassword) {
     document.getElementById('registerMessage').textContent = 'Las contraseñas no coinciden';
     return;
   }
@@ -62,7 +62,7 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ full_name, phone, email, password })
+      body: JSON.stringify({ fullName, phone, email, password })
     });
 
     const result = await res.json();
@@ -74,13 +74,13 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
         window.authManager.login(result.token, result.user);
       } else {
         // Fallback: store manually if AuthManager not available
-        localStorage.setItem('user_token', result.token);
+        localStorage.setItem('userToken', result.token);
         localStorage.setItem('token', result.token);
-        localStorage.setItem('user_id', result.user.id);
-        localStorage.setItem('user_name', result.user.full_name);
-        localStorage.setItem('user_email', result.user.email);
-        localStorage.setItem('user_phone', result.user.phone);
-        localStorage.setItem('user_role', result.user.role || 'user');
+        localStorage.setItem('userId', result.user.id);
+        localStorage.setItem('userName', result.user.fullName);
+        localStorage.setItem('userEmail', result.user.email);
+        localStorage.setItem('userPhone', result.user.phone);
+        localStorage.setItem('userRole', result.user.role || 'user');
       }
       document.getElementById('registerMessage').textContent = '';
       document.getElementById('registerMessage').className = 'text-success text-center mb-3';
@@ -110,7 +110,7 @@ document.getElementById('google-login').addEventListener('click', () => {
  */
 document.addEventListener('DOMContentLoaded', () => {
   // Redirect if already logged in
-  const token = localStorage.getItem('token') || localStorage.getItem('user_token');
+  const token = localStorage.getItem('token') || localStorage.getItem('userToken');
   if (token) {
     window.location.href = '/appointment.html'; // or your dashboard page
     return;

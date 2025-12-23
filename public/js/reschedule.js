@@ -26,14 +26,14 @@ let currentDateISO = null;
  */
 function getAppointmentDate(appointment) {
   if (!appointment) return null;
-  return appointment.appointment_date || appointment.date;
+  return appointment.appointmentDate || appointment.date;
 }
 /**
  * Returns the appointment time from an appointment object.
  */
 function getAppointmentTime(appointment) {
   if (!appointment) return null;
-  return appointment.appointment_time || appointment.time;
+  return appointment.appointmentTime || appointment.time;
 }
 /**
  * Returns the appointment date in ISO format (yyyy-mm-dd).
@@ -192,7 +192,7 @@ function displayCurrentAppointmentInfo() {
     currentAppointmentInfo.innerHTML = `
       <strong>Fecha actual:</strong> ${formattedDate}<br>
       <strong>Hora actual:</strong> ${formattedTime}<br>
-      <strong>Servicio:</strong> ${currentAppointment.service_type || 'Consulta General'}<br>
+      <strong>Servicio:</strong> ${currentAppointment.serviceType || 'Consulta General'}<br>
     `;
     
     console.log('🔄 Current appointment info displayed');
@@ -236,7 +236,7 @@ function setupFormSubmission() {
       
       const authToken = window.authManager && window.authManager.isLoggedIn() 
         ? window.authManager.getToken() 
-        : (localStorage.getItem('user_token') || localStorage.getItem('token'));
+        : (localStorage.getItem('userToken') || localStorage.getItem('token'));
       
       const headers = {
         'Content-Type': 'application/json'
@@ -451,7 +451,7 @@ async function fetchBasicAvailability(dayISO) {
   const selectedDate = new Date(dayISO);
   const dayOfWeek = getDayOfWeekString(selectedDate);
   
-  const businessDay = BUSINESS_HOURS.find(bh => bh.day_of_week === dayOfWeek);
+  const businessDay = BUSINESS_HOURS.find(bh => bh.dayOfWeek === dayOfWeek);
   
   if (!businessDay || !businessDay.is_open) {
     return [];
@@ -485,7 +485,7 @@ async function fetchAppointments(dayISO) {
     
     const data = await response.json();
     return data.appointments?.map(apt => {
-      const timeStr = apt.appointment_time || apt.time;
+      const timeStr = apt.appointmentTime || apt.time;
       return timeStr?.substring(0, 5);
     }) || [];
   } catch (error) {

@@ -40,10 +40,10 @@ function generateTimeSlots(openTime, closeTime) {
  * Returns available slots for a week (Monday-Sunday) given a week_start date (YYYY-MM-DD).
  */
 router.get('/slots', async (req, res) => {
-  const weekStart = req.query.week_start;
-  if (!weekStart) return res.status(400).json({ error: 'Missing week_start' });
+  const weekStart = req.query.weekStart;
+  if (!weekStart) return res.status(400).json({ error: 'Missing weekStart' });
   const startDate = new Date(weekStart);
-  if (isNaN(startDate)) return res.status(400).json({ error: 'Invalid week_start' });
+  if (isNaN(startDate)) return res.status(400).json({ error: 'Invalid weekStart' });
   // Build array of 7 dates (Mon-Sun)
   const days = [];
   for (let i = 0; i < 7; i++) {
@@ -65,7 +65,7 @@ router.get('/slots', async (req, res) => {
         effectiveDate: latestEffectiveDate,
         dayOfWeek: weekDayNames,
       },
-      order: [['effective_date', 'DESC']]
+      order: [['effectiveDate', 'DESC']]
     });
 
     // Map most recent override for each day
@@ -90,7 +90,7 @@ router.get('/slots', async (req, res) => {
       const date = days[i];
       const dow = weekDayNames[i];
       const bh = bhMap[dow];
-      if (!bh || !bh.is_open) {
+      if (!bh || !bh.isOpen) {
         slotsByDay[date] = []; // Keep as is
         continue;
       }
@@ -139,7 +139,7 @@ router.get('/announcements/active', async (req, res) => {
           { endDate: { [Op.gte]: new Date() } }
         ]
       },
-      order: [['priority', 'DESC'], ['created_at', 'DESC']]
+      order: [['priority', 'DESC'], ['createdAt', 'DESC']]
     });
     res.json(results);
   } catch (err) {
@@ -171,7 +171,7 @@ router.get('/available-slots/:date', async (req, res) => {
       }
     });
 
-    if (!bh || !bh.is_open) {
+    if (!bh || !bh.isOpen) {
       console.log(`[API] Day is closed or no hours found for ${dayOfWeek} on ${dayISO}`);
       return res.json({ availableSlots: [] });
     }
@@ -219,8 +219,8 @@ router.get('/available-slots/:date', async (req, res) => {
 router.get('/schedule-exceptions', async (req, res) => {
   try {
     const results = await ScheduleException.findAll({
-      where: { is_active: true },
-      order: [['start_date', 'ASC']]
+      where: { isActive: true },
+      order: [['startDate', 'ASC']]
     });
     res.json(results);
   } catch (err) {
@@ -284,7 +284,7 @@ router.get('/business-hours', async (req, res) => {
 router.get('/business-hours/:date', async (req, res) => {
   const dayISO = req.params.date; // Expects YYYY-MM-DD
   const dateObj = new Date(dayISO + 'T00:00:00'); // Treat as local date
-  if (isNaN(dateObj)) return res.status(400).json({ business_hours: [] });
+  if (isNaN(dateObj)) return res.status(400).json({ businessHours: [] });
 
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   try {
@@ -298,7 +298,7 @@ router.get('/business-hours/:date', async (req, res) => {
     });
 
     if (!latestEffectiveDate) {
-      return res.json({ business_hours: [] });
+      return res.json({ businessHours: [] });
     }
 
     // 2. Fetch the 7 records for that effective date.
@@ -310,10 +310,10 @@ router.get('/business-hours/:date', async (req, res) => {
         sequelize.literal("FIELD(dayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')")
       ]
     });
-    res.json({ business_hours: ordered });
+    res.json({ businessHours: ordered });
   } catch (err) {
     console.error(`Error fetching business hours for date ${dayISO}:`, err);
-    res.status(500).json({ business_hours: [] });
+    res.status(500).json({ businessHours: [] });
   }
 });
 
@@ -321,10 +321,10 @@ router.get('/business-hours/:date', async (req, res) => {
  * Creates a new appointment (supports guest and authenticated users).
  */
 router.post('/appointments', async (req, res) => {
-  let { full_name, email, phone, date, time, note = '', user_id } = req.body;
+  let { fullName, email, phone, date, time, note = '', userId } = req.body;
 
   // Normalize empty user_id to null
-  user_id = user_id ? user_id : null;
+  userId = userId ? userId : null;
 
   // --- 90-Day Booking Limit Validation ---
   const today = new Date();
@@ -337,7 +337,7 @@ router.post('/appointments', async (req, res) => {
     return res.status(400).json({ error: 'Booking too far in advance', message: 'No se puede agendar con más de 90 días de antelación.' });
   }
   // Validate required fields
-  if (!full_name || !date || !time) {
+  if (!fullName || !date || !time) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
@@ -356,16 +356,16 @@ router.post('/appointments', async (req, res) => {
     }
 
     let status = 'pending';
-    if (user_id) {
+    if (userId) {
       // For registered users, check verification status to set appointment status
-      const user = await User.findByPk(user_id);
-      if (user && user.is_verified) {
+      const user = await User.findByPk(userId);
+      if (user && user.isVerified) {
         status = 'confirmed';
       }
     }
 
     const appointment = await Appointment.create({
-      full_name, email, phone, date, time, note, user_id, status
+      fullName, email, phone, date, time, note, userId, status
     });
 
     res.json({ 
@@ -384,14 +384,14 @@ router.post('/appointments', async (req, res) => {
  * Updates an appointment (authenticated, user or admin).
  */
 router.put('/appointments/:id', authenticateToken, async (req, res) => {
-  const { full_name, email, phone, date, time, note } = req.body;
+  const { fullName, email, phone, date, time, note } = req.body;
   const appointmentId = req.params.id;
   const userId = req.user.id;
   
   try {
     const whereClause = { id: appointmentId };
     if (req.user.role !== 'admin') {
-      whereClause.user_id = userId;
+      whereClause.userId = userId;
     }
 
     const appointment = await Appointment.findOne({ where: whereClause });
@@ -399,7 +399,7 @@ router.put('/appointments/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Cita no encontrada o no autorizada' });
     }
 
-    await appointment.update({ full_name, email, phone, date, time, note });
+    await appointment.update({ fullName, email, phone, date, time, note });
     res.json({ message: 'Cita actualizada exitosamente' });
   } catch (err) {
     console.error('Error updating appointment:', err);
@@ -414,7 +414,7 @@ router.get('/appointments/my-appointments', authenticateToken, async (req, res) 
   const userId = req.user.id;
   try {
     const results = await Appointment.findAll({
-      where: { user_id: userId },
+      where: { userId: userId },
       order: [['date', 'DESC'], ['time', 'DESC']]
     });
     res.json({ appointments: results });
@@ -434,7 +434,7 @@ router.get('/appointments/:id', authenticateToken, async (req, res) => {
   try {
     const whereClause = { id: appointmentId };
     if (req.user.role !== 'admin') {
-      whereClause.user_id = userId;
+      whereClause.userId = userId;
     }
 
     const appointment = await Appointment.findOne({ where: whereClause });
@@ -519,7 +519,7 @@ router.put('/appointments/:id/cancel', authenticateToken, async (req, res) => {
   try {
     const [updated] = await Appointment.update(
       { status: 'cancelled' },
-      { where: { id: appointmentId, user_id: userId } }
+      { where: { id: appointmentId, userId: userId } }
     );
 
     if (updated === 0) {
@@ -549,7 +549,7 @@ router.post('/appointments/:id/reschedule', authenticateToken, async (req, res) 
     // 1. Verify the appointment belongs to the user (or user is admin)
     const whereClause = { id: appointmentId };
     if (req.user.role !== 'admin') {
-      whereClause.user_id = userId;
+      whereClause.userId = userId;
     }
 
     const appointment = await Appointment.findOne({ where: whereClause });
@@ -567,7 +567,7 @@ router.post('/appointments/:id/reschedule', authenticateToken, async (req, res) 
     if (existing > 0) return res.status(409).json({ message: 'El nuevo horario seleccionado ya no está disponible.' });
 
     // 3. Determine the new status based on user verification
-    const isVerified = req.user.is_verified || false;
+    const isVerified = req.user.isVerified || false;
     const newStatus = isVerified ? 'confirmed' : 'pending';
     const successMessage = isVerified 
       ? 'Cita reagendada y confirmada exitosamente.'
@@ -602,7 +602,7 @@ router.delete('/appointments/:id', authenticateToken, async (req, res) => {
 
 /**
  * PUT /auth/update-profile
- * Allows a logged-in user to update their own profile information (full_name, email, phone).
+ * Allows a logged-in user to update their own profile information (fullName, email, phone).
  * This route is protected and uses the user's ID from the JWT.
  */
 router.put('/auth/update-profile', authenticateToken, async (req, res) => {
@@ -665,7 +665,7 @@ function isFixedHoliday(date, template) {
  * Gets business hours for a given day of week.
  */
 function getBusinessHoursForDay(dayOfWeek, businessHours) {
-  return businessHours.find(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek.toLowerCase());
+  return businessHours.find(bh => (bh.dayOfWeek || '').toLowerCase() === dayOfWeek.toLowerCase());
 }
 
 /**
@@ -674,8 +674,8 @@ function getBusinessHoursForDay(dayOfWeek, businessHours) {
 function getScheduledOverride(dayOfWeek, date, scheduledBusinessHours) {
   // Find the most recent override for this day_of_week and date
   return scheduledBusinessHours
-    .filter(bh => (bh.day_of_week || '').toLowerCase() === dayOfWeek.toLowerCase() && bh.effective_date <= date)
-    .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0];
+    .filter(bh => (bh.dayOfWeek || '').toLowerCase() === dayOfWeek.toLowerCase() && bh.effectiveDate <= date)
+    .sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate))[0];
 }
 
 /**
@@ -684,8 +684,8 @@ function getScheduledOverride(dayOfWeek, date, scheduledBusinessHours) {
 function getExceptionForDate(date, exceptions) {
   // Highest priority exception for this date
   return exceptions.find(ex => {
-    if (ex.exception_type === 'single_day') return ex.start_date === date;
-    if (ex.exception_type === 'date_range') return ex.start_date <= date && ex.end_date >= date;
+    if (ex.exceptionType === 'single_day') return ex.startDate === date;
+    if (ex.exceptionType === 'date_range') return ex.startDate <= date && ex.endDate >= date;
     // TODO: Add recurring/special_schedule logic if needed
     return false;
   });
@@ -700,7 +700,7 @@ router.get('/calendar', async (req, res) => {
 
   try {
     // 1. Fetch all business_hours (base template)
-    const businessHours = await BusinessHour.findAll(); // No is_active column anymore
+    const businessHours = await BusinessHour.findAll(); // No isActive column anymore
 
     // 2. Fetch all scheduled_business_hours to determine the future schedule
     // This is now handled by the BusinessHour model itself. This can be removed.
@@ -713,7 +713,7 @@ router.get('/calendar', async (req, res) => {
       where: {
         isActive: true,
         startDate: { [Op.lte]: end },
-        [Op.or]: [{ end_date: null }, { end_date: { [Op.gte]: start } }]
+        [Op.or]: [{ endDate: null }, { endDate: { [Op.gte]: start } }]
       }
     });
 
@@ -740,9 +740,9 @@ router.get('/calendar', async (req, res) => {
       // 1. Start with base
       let dayInfo = {
         date,
-        is_open: activeSchedule ? !!activeSchedule.is_open : false, // Correctly use the determined active schedule
-        open_time: activeSchedule ? activeSchedule.openTime : null,
-        close_time: activeSchedule ? activeSchedule.closeTime : null,
+        isOpen: activeSchedule ? !!activeSchedule.isOpen : false, // Correctly use the determined active schedule
+        openTime: activeSchedule ? activeSchedule.openTime : null,
+        closeTime: activeSchedule ? activeSchedule.closeTime : null,
         reason: null
       };
 
@@ -756,9 +756,9 @@ router.get('/calendar', async (req, res) => {
       // 4. Overlay schedule_exceptions
       const exception = getExceptionForDate(date, scheduleExceptions);
       if (exception) {
-        dayInfo.is_open = !exception.is_closed;
-        if (exception.customOpenTime) dayInfo.open_time = exception.customOpenTime;
-        if (exception.customCloseTime) dayInfo.close_time = exception.customCloseTime;
+        dayInfo.isOpen = !exception.isClosed;
+        if (exception.customOpenTime) dayInfo.openTime = exception.customOpenTime;
+        if (exception.customCloseTime) dayInfo.closeTime = exception.customCloseTime;
         dayInfo.reason = exception.reason || 'Exception';
       }
 
