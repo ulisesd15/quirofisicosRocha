@@ -4,13 +4,6 @@ const { Model } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
   class ScheduleException extends Model {
-    static associate(models) {
-      // Example if you add a foreign key later:
-      // ScheduleException.belongsTo(models.ServiceProvider, {
-      //   foreignKey: 'serviceProviderId',
-      //   as: 'serviceProvider',
-      // });
-    }
   }
 
   ScheduleException.init(

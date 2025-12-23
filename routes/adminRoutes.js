@@ -361,7 +361,7 @@ router.get('/users', requireAdmin, async (req, res) => {
   if (search) {
     where[Op.or] = [
       { fullName: { [Op.like]: `%${search}%` } },
-      { email: { [Op.like]: `%%` } }
+      { email: { [Op.like]: `%${search}%` } }
     ];
   }
 
@@ -371,7 +371,7 @@ router.get('/users', requireAdmin, async (req, res) => {
       limit,
       offset,
       order: [['createdAt', 'DESC']],
-      attributes: ['id', ['fullName', 'name'], 'email', 'phone', ['authProvider', 'provider'], 'role', 'createdAt']
+      attributes: ['id', 'fullName', 'email', 'phone', ['authProvider', 'provider'], 'role', 'createdAt']
     });
 
     res.json({
@@ -417,14 +417,11 @@ router.get('/users/:id', requireAdmin, async (req, res) => {
  */
 router.put('/users/:id', requireAdmin, async (req, res) => {
   const userId = req.params.id;
-  const { name, fullName, email, phone, role, provider } = req.body;
-  
-  // Accept both 'name' and 'fullName' for backward compatibility
-  const userName = fullName || name;
+  const { fullName, email, phone, role, provider } = req.body;
   
   try {
     const [updated] = await User.update(
-      { fullName: userName, email, phone, role, authProvider: provider },
+      { fullName, email, phone, role, authProvider: provider },
       { where: { id: userId } }
     );
     if (updated === 0) return res.status(404).json({ error: 'User not found' });
@@ -515,9 +512,9 @@ router.get('/appointments', requireAdmin, async (req, res) => {
 
   if (search) {
     where[Op.or] = [
-      { fullName: { [Op.like]: `%%` } },
-      { email: { [Op.like]: `%%` } },
-      { phone: { [Op.like]: `%%` } }
+      { fullName: { [Op.like]: `%${search}%` } },
+      { email: { [Op.like]: `%${search}%` } },
+      { phone: { [Op.like]: `%${search}%` } }
     ];
   }
 
@@ -737,7 +734,7 @@ router.get('/announcements', requireAdmin, async (req, res) => {
     res.json(mapped);
   } catch (err) {
     console.error('Error fetching announcements:', err);
-    res.status(500).json({ error: 'Database error' });
+    res.status(500).json({ error: 'Database error', details: err.message });
   }
 });
 

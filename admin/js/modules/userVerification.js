@@ -107,7 +107,7 @@ export class UserVerificationModule {
       <thead>
         <tr>
           <th>ID</th>
-          <th>Nombre</th>
+          <th>Nombre Completo</th>
           <th>Email</th>
           <th>Teléfono</th>
           <th>Acciones</th>
@@ -117,7 +117,7 @@ export class UserVerificationModule {
         ${users.map(user => `
           <tr>
             <td>${user.id}</td>
-            <td>${user.full_name}</td>
+            <td>${user.fullName}</td>
             <td>${user.email}</td>
             <td>${user.phone || 'N/A'}</td>
             <td>
@@ -293,7 +293,7 @@ export class UserVerificationModule {
     return `
       <div class="appointment-item">
         <div class="appointment-details">
-          <h4>Cita de: ${item.full_name || 'No disponible'}</h4>
+          <h4>Cita de: ${item.fullName || 'No disponible'}</h4>
           <p><strong>Email:</strong> ${item.email || 'No disponible'}</p>
           <p><strong>Fecha:</strong> ${formattedDate}</p>
           <p><strong>Hora de Cita:</strong> ${formattedTime}</p>

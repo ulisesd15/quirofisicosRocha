@@ -688,7 +688,7 @@
             <div class="tab-pane fade" id="announcements" role="tabpanel">
               <div class="card" id="announcements-content">
                 <div class="card-header">
-                  <h5><i class="fas fa-bullhorn me-2"></i>Anuncios y Banners</h5>
+                  <h5><i class="fas fa-bullhorn me-2"></i>Gestión de Anuncios</h5>
                   <small class="text-muted">Gestione los anuncios que aparecen en la página principal del sitio web</small>
                 </div>
                 <div class="card-body">
@@ -698,69 +698,16 @@
                       <i class="fas fa-plus"></i> Nuevo Anuncio
                     </button>
                   </div>
-                  <div id="announcements-list"></div>
-        <!-- Add Announcement Modal -->
-        <div class="modal fade" id="addAnnouncementModal" tabindex="-1" aria-labelledby="addAnnouncementModalLabel" aria-hidden="true">
-          <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="addAnnouncementModalLabel">Nuevo Anuncio</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-              </div>
-              <div class="modal-body">
-                <form id="add-announcement-form">
-                  <div class="mb-3">
-                    <label for="announcement-title" class="form-label">Título</label>
-                    <input type="text" class="form-control" id="announcement-title" required>
-                  </div>
-                  <div class="mb-3">
-                    <label for="announcement-content" class="form-label">Mensaje</label>
-                    <textarea class="form-control" id="announcement-content" rows="3" required></textarea>
-                  </div>
-                  <div class="mb-3">
-                    <label for="announcement-type" class="form-label">Tipo</label>
-                    <select class="form-select" id="announcement-type" required>
-                      <option value="info">Información</option>
-                      <option value="warning">Advertencia</option>
-                      <option value="success">Buenas noticias</option>
-                      <option value="danger">Urgente</option>
-                    </select>
-                  </div>
-                  <div class="mb-3">
-                    <label for="announcement-priority" class="form-label">Prioridad</label>
-                    <select class="form-select" id="announcement-priority" required>
-                      <option value="low">Baja</option>
-                      <option value="normal" selected>Normal</option>
-                      <option value="high">Alta</option>
-                      <option value="urgent">Urgente</option>
-                    </select>
-                  </div>
-                  <div class="row mb-3">
-                    <div class="col">
-                      <label for="announcement-start-date" class="form-label">Fecha de inicio</label>
-                      <input type="date" class="form-control" id="announcement-start-date" required>
-                    </div>
-                    <div class="col">
-                      <label for="announcement-end-date" class="form-label">Fecha de fin</label>
-                      <input type="date" class="form-control" id="announcement-end-date">
+                  
+                  <!-- Announcements List Container -->
+                  <div id="announcements-list" class="list-group">
+                    <!-- Announcements will be loaded here via JS -->
+                    <div class="text-center py-4 text-muted">
+                      <i class="fas fa-spinner fa-spin me-2"></i>Cargando anuncios...
                     </div>
                   </div>
-                  <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" id="announcement-active" checked>
-                    <label class="form-check-label" for="announcement-active">Mostrar en página principal</label>
-                  </div>
-                </form>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="save-announcement">Guardar</button>
-              </div>
-            </div>
-          </div>
-        </div>
                 </div>
               </div>
-              <!-- Placeholder is now handled by JS inside the card if needed -->
             </div>
 
           </div>
@@ -1122,8 +1069,7 @@
           </div>
         </div>
 
-        <!-- Add Announcement Modal extracted from adminOptions.html
-             This modal allows admins to add announcements. -->
+        <!-- Add Announcement Modal -->
         <div class="modal fade" id="addAnnouncementModal" tabindex="-1" aria-labelledby="addAnnouncementModalLabel" aria-hidden="true">
           <div class="modal-dialog">
             <div class="modal-content">
@@ -1135,6 +1081,7 @@
               </div>
               <div class="modal-body">
                 <form id="add-announcement-form">
+                  <input type="hidden" id="announcement-id">
                   <div class="mb-3">
                     <label for="announcement-title" class="form-label">Título</label>
                     <input type="text" class="form-control" id="announcement-title" required>
@@ -1143,20 +1090,49 @@
                     <label for="announcement-message" class="form-label">Mensaje</label>
                     <textarea class="form-control" id="announcement-message" rows="3" required></textarea>
                   </div>
-                  <div class="mb-3">
-                    <label for="announcement-type" class="form-label">Tipo</label>
-                    <select class="form-select" id="announcement-type">
-                      <option value="info">Información</option>
-                      <option value="warning">Advertencia</option>
-                      <option value="success">Éxito</option>
-                      <option value="danger">Urgente</option>
-                    </select>
+                  <div class="row mb-3">
+                    <div class="col-md-6">
+                      <label for="announcement-type" class="form-label">Tipo</label>
+                      <select class="form-select" id="announcement-type" required>
+                        <option value="info">Información</option>
+                        <option value="warning">Advertencia</option>
+                        <option value="success">Éxito</option>
+                        <option value="danger">Urgente</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label for="announcement-priority" class="form-label">Prioridad</label>
+                      <select class="form-select" id="announcement-priority" required>
+                        <option value="low">Baja</option>
+                        <option value="normal" selected>Normal</option>
+                        <option value="high">Alta</option>
+                        <option value="urgent">Urgente</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="row mb-3">
+                    <div class="col">
+                      <label for="announcement-start-date" class="form-label">Fecha de inicio</label>
+                      <input type="date" class="form-control" id="announcement-start-date" required>
+                    </div>
+                    <div class="col">
+                      <label for="announcement-end-date" class="form-label">Fecha de fin</label>
+                      <input type="date" class="form-control" id="announcement-end-date">
+                    </div>
+                  </div>
+                  <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="announcement-homepage" checked>
+                    <label class="form-check-label" for="announcement-homepage">Mostrar en página principal</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="announcement-booking">
+                    <label class="form-check-label" for="announcement-booking">Mostrar en reserva</label>
                   </div>
                 </form>
               </div>
               <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="save-announcement-btn">Publicar</button>
+                <button type="button" class="btn btn-primary" id="save-announcement-btn">Guardar</button>
               </div>
             </div>
           </div>

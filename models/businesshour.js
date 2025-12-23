@@ -4,9 +4,6 @@ const { Model } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
   class BusinessHour extends Model {
-    static associate(models) {
-      // Define associations here if needed
-    }
   }
 
   BusinessHour.init(

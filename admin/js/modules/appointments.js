@@ -60,7 +60,7 @@ export class AppointmentsModule {
           <td>${apt.id}</td>
           <td>${this.formatDate(apt.appointment_date)}</td>
           <td>${this.formatTime(apt.appointment_time)}</td>
-          <td>${apt.name}</td>
+          <td>${apt.fullName}</td>
           <td>${apt.email || ''}</td>
           <td>${apt.phone || ''}</td>
           <td><span class="badge bg-${apt.status}">${this.getStatusText(apt.status)}</span></td>
@@ -198,7 +198,7 @@ export class AppointmentsModule {
         <td>${apt.id}</td>
         <td>${this.formatDate(apt.appointment_date)}</td>
         <td>${this.formatTime(apt.appointment_time)}</td>
-        <td>${apt.name}</td>
+        <td>${apt.fullName}</td>
         <td>
           ${apt.email ? `<div>${apt.email}</div>` : ''}
           ${apt.phone ? `<div class="text-muted">${apt.phone}</div>` : ''}
@@ -330,7 +330,7 @@ export class AppointmentsModule {
 
       // Populate modal
       document.getElementById('edit-appointment-id').value = appointment.id;
-      document.getElementById('edit-appointment-name').textContent = appointment.full_name || appointment.name || 'No disponible';
+      document.getElementById('edit-appointment-name').textContent = appointment.fullName || 'No disponible';
       document.getElementById('edit-appointment-email').textContent = appointment.email || 'No disponible';
       document.getElementById('edit-appointment-phone').textContent = appointment.phone || 'No disponible';
       document.getElementById('edit-appointment-date').value = (appointment.date || appointment.appointment_date).split('T')[0]; // Format to YYYY-MM-DD

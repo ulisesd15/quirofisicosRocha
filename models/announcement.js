@@ -4,9 +4,6 @@ const { Model } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
   class Announcement extends Model {
-    static associate(models) {
-      // no associations for now
-    }
   }
 
   Announcement.init(
@@ -22,19 +19,37 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
 
-      content: {
+      message: {
         type: DataTypes.TEXT,
         allowNull: false,
       },
 
+      announcementType: {
+        type: DataTypes.STRING(50),
+        allowNull: false,
+        defaultValue: 'info',
+      },
+
       startDate: {
-        type: DataTypes.DATE,
+        type: DataTypes.DATEONLY,
         allowNull: false,
       },
 
       endDate: {
-        type: DataTypes.DATE,
+        type: DataTypes.DATEONLY,
         allowNull: true,
+      },
+
+      showOnHomepage: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+      },
+
+      showOnBooking: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
       },
 
       isActive: {
@@ -44,9 +59,14 @@ module.exports = (sequelize, DataTypes) => {
       },
 
       priority: {
-        type: DataTypes.ENUM('LOW', 'MEDIUM', 'HIGH'), // enum in model. [web:2][web:22]
+        type: DataTypes.STRING(20),
         allowNull: false,
-        defaultValue: 'LOW',
+        defaultValue: 'normal',
+      },
+
+      createdBy: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
       },
     },
     {

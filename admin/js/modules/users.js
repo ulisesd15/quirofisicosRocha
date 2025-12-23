@@ -43,7 +43,7 @@ export class UsersModule {
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>${user.id}</td>
-        <td>${user.full_name}</td>
+        <td>${user.fullName}</td>
         <td>${user.email}</td>
         <td>${user.phone || 'N/A'}</td>
         <td>
@@ -192,7 +192,7 @@ export class UsersModule {
     try {
       const id = document.getElementById('edit-user-id').value;
       const data = {
-        full_name: document.getElementById('edit-user-name').value,
+        fullName: document.getElementById('edit-user-name').value,
         email: document.getElementById('edit-user-email').value,
         phone: document.getElementById('edit-user-phone').value,
         role: document.getElementById('edit-user-role').value
@@ -234,7 +234,7 @@ export class UsersModule {
       const data = await response.json();
       const user = data.user;
       document.getElementById('edit-user-id').value = user.id;
-      document.getElementById('edit-user-name').value = user.full_name;
+      document.getElementById('edit-user-name').value = user.fullName;
       document.getElementById('edit-user-email').value = user.email;
       document.getElementById('edit-user-phone').value = user.phone || '';
       document.getElementById('edit-user-role').value = user.role || 'user';
@@ -333,41 +333,22 @@ export class UsersModule {
       return;
     }
 
-    const table = document.createElement('table');
-    table.className = 'table table-hover';
-    table.innerHTML = `
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Name</th>
-          <th>Email</th>
-          <th>Role</th>
-          <th>Provider</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-      </tbody>
-    `;
-    const tbody = table.querySelector('tbody');
-
     users.forEach(user => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${user.id}</td>
-            <td>${user.full_name}</td>
+            <td>${user.fullName}</td>
             <td>${user.email}</td>
             <td>${user.phone || 'N/A'}</td>
             <td><span class="badge bg-secondary">${user.role}</span></td>
-            <td>${new Date(user.created_at).toLocaleDateString()}</td>
+            <td>${new Date(user.createdAt).toLocaleDateString()}</td>
             <td>
                 <button class="btn btn-sm btn-outline-secondary" onclick="window.usersModule.editUser(${user.id})"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-sm btn-outline-danger" onclick="window.usersModule.deleteUser(${user.id})"><i class="fas fa-trash"></i></button>
             </td>
         `;
         usersTableBody.appendChild(row);
     });
-
-    // Add event listeners after all buttons are in the DOM
   }
 
   /**
