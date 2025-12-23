@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = '/appointment.html'; // or your dashboard page
     return;
   }
+  
   // Handle login form submission
   const loginForm = document.getElementById('loginForm');
   
@@ -48,8 +49,16 @@ document.addEventListener('DOMContentLoaded', () => {
           // Use AuthManager to handle login
           if (window.authManager) {
             window.authManager.login(data.token, data.user);
+          } else {
+            // Fallback: store manually if AuthManager not available
+            localStorage.setItem('userToken', data.token);
+            localStorage.setItem('user_token', data.token); // For admin compatibility
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('userId', data.user.id);
+            localStorage.setItem('userName', data.user.fullName);
+            localStorage.setItem('userEmail', data.user.email);
+            localStorage.setItem('userRole', data.user.role || 'user');
           }
-          
           
           // Redirect based on user role
           if (data.user.role === 'admin') {
@@ -60,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           const messageEl = document.getElementById('loginMessage');
           if (messageEl) {
-            messageEl.textContent = data.error;
+            messageEl.textContent = data.message || data.error || 'Error al iniciar sesión';
           }
         }
       } catch (error) {

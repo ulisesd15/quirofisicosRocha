@@ -49,9 +49,9 @@
     console.log('Admin auth check:');
     console.log('user_token:', localStorage.getItem('user_token'));
     console.log('token:', localStorage.getItem('token'));
-    console.log('user_role:', localStorage.getItem('user_role'));
+    console.log('userRole:', localStorage.getItem('userRole'));
     const hasToken = localStorage.getItem('user_token') || localStorage.getItem('token');
-    const isAdmin = localStorage.getItem('user_role') === 'admin';
+    const isAdmin = localStorage.getItem('userRole') === 'admin';
     console.log('hasToken:', hasToken);
     console.log('isAdmin:', isAdmin);
     if (!hasToken || !isAdmin) {

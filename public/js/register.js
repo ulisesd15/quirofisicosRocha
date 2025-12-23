@@ -75,6 +75,7 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
       } else {
         // Fallback: store manually if AuthManager not available
         localStorage.setItem('userToken', result.token);
+        localStorage.setItem('user_token', result.token); // For admin compatibility
         localStorage.setItem('token', result.token);
         localStorage.setItem('userId', result.user.id);
         localStorage.setItem('userName', result.user.fullName);
@@ -82,11 +83,18 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
         localStorage.setItem('userPhone', result.user.phone);
         localStorage.setItem('userRole', result.user.role || 'user');
       }
+      
       document.getElementById('registerMessage').textContent = '';
       document.getElementById('registerMessage').className = 'text-success text-center mb-3';
       document.getElementById('registerMessage').textContent = result.message || 'Registro exitoso';
+      
       setTimeout(() => {
-        window.location.href = '/appointment.html'; // Redirect after successful register
+        // Redirect based on user role
+        if (result.user.role === 'admin') {
+          window.location.href = '/admin/adminOptions.html';
+        } else {
+          window.location.href = '/appointment.html';
+        }
       }, 1500);
     } else {
       document.getElementById('registerMessage').textContent = result.error || 'No se pudo registrar';
@@ -115,16 +123,19 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = '/appointment.html'; // or your dashboard page
     return;
   }
+  
   const menuToggle = document.querySelector('#menu_toggle');
   const offcanvas = document.getElementById('sideNav');
 
   // Hide toggle button when offcanvas opens
-  offcanvas.addEventListener('show.bs.offcanvas', () => {
-    menuToggle.style.display = 'none';
-  });
+  if (offcanvas && menuToggle) {
+    offcanvas.addEventListener('show.bs.offcanvas', () => {
+      menuToggle.style.display = 'none';
+    });
 
-  // Show toggle button again when offcanvas closes
-  offcanvas.addEventListener('hidden.bs.offcanvas', () => {
-    menuToggle.style.display = 'block';
-  });
+    // Show toggle button again when offcanvas closes
+    offcanvas.addEventListener('hidden.bs.offcanvas', () => {
+      menuToggle.style.display = 'block';
+    });
+  }
 });
