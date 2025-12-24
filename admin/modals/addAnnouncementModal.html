@@ -1,7 +1,6 @@
-<!-- Add Announcement Modal extracted from adminOptions.html
-     This modal allows admins to add announcements. -->
+<!-- Add Announcement Modal - Updated for Sequelize DB -->
 <div class="modal fade" id="addAnnouncementModal" tabindex="-1" aria-labelledby="addAnnouncementModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="addAnnouncementModalLabel">
@@ -12,27 +11,146 @@
       <div class="modal-body">
         <form id="add-announcement-form">
           <div class="mb-3">
-            <label for="announcement-title" class="form-label">Título</label>
+            <label for="announcement-title" class="form-label">Título <span class="text-danger">*</span></label>
             <input type="text" class="form-control" id="announcement-title" required>
           </div>
+          
           <div class="mb-3">
-            <label for="announcement-message" class="form-label">Mensaje</label>
-            <textarea class="form-control" id="announcement-message" rows="3" required></textarea>
+            <label for="announcement-message" class="form-label">Mensaje <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="announcement-message" rows="4" required></textarea>
           </div>
+          
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="announcement-type" class="form-label">Tipo</label>
+              <select class="form-select" id="announcement-type">
+                <option value="info">Información</option>
+                <option value="warning">Advertencia</option>
+                <option value="success">Éxito</option>
+                <option value="danger">Urgente</option>
+              </select>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <label for="announcement-priority" class="form-label">Prioridad</label>
+              <select class="form-select" id="announcement-priority">
+                <option value="low">Baja</option>
+                <option value="normal" selected>Normal</option>
+                <option value="high">Alta</option>
+                <option value="urgent">Urgente</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="announcement-start-date" class="form-label">Fecha de Inicio <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" id="announcement-start-date" required>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <label for="announcement-end-date" class="form-label">Fecha de Fin (Opcional)</label>
+              <input type="date" class="form-control" id="announcement-end-date">
+            </div>
+          </div>
+          
           <div class="mb-3">
-            <label for="announcement-type" class="form-label">Tipo</label>
-            <select class="form-select" id="announcement-type">
-              <option value="info">Información</option>
-              <option value="warning">Advertencia</option>
-              <option value="danger">Urgente</option>
-            </select>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="announcement-show-homepage" checked>
+              <label class="form-check-label" for="announcement-show-homepage">
+                Mostrar en página de inicio
+              </label>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="announcement-show-booking">
+              <label class="form-check-label" for="announcement-show-booking">
+                Mostrar en página de reservas
+              </label>
+            </div>
           </div>
         </form>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-primary" id="save-announcement-btn">Publicar</button>
+        <button type="button" class="btn btn-primary" id="save-announcement-btn">
+          <i class="fas fa-save me-2"></i>Publicar
+        </button>
       </div>
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const saveBtn = document.getElementById('save-announcement-btn');
+  const form = document.getElementById('add-announcement-form');
+  
+  // Set default start date to today
+  document.getElementById('announcement-start-date').valueAsDate = new Date();
+  
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async function() {
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
+      
+      const data = {
+        title: document.getElementById('announcement-title').value.trim(),
+        message: document.getElementById('announcement-message').value.trim(),
+        announcementType: document.getElementById('announcement-type').value,
+        priority: document.getElementById('announcement-priority').value,
+        startDate: document.getElementById('announcement-start-date').value,
+        endDate: document.getElementById('announcement-end-date').value || null,
+        showOnHomepage: document.getElementById('announcement-show-homepage').checked,
+        showOnBooking: document.getElementById('announcement-show-booking').checked
+      };
+      
+      try {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+        
+        const response = await fetch('/api/admin/announcements', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          alert('Anuncio publicado exitosamente');
+          bootstrap.Modal.getInstance(document.getElementById('addAnnouncementModal')).hide();
+          form.reset();
+          document.getElementById('announcement-start-date').valueAsDate = new Date();
+          
+          // Refresh announcements list if function exists
+          if (typeof loadAnnouncements === 'function') {
+            loadAnnouncements();
+          }
+        } else {
+          alert('Error: ' + (result.error || 'No se pudo publicar el anuncio'));
+        }
+      } catch (error) {
+        console.error('Error saving announcement:', error);
+        alert('Error al conectar con el servidor');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save me-2"></i>Publicar';
+      }
+    });
+  }
+  
+  // Reset form when modal is closed
+  document.getElementById('addAnnouncementModal').addEventListener('hidden.bs.modal', function() {
+    form.reset();
+    document.getElementById('announcement-start-date').valueAsDate = new Date();
+  });
+});
+</script>
