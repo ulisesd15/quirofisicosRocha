@@ -57,8 +57,17 @@ router.get('/slots', async (req, res) => {
     // 1. Get scheduled business hours for all days in week
     const weekDayNames = days.map(d => dayNames[new Date(d).getDay()]);
 
-    // Refactor: Use the new BusinessHour model logic
-    const latestEffectiveDate = await BusinessHour.max('effectiveDate', { where: { effectiveDate: { [Op.lte]: days[6] } } });
+    // Find the most recent effective date that applies to this week
+    const latestEffectiveDate = await BusinessHour.max('effectiveDate', { 
+      where: { 
+        effectiveDate: { [Op.lte]: days[6] } 
+      } 
+    });
+
+    if (!latestEffectiveDate) {
+      console.log('[/slots] No business hours found in database');
+      return res.json({ slots: {} });
+    }
 
     const results = await BusinessHour.findAll({
       where: {
@@ -165,8 +174,17 @@ router.get('/available-slots/:date', async (req, res) => {
   const dayOfWeek = days[dateObj.getDay()];
   console.log(`[API] /available-slots/${dayISO} | dayOfWeek: ${dayOfWeek}`);
   try {
-    // Refactor: Use the new BusinessHour model logic
-    const latestEffectiveDate = await BusinessHour.max('effectiveDate', { where: { effectiveDate: { [Op.lte]: dayISO } } });
+    // Find the most recent effective date that applies to this date
+    const latestEffectiveDate = await BusinessHour.max('effectiveDate', { 
+      where: { 
+        effectiveDate: { [Op.lte]: dayISO } 
+      } 
+    });
+
+    if (!latestEffectiveDate) {
+      console.log(`[API] No business hours found in database for ${dayISO}`);
+      return res.json({ availableSlots: [] });
+    }
 
     const bh = await BusinessHour.findOne({
       where: {
@@ -244,12 +262,9 @@ router.get('/config/maps-key', (req, res) => {
 
 /**
  * Returns all business hours (for admin/configuration).
+ * Defaults to returning the current active schedule (latest effectiveDate <= today).
  */
 router.get('/business-hours', async (req, res) => {
-  // This endpoint now functions like /business-hours/:date, using today if no date is provided.
-  const dayISO = new Date().toISOString().split('T')[0]; // Default to today
-  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-
   try {
     // 1. Find the most recent effectiveDate that is on or before today.
     const latestEffectiveDate = await BusinessHour.max('effectiveDate', {
@@ -261,7 +276,7 @@ router.get('/business-hours', async (req, res) => {
     });
 
     if (!latestEffectiveDate) {
-      // If no schedule has been set at all.
+      console.log('[/business-hours] No business hours found in database');
       return res.json({ businessHours: [] });
     }
 
@@ -275,6 +290,8 @@ router.get('/business-hours', async (req, res) => {
         sequelize.literal("FIELD(dayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')")
       ]
     });
+    
+    console.log(`[/business-hours] Returning ${ordered.length} business hours for effectiveDate: ${latestEffectiveDate}`);
     res.json({ businessHours: ordered });
   } catch (err) {
     console.error("Error fetching merged business hours:", err);
@@ -283,14 +300,14 @@ router.get('/business-hours', async (req, res) => {
 });
 
 /**
- * Returns business hours for a specific date (uses scheduled-business-hours if available).
+ * Returns business hours for a specific date.
+ * Uses the most recent effectiveDate that is on or before the requested date.
  */
 router.get('/business-hours/:date', async (req, res) => {
   const dayISO = req.params.date; // Expects YYYY-MM-DD
   const dateObj = new Date(dayISO + 'T00:00:00'); // Treat as local date
   if (isNaN(dateObj)) return res.status(400).json({ businessHours: [] });
 
-  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   try {
     // 1. Find the most recent effectiveDate that is on or before the requested date.
     const latestEffectiveDate = await BusinessHour.max('effectiveDate', {
@@ -302,6 +319,7 @@ router.get('/business-hours/:date', async (req, res) => {
     });
 
     if (!latestEffectiveDate) {
+      console.log(`[/business-hours/${dayISO}] No business hours found in database`);
       return res.json({ businessHours: [] });
     }
 
@@ -314,6 +332,8 @@ router.get('/business-hours/:date', async (req, res) => {
         sequelize.literal("FIELD(dayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')")
       ]
     });
+    
+    console.log(`[/business-hours/${dayISO}] Returning ${ordered.length} business hours for effectiveDate: ${latestEffectiveDate}`);
     res.json({ businessHours: ordered });
   } catch (err) {
     console.error(`Error fetching business hours for date ${dayISO}:`, err);
