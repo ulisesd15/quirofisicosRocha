@@ -135,50 +135,61 @@ export class Calendar {
   /**
    * Checks if a given date is open for booking
    * Considers schedule exceptions (closures, holidays) and regular business hours
+   * ENHANCED: Now logs detailed debugging information
    */
   isDayOpen(date) {
     const dateStr = this.formatDate(date);
     
+    // 🔍 DEBUG: Log every check
+    console.log(`\n🔍 [isDayOpen] Checking ${dateStr}:`);
+    
     // Check for schedule exceptions first (holidays, closures, etc.)
     const exception = this.getScheduleException(dateStr);
     if (exception) {
+      console.log(`  ⚠️  Found exception:`, exception);
+      
       // If exception says closed, day is not open
       if (exception.isClosed) {
-        console.log(`[isDayOpen] Date ${dateStr} is closed due to exception:`, exception.reason);
+        console.log(`  ❌ CLOSED due to exception: ${exception.reason || 'No reason given'}`);
         return false;
       }
       
       // If exception has custom hours, day is open
       if (exception.customOpenTime && exception.customCloseTime) {
-        console.log(`[isDayOpen] Date ${dateStr} has custom hours:`, exception);
+        console.log(`  ✅ OPEN with custom hours: ${exception.customOpenTime} - ${exception.customCloseTime}`);
         return true;
       }
     }
     
     // Check regular business hours
     if (!this.businessHours.length) {
-      console.log('[isDayOpen] No business hours loaded');
+      console.log('  ❌ CLOSED - No business hours loaded');
       return false;
     }
     
     const dayOfWeek = this.getDayOfWeekString(date).toLowerCase();
     const businessDay = this.businessHoursMap[dayOfWeek];
     
+    console.log(`  📅 Day of week: ${dayOfWeek}`);
+    
     if (!businessDay) {
-      console.log(`[isDayOpen] No business hours for ${dayOfWeek}`);
+      console.log(`  ❌ CLOSED - No business hours configured for ${dayOfWeek}`);
       return false;
     }
     
+    console.log(`  📋 Business hours for ${dayOfWeek}:`, businessDay);
+    
     if (!businessDay.isOpen) {
-      console.log(`[isDayOpen] Business closed on ${dayOfWeek}`);
+      console.log(`  ❌ CLOSED - Business marked as closed on ${dayOfWeek}`);
       return false;
     }
     
     if (!businessDay.openTime || !businessDay.closeTime) {
-      console.log(`[isDayOpen] Missing open/close times for ${dayOfWeek}`);
+      console.log(`  ❌ CLOSED - Missing open/close times for ${dayOfWeek}`);
       return false;
     }
     
+    console.log(`  ✅ OPEN - Hours: ${businessDay.openTime} - ${businessDay.closeTime}`);
     return true;
   }
 
@@ -219,7 +230,7 @@ export class Calendar {
         this.businessHoursMap[bh.dayOfWeek.toLowerCase()] = bh;
       });
       
-      console.log('[fetchBusinessHours] Loaded hours:', this.businessHoursMap);
+      console.log('📊 [fetchBusinessHours] Loaded business hours:', this.businessHoursMap);
       return this.businessHours;
     } catch (e) {
       console.error('[fetchBusinessHours] Error:', e);
@@ -242,7 +253,7 @@ export class Calendar {
       }
       
       this.scheduleExceptions = await response.json();
-      console.log('[fetchScheduleExceptions] Loaded exceptions:', this.scheduleExceptions.length);
+      console.log(`🎄 [fetchScheduleExceptions] Loaded ${this.scheduleExceptions.length} exceptions:`, this.scheduleExceptions);
       return this.scheduleExceptions;
     } catch (e) {
       console.error('[fetchScheduleExceptions] Error:', e);
