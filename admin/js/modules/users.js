@@ -83,6 +83,69 @@ export class UsersModule {
   constructor() {
     this.currentPage = 1;
     this.itemsPerPage = 10;
+    this.searchTimeout = null;
+  }
+
+  /**
+   * Sets up event listeners for search and filter controls.
+   */
+  setupSearchListeners() {
+    // Search input with debounce
+    const searchInput = document.getElementById('users-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        clearTimeout(this.searchTimeout);
+        this.searchTimeout = setTimeout(() => {
+          this.currentPage = 1; // Reset to first page on new search
+          this.loadUsers();
+        }, 500); // 500ms debounce
+      });
+
+      // Also trigger on Enter key
+      searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          clearTimeout(this.searchTimeout);
+          this.currentPage = 1;
+          this.loadUsers();
+        }
+      });
+    }
+
+    // Search button
+    const searchBtn = document.getElementById('search-users-btn');
+    if (searchBtn) {
+      searchBtn.addEventListener('click', () => {
+        this.currentPage = 1;
+        this.loadUsers();
+      });
+    }
+
+    // Role filter - instant change
+    const roleFilter = document.getElementById('users-role-filter');
+    if (roleFilter) {
+      roleFilter.addEventListener('change', () => {
+        this.currentPage = 1;
+        this.loadUsers();
+      });
+    }
+
+    // Clear filters button
+    const clearBtn = document.getElementById('clear-users-filters-btn');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        this.clearUsersFilters();
+      });
+    }
+
+    // Refresh button
+    const refreshBtn = document.getElementById('refresh-users-btn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => {
+        this.loadUsers();
+      });
+    }
+
+    console.log('Users search listeners initialized');
   }
 
   /**
