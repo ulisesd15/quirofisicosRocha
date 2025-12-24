@@ -114,24 +114,24 @@ export class ScheduleModule {
       const dayLower = day.toLowerCase();
       const isOpen = document.getElementById(`open-${dayLower}`)?.checked || false;
       return {
-        day_of_week: day,
-        is_open: isOpen ? 1 : 0,
-        open_time: isOpen ? document.getElementById(`start-${dayLower}`)?.value || null : null,
-        close_time: isOpen ? document.getElementById(`end-${dayLower}`)?.value || null : null,
-        break_start: isOpen ? document.getElementById(`break-start-${dayLower}`)?.value || null : null,
-        break_end: isOpen ? document.getElementById(`break-end-${dayLower}`)?.value || null : null
+        dayOfWeek: day,
+        isOpen: isOpen,
+        openTime: isOpen ? document.getElementById(`start-${dayLower}`)?.value || null : null,
+        closeTime: isOpen ? document.getElementById(`end-${dayLower}`)?.value || null : null,
+        breakStart: isOpen ? document.getElementById(`break-start-${dayLower}`)?.value || null : null,
+        breakEnd: isOpen ? document.getElementById(`break-end-${dayLower}`)?.value || null : null
       };
     });
     // Get effective date from date picker
     const datePicker = document.getElementById('schedule-effective-date');
-    const effective_date = datePicker ? datePicker.value : null;
+    const effectiveDate = datePicker ? datePicker.value : null;
 
     // Optional: validate data here
-    if (!businessHours.some(day => day.is_open)) {
+    if (!businessHours.some(day => day.isOpen)) {
       this.showError('Debe abrir al menos un día de la semana');
       return;
     }
-    if (!effective_date) {
+    if (!effectiveDate) {
       this.showError('Debe seleccionar una fecha de inicio');
       return;
     }
@@ -143,13 +143,13 @@ export class ScheduleModule {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.getAuthToken()}`
         },
-        body: JSON.stringify({ businessHours, effective_date })
+        body: JSON.stringify({ businessHours, effectiveDate })
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Error al guardar horarios');
       this.showSuccess('Horarios guardados exitosamente');
       // Reload the business hours for the date that was just saved to reflect the changes.
-      await this.loadBusinessHours(effective_date);
+      await this.loadBusinessHours(effectiveDate);
     } catch (error) {
       console.error('Error saving business hours:', error);
       this.showError('Error al guardar horarios: ' + error.message);
@@ -249,6 +249,12 @@ export class ScheduleModule {
     }
 
     container.innerHTML = templates.map(template => {
+      // Handle both camelCase and snake_case for backward compatibility
+      const holidayType = template.holidayType || template.holiday_type || 'custom';
+      const closureType = template.closureType || template.closure_type || 'full_day';
+      const isRecurring = template.isRecurring !== undefined ? template.isRecurring : template.is_recurring;
+      const isActive = template.isActive !== undefined ? template.isActive : template.is_active;
+      
       const monthNames = [
         '', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
@@ -272,7 +278,7 @@ export class ScheduleModule {
         'religious': 'info',
         'cultural': 'warning',
         'custom': 'secondary'
-      }[template.holiday_type] || 'secondary';
+      }[holidayType] || 'secondary';
 
       return `
         <div class="card mb-3">
@@ -282,8 +288,8 @@ export class ScheduleModule {
                 <h6 class="card-title d-flex align-items-center">
                   <i class="fas fa-star me-2 text-${typeColor}"></i>
                   ${template.name}
-                  <span class="badge bg-${typeColor} ms-2">${typeLabels[template.holiday_type]}</span>
-                  ${template.is_active ? '<span class="badge bg-success ms-1">Activo</span>' : '<span class="badge bg-secondary ms-1">Inactivo</span>'}
+                  <span class="badge bg-${typeColor} ms-2">${typeLabels[holidayType]}</span>
+                  ${isActive ? '<span class="badge bg-success ms-1">Activo</span>' : '<span class="badge bg-secondary ms-1">Inactivo</span>'}
                 </h6>
                 <div class="row">
                   <div class="col-md-6">
@@ -293,14 +299,14 @@ export class ScheduleModule {
                     </p>
                     <p class="card-text small mb-1">
                       <i class="fas fa-clock me-1"></i>
-                      <strong>Cierre:</strong> ${closureLabels[template.closure_type]}
+                      <strong>Cierre:</strong> ${closureLabels[closureType]}
                     </p>
                   </div>
                   <div class="col-md-6">
                     ${template.description ? `<p class="card-text small mb-1"><i class="fas fa-info-circle me-1"></i>${template.description}</p>` : ''}
                     <p class="card-text small mb-0">
                       <i class="fas fa-sync me-1"></i>
-                      <strong>Recurrente:</strong> ${template.is_recurring ? 'Sí' : 'No'}
+                      <strong>Recurrente:</strong> ${isRecurring ? 'Sí' : 'No'}
                     </p>
                   </div>
                 </div>
@@ -592,12 +598,12 @@ export class ScheduleModule {
       if (!obj) return {};
       // Accept both camelCase and snake_case keys
       return {
-        day_of_week: obj.day_of_week || obj.dayOfWeek || '',
-        is_open: obj.is_open !== undefined ? obj.is_open : obj.isOpen,
-        open_time: obj.open_time || obj.openTime || '',
-        close_time: obj.close_time || obj.closeTime || '',
-        break_start: obj.break_start || obj.breakStart || '',
-        break_end: obj.break_end || obj.breakEnd || ''
+        dayOfWeek: obj.dayOfWeek || obj.day_of_week || '',
+        isOpen: obj.isOpen !== undefined ? obj.isOpen : (obj.is_open !== undefined ? obj.is_open : false),
+        openTime: obj.openTime || obj.open_time || '',
+        closeTime: obj.closeTime || obj.close_time || '',
+        breakStart: obj.breakStart || obj.break_start || '',
+        breakEnd: obj.breakEnd || obj.break_end || ''
       };
     }
 
@@ -623,7 +629,7 @@ export class ScheduleModule {
     container.innerHTML = days.map((day, index) => {
       // Accept both 'monday' and 'Monday' for matching
       const hours = normalizedBusinessHours.find(bh =>
-        (bh.day_of_week && bh.day_of_week.toLowerCase() === day)
+        (bh.dayOfWeek && bh.dayOfWeek.toLowerCase() === day)
       ) || {};
       console.log(`Day ${day}:`, hours);
 
@@ -652,7 +658,7 @@ export class ScheduleModule {
         defaultBreakEnd = '';
       }
 
-      const isOpen = hours.is_open === 1 || hours.is_open === true;
+      const isOpen = hours.isOpen === 1 || hours.isOpen === true;
 
       return `
         <div class="business-hours-day ${!isOpen ? 'closed' : ''}" data-day="${day}">
@@ -681,25 +687,25 @@ export class ScheduleModule {
                   <div class="col-md-3">
                     <label class="form-label small text-muted">Hora de Apertura:</label>
                     <input type="time" class="form-control" 
-                           id="start-${day}" value="${hours.open_time || defaultOpenTime}"
+                           id="start-${day}" value="${hours.openTime || defaultOpenTime}"
                            ${!isOpen ? 'disabled' : ''}>
                   </div>
                   <div class="col-md-3">
                     <label class="form-label small text-muted">Hora de Cierre:</label>
                     <input type="time" class="form-control" 
-                           id="end-${day}" value="${hours.close_time || defaultCloseTime}"
+                           id="end-${day}" value="${hours.closeTime || defaultCloseTime}"
                            ${!isOpen ? 'disabled' : ''}>
                   </div>
                   <div class="col-md-3">
                     <label class="form-label small text-muted">Inicio Descanso:</label>
                     <input type="time" class="form-control" 
-                           id="break-start-${day}" value="${hours.break_start || defaultBreakStart || ''}"
+                           id="break-start-${day}" value="${hours.breakStart || defaultBreakStart || ''}"
                            ${!isOpen ? 'disabled' : ''}>
                   </div>
                   <div class="col-md-3">
                     <label class="form-label small text-muted">Fin Descanso:</label>
                     <input type="time" class="form-control" 
-                           id="break-end-${day}" value="${hours.break_end || defaultBreakEnd || ''}"
+                           id="break-end-${day}" value="${hours.breakEnd || defaultBreakEnd || ''}"
                            ${!isOpen ? 'disabled' : ''}>
                   </div>
                 </div>
@@ -922,30 +928,30 @@ export class ScheduleModule {
     console.log('saveScheduleException called');
     
     const formData = {
-      exception_type: document.getElementById('exception-type-select').value,
-      start_date: document.getElementById('schedule-exception-start-date').value,
-      end_date: document.getElementById('schedule-exception-end-date').value,
-      is_closed: document.getElementById('exception-is-closed').checked,
-      custom_open_time: document.getElementById('exception-open-time').value,
-      custom_close_time: document.getElementById('exception-close-time').value,
-      custom_break_start: document.getElementById('exception-break-start').value,
-      custom_break_end: document.getElementById('exception-break-end').value,
+      type: document.getElementById('exception-type-select').value,
+      startDate: document.getElementById('schedule-exception-start-date').value,
+      endDate: document.getElementById('schedule-exception-end-date').value,
+      isClosed: document.getElementById('exception-is-closed').checked,
+      customOpenTime: document.getElementById('exception-open-time').value || null,
+      customCloseTime: document.getElementById('exception-close-time').value || null,
+      customBreakStart: document.getElementById('exception-break-start').value || null,
+      customBreakEnd: document.getElementById('exception-break-end').value || null,
       reason: document.getElementById('exception-reason').value,
-      description: document.getElementById('schedule-exception-description').value,
-      recurring_type: document.getElementById('exception-recurring') ? 
+      description: document.getElementById('schedule-exception-description').value || null,
+      recurringType: document.getElementById('exception-recurring') ? 
         (document.getElementById('exception-recurring').checked ? 'yearly' : null) : null
     };
 
     console.log('Form data collected:', formData);
     console.log('Auth token:', localStorage.getItem('token'));
 
-    if (!formData.exception_type || !formData.start_date || !formData.reason) {
+    if (!formData.type || !formData.startDate || !formData.reason) {
       console.log('Validation failed - missing required fields');
       this.showError('Faltan campos obligatorios');
       return;
     }
 
-    if (formData.exception_type === 'date_range' && !formData.end_date) {
+    if (formData.type === 'date_range' && !formData.endDate) {
       console.log('Validation failed - date range missing end date');
       this.showError('Para un rango de fechas debe especificar la fecha de fin');
       return;
@@ -1022,7 +1028,18 @@ export class ScheduleModule {
       container.innerHTML = '<div class="text-center text-muted py-4">No hay excepciones de horario programadas</div>';
       return;
     }
-    container.innerHTML = exceptions.map(exception => `
+    
+    container.innerHTML = exceptions.map(exception => {
+      // Handle both camelCase and snake_case
+      const isClosed = exception.isClosed !== undefined ? exception.isClosed : exception.is_closed;
+      const recurringType = exception.recurringType || exception.recurring_type;
+      const startDate = exception.startDate || exception.start_date;
+      const endDate = exception.endDate || exception.end_date;
+      const customOpenTime = exception.customOpenTime || exception.custom_open_time;
+      const customCloseTime = exception.customCloseTime || exception.custom_close_time;
+      const exceptionType = exception.type || exception.exception_type;
+      
+      return `
       <div class="card mb-3">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-start">
@@ -1030,18 +1047,18 @@ export class ScheduleModule {
               <h6 class="card-title d-flex align-items-center">
                 <i class="fas fa-calendar-times me-2 text-warning"></i>
                 ${exception.reason}
-                <span class="badge bg-${exception.is_closed ? 'danger' : 'info'} ms-2">
-                  ${exception.is_closed ? 'Cerrado' : 'Horario especial'}
+                <span class="badge bg-${isClosed ? 'danger' : 'info'} ms-2">
+                  ${isClosed ? 'Cerrado' : 'Horario especial'}
                 </span>
-                ${exception.recurring_type === 'yearly' ? '<span class="badge bg-warning ms-2">Anual</span>' : ''}
+                ${recurringType === 'yearly' ? '<span class="badge bg-warning ms-2">Anual</span>' : ''}
               </h6>
               <p class="card-text text-muted mb-2">${exception.description || 'Sin descripción adicional'}</p>
               <div class="d-flex gap-3 text-sm">
-                <span><i class="fas fa-calendar"></i> ${this.formatDateRange(exception.start_date, exception.end_date)}</span>
-                ${!exception.is_closed && exception.custom_open_time ? `
-                  <span><i class="fas fa-clock"></i> ${exception.custom_open_time} - ${exception.custom_close_time}</span>
+                <span><i class="fas fa-calendar"></i> ${this.formatDateRange(startDate, endDate)}</span>
+                ${!isClosed && customOpenTime ? `
+                  <span><i class="fas fa-clock"></i> ${customOpenTime} - ${customCloseTime}</span>
                 ` : ''}
-                <span class="badge bg-secondary">${exception.exception_type === 'single_day' ? 'Día específico' : 'Rango de fechas'}</span>
+                <span class="badge bg-secondary">${exceptionType === 'single_day' ? 'Día específico' : 'Rango de fechas'}</span>
               </div>
             </div>
             <div class="btn-group">
@@ -1055,7 +1072,8 @@ export class ScheduleModule {
           </div>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 
   /**
@@ -1071,12 +1089,12 @@ export class ScheduleModule {
         description: document.getElementById('holiday-description').value.trim(),
         month: parseInt(document.getElementById('holiday-month').value),
         day: parseInt(document.getElementById('holiday-day').value),
-        holiday_type: document.getElementById('holiday-type').value,
-        closure_type: document.getElementById('closure-type').value,
-        is_recurring: document.getElementById('is-recurring').checked ? 1 : 0,
-        is_active: document.getElementById('is-active').checked ? 1 : 0,
-        custom_open_time: document.getElementById('custom-open-time').value || null,
-        custom_close_time: document.getElementById('custom-close-time').value || null
+        holidayType: document.getElementById('holiday-type').value,
+        closureType: document.getElementById('closure-type').value,
+        isRecurring: document.getElementById('is-recurring').checked,
+        isActive: document.getElementById('is-active').checked,
+        customOpenTime: document.getElementById('custom-open-time').value || null,
+        customCloseTime: document.getElementById('custom-close-time').value || null
       };
 
       // Validation
@@ -1152,22 +1170,30 @@ export class ScheduleModule {
         return;
       }
 
+      // Handle both camelCase and snake_case
+      const holidayType = template.holidayType || template.holiday_type;
+      const closureType = template.closureType || template.closure_type;
+      const isRecurring = template.isRecurring !== undefined ? template.isRecurring : template.is_recurring;
+      const isActive = template.isActive !== undefined ? template.isActive : template.is_active;
+      const customOpenTime = template.customOpenTime || template.custom_open_time;
+      const customCloseTime = template.customCloseTime || template.custom_close_time;
+
       // Populate form
       document.getElementById('holiday-template-id').value = template.id;
       document.getElementById('holiday-name').value = template.name;
       document.getElementById('holiday-description').value = template.description || '';
       document.getElementById('holiday-month').value = template.month;
       document.getElementById('holiday-day').value = template.day;
-      document.getElementById('holiday-type').value = template.holiday_type;
-      document.getElementById('closure-type').value = template.closure_type;
-      document.getElementById('is-recurring').checked = template.is_recurring;
-      document.getElementById('is-active').checked = template.is_active;
-      document.getElementById('custom-open-time').value = template.custom_open_time || '';
-      document.getElementById('custom-close-time').value = template.custom_close_time || '';
+      document.getElementById('holiday-type').value = holidayType;
+      document.getElementById('closure-type').value = closureType;
+      document.getElementById('is-recurring').checked = isRecurring;
+      document.getElementById('is-active').checked = isActive;
+      document.getElementById('custom-open-time').value = customOpenTime || '';
+      document.getElementById('custom-close-time').value = customCloseTime || '';
 
       // Show/hide custom hours section
       const customHoursSection = document.getElementById('custom-hours-section');
-      if (template.closure_type === 'custom_hours') {
+      if (closureType === 'custom_hours') {
         customHoursSection.classList.remove('d-none');
       } else {
         customHoursSection.classList.add('d-none');
@@ -1282,6 +1308,14 @@ export class ScheduleModule {
     }
   }
 
+  /**
+   * Helper method for formatting date ranges.
+   */
+  formatDateRange(start, end) {
+    if (!start) return '';
+    if (!end || start === end) return start;
+    return `${start} - ${end}`;
+  }
 
   /**
    * Resets the holiday template form to its default state.
