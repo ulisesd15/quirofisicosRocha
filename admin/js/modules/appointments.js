@@ -123,7 +123,9 @@ export class AppointmentsModule {
    * Initializes AppointmentsModule (optionally accepts a loading element).
    */
   constructor() {
-    // Optionally, you can pass a loading element or selector
+    this.currentPage = 1;
+    this.itemsPerPage = 10;
+    this.searchTimeout = null;
     this.setupEventListeners();
   }
 
@@ -156,6 +158,72 @@ export class AppointmentsModule {
       saveBtn.addEventListener('click', () => this.saveAppointmentChanges());
       saveBtn.dataset.listenerAttached = 'true';
     }
+
+    // Setup search and filter listeners
+    this.setupSearchListeners();
+  }
+
+  /**
+   * Sets up search and filter event listeners with instant search.
+   */
+  setupSearchListeners() {
+    // Search input with debounce (instant search)
+    const searchInput = document.getElementById('appointments-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        clearTimeout(this.searchTimeout);
+        this.searchTimeout = setTimeout(() => {
+          this.currentPage = 1; // Reset to first page on new search
+          this.loadAppointments();
+        }, 500); // 500ms debounce
+      });
+
+      // Also trigger on Enter key
+      searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          clearTimeout(this.searchTimeout);
+          this.currentPage = 1;
+          this.loadAppointments();
+        }
+      });
+    }
+
+    // Search button
+    const searchBtn = document.getElementById('search-appointments-btn');
+    if (searchBtn) {
+      searchBtn.addEventListener('click', () => {
+        this.currentPage = 1;
+        this.loadAppointments();
+      });
+    }
+
+    // Status filter - instant change
+    const statusFilter = document.getElementById('appointments-status-filter');
+    if (statusFilter) {
+      statusFilter.addEventListener('change', () => {
+        this.currentPage = 1;
+        this.loadAppointments();
+      });
+    }
+
+    // Date filter - instant change
+    const dateFilter = document.getElementById('appointments-date-filter');
+    if (dateFilter) {
+      dateFilter.addEventListener('change', () => {
+        this.currentPage = 1;
+        this.loadAppointments();
+      });
+    }
+
+    // Refresh button
+    const refreshBtn = document.getElementById('refresh-appointments-btn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => {
+        this.loadAppointments();
+      });
+    }
+
+    console.log('Appointments search listeners initialized');
   }
 
   /**
@@ -262,6 +330,15 @@ export class AppointmentsModule {
       
       this.displayAppointments(data.appointments);
       this.updatePagination('appointments', data.pagination);
+      
+      // Update total count if available
+      if (data.pagination) {
+        const totalCount = data.pagination.totalRecords || data.pagination.total_records || 0;
+        const countElement = document.getElementById('appointments-total-count');
+        if (countElement) {
+          countElement.textContent = `Total: ${totalCount} citas`;
+        }
+      }
       
       // Clear the current filter after normal load
       this.currentFilter = null;
