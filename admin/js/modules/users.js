@@ -195,7 +195,8 @@ export class UsersModule {
         fullName: document.getElementById('edit-user-name').value,
         email: document.getElementById('edit-user-email').value,
         phone: document.getElementById('edit-user-phone').value,
-        role: document.getElementById('edit-user-role').value
+        role: document.getElementById('edit-user-role').value,
+        provider: document.getElementById('edit-user-provider')?.value || 'local'
       };
       const response = await fetch(`/api/admin/users/${id}`, {
         method: 'PUT',
@@ -238,6 +239,13 @@ export class UsersModule {
       document.getElementById('edit-user-email').value = user.email;
       document.getElementById('edit-user-phone').value = user.phone || '';
       document.getElementById('edit-user-role').value = user.role || 'user';
+      
+      // Set provider field if it exists in the form
+      const providerField = document.getElementById('edit-user-provider');
+      if (providerField) {
+        providerField.value = user.provider || user.authProvider || 'local';
+      }
+      
       const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
       modal.show();
     } catch (error) {
@@ -259,10 +267,11 @@ export class UsersModule {
     }
     try {
       const data = {
-        name: document.getElementById('edit-user-name').value,
+        fullName: document.getElementById('edit-user-name').value,
         email: document.getElementById('edit-user-email').value,
         phone: document.getElementById('edit-user-phone').value,
-        role: document.getElementById('edit-user-role').value
+        role: document.getElementById('edit-user-role').value,
+        provider: document.getElementById('edit-user-provider')?.value || 'local'
       };
       const response = await fetch(`/api/admin/users/${id}`, {
         method: 'PUT',
@@ -307,7 +316,10 @@ export class UsersModule {
       const data = await response.json();
       console.log('Users API response:', data);
       this.displayUsers(data.users);
-      this.updateUsersCount(data.pagination.total_records);
+      
+      // Handle both camelCase and snake_case pagination response
+      const totalRecords = data.pagination.totalRecords || data.pagination.total_records || 0;
+      this.updateUsersCount(totalRecords);
     } catch (error) {
       console.error('Error loading users:', error);
       this.showError('Error cargando los usuarios');
