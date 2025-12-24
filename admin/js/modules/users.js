@@ -84,12 +84,20 @@ export class UsersModule {
     this.currentPage = 1;
     this.itemsPerPage = 10;
     this.searchTimeout = null;
+    this.listenersInitialized = false;
   }
 
   /**
    * Sets up event listeners for search and filter controls.
+   * Called when the users section is shown.
    */
   setupSearchListeners() {
+    // Prevent duplicate listeners
+    if (this.listenersInitialized) {
+      console.log('Users search listeners already initialized');
+      return;
+    }
+
     // Search input with debounce
     const searchInput = document.getElementById('users-search');
     if (searchInput) {
@@ -109,6 +117,9 @@ export class UsersModule {
           this.loadUsers();
         }
       });
+      console.log('Users search input listener attached');
+    } else {
+      console.warn('users-search input not found');
     }
 
     // Search button
@@ -118,6 +129,9 @@ export class UsersModule {
         this.currentPage = 1;
         this.loadUsers();
       });
+      console.log('Users search button listener attached');
+    } else {
+      console.warn('search-users-btn not found');
     }
 
     // Role filter - instant change
@@ -127,6 +141,9 @@ export class UsersModule {
         this.currentPage = 1;
         this.loadUsers();
       });
+      console.log('Users role filter listener attached');
+    } else {
+      console.warn('users-role-filter not found');
     }
 
     // Clear filters button
@@ -135,6 +152,7 @@ export class UsersModule {
       clearBtn.addEventListener('click', () => {
         this.clearUsersFilters();
       });
+      console.log('Users clear filters button listener attached');
     }
 
     // Refresh button
@@ -143,9 +161,11 @@ export class UsersModule {
       refreshBtn.addEventListener('click', () => {
         this.loadUsers();
       });
+      console.log('Users refresh button listener attached');
     }
 
-    console.log('Users search listeners initialized');
+    this.listenersInitialized = true;
+    console.log('Users search listeners initialized successfully');
   }
 
   /**
@@ -357,16 +377,22 @@ export class UsersModule {
 
   /**
    * Loads users with pagination and filtering, and displays them in the UI.
+   * Also sets up search listeners if not already initialized.
    */
   async loadUsers() {
+    // Initialize search listeners when users section is shown
+    if (!this.listenersInitialized) {
+      this.setupSearchListeners();
+    }
+
     if (!this.isAdmin()) {
       this.showError('Acceso denegado. Solo administradores pueden ver usuarios.');
       this.hideLoading();
       return;
     }
     this.showLoading();
-    const search = document.getElementById('users-search').value || '';
-    const roleFilter = document.getElementById('users-role-filter').value || '';
+    const search = document.getElementById('users-search')?.value || '';
+    const roleFilter = document.getElementById('users-role-filter')?.value || '';
     const page = Number.isInteger(this.currentPage) && this.currentPage > 0 ? this.currentPage : 1;
     const limit = Number.isInteger(this.itemsPerPage) && this.itemsPerPage > 0 ? this.itemsPerPage : 10;
     try {
