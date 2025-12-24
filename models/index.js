@@ -40,8 +40,8 @@ db.Sequelize = Sequelize;
 
 // ✅ Auto-sync database in development to fix "Unknown column" errors
 if (env === 'development') {
-  sequelize.sync({ alter: true }).then(() => {
-    console.log('✅ Database schema synchronized (missing columns added).');
+  sequelize.sync({ alter: true, logging: false }).then(() => {
+    console.log('✅ Database schema synchronized.');
   }).catch(err => {
     console.error('⚠️ Database sync failed:', err.message);
   });
