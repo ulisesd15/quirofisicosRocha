@@ -159,6 +159,11 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 
 // Added this to listen for server errors e.g. EADDRINUSE
 server.on('error', (err) => {
-  console.error('Server startup error:', err);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use.`);
+    console.error(`   To fix, run this in PowerShell: Stop-Process -Id (Get-NetTCPConnection -LocalPort ${PORT}).OwningProcess -Force`);
+  } else {
+    console.error('Server startup error:', err);
+  }
   process.exit(1);
 });

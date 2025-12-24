@@ -54,34 +54,12 @@ router.get('/slots', async (req, res) => {
   // Get day names for each date
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   try {
-    // 1. Get scheduled business hours for all days in week
-    const weekDayNames = days.map(d => dayNames[new Date(d).getDay()]);
-
-    // Find the most recent effective date that applies to this week
-    const latestEffectiveDate = await BusinessHour.max('effectiveDate', { 
-      where: { 
-        effectiveDate: { [Op.lte]: days[6] } 
-      } 
-    });
-
-    if (!latestEffectiveDate) {
-      console.log('[/slots] No business hours found in database');
-      return res.json({ slots: {} });
-    }
-
-    const results = await BusinessHour.findAll({
+    // 1. Get all potentially relevant business hours (effective <= end of week)
+    const relevantBusinessHours = await BusinessHour.findAll({
       where: {
-        effectiveDate: latestEffectiveDate
-      },
-      order: [['effectiveDate', 'DESC']]
+        effectiveDate: { [Op.lte]: days[6] }
+      }
     });
-
-    // Map by day of week (case-insensitive)
-    const bhMap = {};
-    for (const dow of weekDayNames) {
-      const record = results.find(r => (r.dayOfWeek || '').toLowerCase() === dow.toLowerCase());
-      if (record) bhMap[dow] = record;
-    }
 
     // 2. Get all appointments for the week
     const appts = await Appointment.findAll({
@@ -95,27 +73,53 @@ router.get('/slots', async (req, res) => {
     // 3. Build slots for each day
     const slotsByDay = {};
     for (let i = 0; i < days.length; i++) {
-      const date = days[i];
-      const dow = weekDayNames[i];
-      const bh = bhMap[dow];
-      if (!bh || !bh.isOpen) {
-        slotsByDay[date] = [];
+      const dateStr = days[i];
+      // Determine day of week safely from YYYY-MM-DD
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const localDate = new Date(y, m - 1, d);
+      const dow = dayNames[localDate.getDay()];
+
+      // Rule A: Find the schedule with the latest effectiveDate <= dateStr
+      const applicable = relevantBusinessHours.filter(bh => bh.effectiveDate <= dateStr);
+      
+      if (applicable.length === 0) {
+        slotsByDay[dateStr] = [];
         continue;
       }
+
+      // Find max effectiveDate (string comparison works for YYYY-MM-DD)
+      const maxEffectiveDate = applicable.reduce((max, curr) => curr.effectiveDate > max ? curr.effectiveDate : max, applicable[0].effectiveDate);
+      
+      // Get the specific record for this day of week from the max effective set
+      const bh = applicable.find(r => r.effectiveDate === maxEffectiveDate && (r.dayOfWeek || '').toLowerCase() === dow.toLowerCase());
+
+      if (!bh || !bh.isOpen) {
+        slotsByDay[dateStr] = [];
+        continue;
+      }
+
       const allSlots = generateTimeSlots(bh.openTime, bh.closeTime);
-      const taken = appts.filter(a => a.date === date).map(a => a.time);
-      let available = allSlots.filter(t => !taken.includes(t));
+      
+      // Count bookings for this day to enforce limit of 2
+      const dayAppts = appts.filter(a => a.date === dateStr);
+      const bookingCounts = {};
+      dayAppts.forEach(a => {
+        bookingCounts[a.time] = (bookingCounts[a.time] || 0) + 1;
+      });
+
+      let available = allSlots.filter(t => (bookingCounts[t] || 0) < 2);
+
       // Filter out slots less than 30 min from now (if today)
       const now = new Date();
       const todayISO = now.toISOString().split('T')[0];
-      if (date === todayISO) {
+      if (dateStr === todayISO) {
         const thirtyMinFromNow = new Date(now.getTime() + 30 * 60 * 1000);
         available = available.filter(timeSlot => {
-          const slotDateTime = new Date(`${date}T${timeSlot}:00`);
+          const slotDateTime = new Date(`${dateStr}T${timeSlot}:00`);
           return slotDateTime >= thirtyMinFromNow;
         });
       }
-      slotsByDay[date] = available;
+      slotsByDay[dateStr] = available;
     }
     res.json({ slots: slotsByDay });
   } catch (e) {
@@ -278,7 +282,10 @@ router.get('/business-hours', async (req, res) => {
 
     if (!latestEffectiveDate) {
       console.log('[/business-hours] No business hours found in database');
-      return res.json({ businessHours: [] });
+      return res.status(200).json({ 
+        businessHours: [],
+        message: 'NO_BUSINESS_HOURS_CONFIGURED'
+      });
     }
 
     // 2. Fetch all records for that effective date
@@ -317,7 +324,10 @@ router.get('/business-hours/:date', async (req, res) => {
 
     if (!latestEffectiveDate) {
       console.log(`[/business-hours/${dayISO}] No business hours found in database`);
-      return res.json({ businessHours: [] });
+      return res.status(200).json({ 
+        businessHours: [],
+        message: 'NO_BUSINESS_HOURS_CONFIGURED'
+      });
     }
 
     // 2. Fetch all records for that effective date
@@ -700,12 +710,29 @@ function getScheduledOverride(dayOfWeek, date, scheduledBusinessHours) {
  * Gets the highest priority exception for a date.
  */
 function getExceptionForDate(date, exceptions) {
-  // Highest priority exception for this date
+  const targetDate = new Date(date);
+  const targetMonth = targetDate.getUTCMonth() + 1;
+  const targetDay = targetDate.getUTCDate();
+
   return exceptions.find(ex => {
-    if (ex.exceptionType === 'single_day') return ex.startDate === date;
-    if (ex.exceptionType === 'date_range') return ex.startDate <= date && ex.endDate >= date;
-    // TODO: Add recurring/special_schedule logic if needed
-    return false;
+    // 1. Recurring Yearly
+    if (ex.isRecurring && (ex.recurringType === 'yearly' || ex.recurringType === 'YEARLY')) {
+      // Use startDate to determine the recurring day/month
+      const start = new Date(ex.startDate);
+      const startMonth = start.getUTCMonth() + 1;
+      const startDay = start.getUTCDate();
+      return startMonth === targetMonth && startDay === targetDay;
+    }
+
+    // 2. Specific Date Range
+    let exStart = ex.startDate;
+    let exEnd = ex.endDate || ex.startDate;
+
+    // Ensure we are comparing YYYY-MM-DD strings
+    if (exStart instanceof Date) exStart = exStart.toISOString().split('T')[0];
+    if (exEnd instanceof Date) exEnd = exEnd.toISOString().split('T')[0];
+
+    return date >= exStart && date <= exEnd;
   });
 }
 
@@ -718,15 +745,13 @@ router.get('/calendar', async (req, res) => {
 
   try {
     // 1. Fetch all business_hours (base template)
-    const businessHours = await BusinessHour.findAll(); // No isActive column anymore
+    const businessHours = await BusinessHour.findAll({
+      where: {
+        effectiveDate: { [Op.lte]: end }
+      }
+    });
 
-    // 2. Fetch all scheduled_business_hours to determine the future schedule
-    // This is now handled by the BusinessHour model itself. This can be removed.
-
-    // Get the single effective_date from the future schedule, if it exists.
-    // Format it as a 'YYYY-MM-DD' string to prevent timezone issues during comparison.
-
-    // 3. Fetch all schedule_exceptions overlapping the range
+    // 2. Fetch all schedule_exceptions overlapping the range
     const scheduleExceptions = await ScheduleException.findAll({
       where: {
         isActive: true,
@@ -735,10 +760,6 @@ router.get('/calendar', async (req, res) => {
       }
     });
 
-
-    // 4. Fetch all holiday_templates (active)
-    // This is now part of ScheduleException. This can be removed.
-
     // --- Merging logic: build day map for each date in range ---
     const days = getDatesInRange(start, end);
     const result = [];
@@ -746,14 +767,18 @@ router.get('/calendar', async (req, res) => {
       const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }).toLowerCase();
       let activeSchedule;
       
-      // Refactor: Find the correct schedule for the date
+      // Rule A: Find the correct schedule for the date
       const applicableSchedules = businessHours.filter(bh => bh.effectiveDate <= date);
-      const latestEffectiveDate = Math.max(...applicableSchedules.map(bh => new Date(bh.effectiveDate)));
       
-      activeSchedule = businessHours.find(bh => 
-        new Date(bh.effectiveDate).getTime() === latestEffectiveDate && 
-        bh.dayOfWeek.toLowerCase() === dayOfWeek
-      );
+      if (applicableSchedules.length > 0) {
+        // Find max effectiveDate using string comparison (YYYY-MM-DD)
+        const latestEffectiveDate = applicableSchedules.reduce((max, curr) => curr.effectiveDate > max ? curr.effectiveDate : max, applicableSchedules[0].effectiveDate);
+        
+        activeSchedule = applicableSchedules.find(bh => 
+          bh.effectiveDate === latestEffectiveDate && 
+          (bh.dayOfWeek || '').toLowerCase() === dayOfWeek
+        );
+      }
 
       // 1. Start with base
       let dayInfo = {
@@ -764,20 +789,17 @@ router.get('/calendar', async (req, res) => {
         reason: null
       };
 
-      // 3. Overlay holiday_templates
-      const holiday = scheduleExceptions.find(ex => ex.recurringType === 'YEARLY' && ex.month === (new Date(date).getUTCMonth() + 1) && ex.day === new Date(date).getUTCDate());
-      if (holiday) {
-        dayInfo.isOpen = false;
-        dayInfo.reason = `Holiday - ${holiday.name}`;
-      }
-
-      // 4. Overlay schedule_exceptions
+      // 2. Overlay schedule_exceptions
       const exception = getExceptionForDate(date, scheduleExceptions);
       if (exception) {
-        dayInfo.isOpen = exception.type !== 'CLOSURE';
-        if (exception.customOpenTime) dayInfo.openTime = exception.customOpenTime;
-        if (exception.customCloseTime) dayInfo.closeTime = exception.customCloseTime;
-        dayInfo.reason = exception.reason || 'Exception';
+        if (exception.type === 'CLOSURE') {
+          dayInfo.isOpen = false;
+        } else {
+          dayInfo.isOpen = true;
+          if (exception.customOpenTime) dayInfo.openTime = exception.customOpenTime;
+          if (exception.customCloseTime) dayInfo.closeTime = exception.customCloseTime;
+        }
+        dayInfo.reason = exception.reason || exception.name || 'Exception';
       }
 
       result.push(dayInfo);
