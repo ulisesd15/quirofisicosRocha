@@ -30,15 +30,15 @@ export class Calendar {
     this.businessHours = [];
     this.businessHoursMap = {};
     this.scheduleExceptions = [];
+    this.isDataLoaded = false;  // ✅ NEW: Track loading state
     this.monthNames = options.monthNames || [
       'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
     ];
-    // Display names for calendar header (Monday first)
     this.dayNames = options.dayNames || ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do'];
-    // Mapping for JS Date.getDay() (0=Sunday, 1=Monday, ...)
     this.fullDayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   }
+
 
   // ============================================
   // UTILITY FUNCTIONS
@@ -55,9 +55,6 @@ export class Calendar {
     return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
   }
 
-  /**
-   * Checks if a date is today
-   */
   isToday(date) {
     return date.toDateString() === new Date().toDateString();
   }
