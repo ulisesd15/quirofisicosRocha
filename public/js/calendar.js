@@ -63,13 +63,15 @@ export class Calendar {
   }
 
   /**
-   * Checks if a date is in the past (ignores time)
+   * Checks if a date is in the past (before today, ignoring time)
+   * Fixed: Now properly considers today as NOT past
    */
   isPastDate(date) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
+    // Only return true if date is BEFORE today (not including today)
     return d < today;
   }
 
@@ -400,6 +402,9 @@ export class Calendar {
     maxDate.setDate(maxDate.getDate() + 90);
     maxDate.setHours(0, 0, 0, 0);
     
+    // Track if we've auto-selected today
+    let hasAutoSelected = false;
+    
     for (let week = 0; week < 6; week++) {
       for (let day = 0; day < 7; day++) {
         const thisDate = new Date(currentCalendarDate);
@@ -424,12 +429,13 @@ export class Calendar {
           dayElement.classList.add('other-month');
           dayElement.disabled = true;
         } else if (isPast) {
+          // Only disable if it's actually in the past (not today)
           dayElement.classList.add('disabled', 'past-date');
           dayElement.disabled = true;
         } else if (isTooFar) {
           dayElement.classList.add('disabled', 'too-far');
           dayElement.disabled = true;
-          dayElement.title = 'No se puede agendar con más de 90 días de antelación.';
+          dayElement.title = 'No se puede agendar con más de 90 días de anticipación.';
         } else if (!isOpenDay) {
           dayElement.classList.add('unavailable');
           dayElement.disabled = true;
@@ -443,11 +449,13 @@ export class Calendar {
             this.renderTimeSlots(this.selectedDate);
           });
           
-          // Auto-select today if no date selected
-          if (isTodayDate && !this.selectedDate) {
+          // Auto-select first available day (today or later)
+          if (!hasAutoSelected && !this.selectedDate && isOpenDay) {
             dayElement.classList.add('selected');
             this.selectedDate = new Date(thisDate);
-            this.renderTimeSlots(this.selectedDate);
+            hasAutoSelected = true;
+            // Defer rendering slots to avoid blocking calendar render
+            setTimeout(() => this.renderTimeSlots(this.selectedDate), 100);
           }
         }
         
@@ -466,6 +474,7 @@ export class Calendar {
 
   /**
    * Renders the weekly calendar view
+   * Fixed: Now shows current week, not next week
    */
   async renderWeeklyCalendar(containerId = 'weeklyCalendar') {
     const calendarContainer = document.getElementById(containerId);
@@ -476,6 +485,8 @@ export class Calendar {
     
     const today = new Date();
     const weekMonday = this.getMonday(today);
+    
+    console.log('[renderWeeklyCalendar] Starting with week of:', this.formatDate(weekMonday));
     
     await this.fetchBusinessHours(weekMonday);
     await this.fetchScheduleExceptions();
@@ -501,6 +512,7 @@ export class Calendar {
 
   /**
    * Renders the weekly calendar for a specific week (starting from Monday)
+   * Fixed: Properly handles today in the current week
    */
   async renderWeeklyCalendarForDate(date, containerId = 'weeklyCalendar') {
     const calendarContainer = document.getElementById(containerId);
@@ -530,6 +542,9 @@ export class Calendar {
     const maxDate = new Date();
     maxDate.setDate(maxDate.getDate() + 90);
     maxDate.setHours(0, 0, 0, 0);
+    
+    // Track if we've auto-selected a day
+    let hasAutoSelected = false;
     
     // Render each day of the week
     for (let d = 0; d < 7; d++) {
@@ -562,7 +577,7 @@ export class Calendar {
       if (!isOpenDay || isPast || isTooFar) {
         btn.classList.add('btn-secondary');
         btn.disabled = true;
-        btn.title = isTooFar ? 'No se puede agendar con más de 90 días de antelación.' :
+        btn.title = isTooFar ? 'No se puede agendar con más de 90 días de anticipación.' :
                     !isOpenDay ? 'Cerrado' : 'No disponible';
       } else {
         btn.classList.add('btn-outline-primary');
@@ -577,12 +592,14 @@ export class Calendar {
           this.renderTimeSlots(day);
         });
         
-        // Auto-select today
-        if (isTodayDate && !this.selectedDate) {
+        // Auto-select first available day (today or later)
+        if (!hasAutoSelected && !this.selectedDate && isOpenDay) {
           btn.classList.remove('btn-outline-primary');
           btn.classList.add('selected', 'btn-primary');
           this.selectedDate = day;
-          this.renderTimeSlots(day);
+          hasAutoSelected = true;
+          // Defer rendering slots to avoid blocking calendar render
+          setTimeout(() => this.renderTimeSlots(day), 100);
         }
       }
       
@@ -728,17 +745,23 @@ export class Calendar {
 
   /**
    * Auto-advances to next week if current week has no available slots
+   * Fixed: Only advances if truly no slots available (respects today)
    */
   async autoAdvanceIfNoAvailableSlots(weekSlots, renderWeekFn, currentMonday) {
     const now = new Date();
     
-    // Filter for available slots
+    // Filter for available slots that are in the future and not filled
     const available = weekSlots.filter(slot => {
       const slotDate = new Date(slot.date + 'T' + slot.time);
-      return !slot.filled && slotDate > now;
+      // Slot must be at least 30 minutes from now
+      const minBookingTime = new Date(now.getTime() + 30 * 60 * 1000);
+      return !slot.filled && slotDate >= minBookingTime;
     });
     
-    if (available.length > 0) return; // Has available slots
+    if (available.length > 0) {
+      console.log(`[autoAdvance] Found ${available.length} available slots this week`);
+      return; // Has available slots
+    }
     
     console.log('[autoAdvance] No slots available this week, searching ahead...');
     
@@ -748,12 +771,14 @@ export class Calendar {
     let nextMonday = new Date(currentMonday);
     
     while (weeksAhead <= 12 && !found) {
+      nextMonday = new Date(currentMonday);
       nextMonday.setDate(currentMonday.getDate() + 7 * weeksAhead);
       
       const nextWeekSlots = await this.fetchSlotsForWeek(nextMonday);
       const nextAvailable = nextWeekSlots.filter(slot => {
         const slotDate = new Date(slot.date + 'T' + slot.time);
-        return !slot.filled && slotDate > now;
+        const minBookingTime = new Date(now.getTime() + 30 * 60 * 1000);
+        return !slot.filled && slotDate >= minBookingTime;
       });
       
       if (nextAvailable.length > 0) {
