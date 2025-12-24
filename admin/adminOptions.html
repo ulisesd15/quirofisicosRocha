@@ -599,82 +599,24 @@
               </div>
             </div>
 
-            <!-- Schedule Exceptions Tab -->
+            <!-- Schedule Exceptions Tab - SIMPLIFIED (Holiday templates removed) -->
             <div class="tab-pane fade" id="schedule-exceptions" role="tabpanel">
               <div class="card d-none" id="schedule-exceptions-content">
                 <div class="card-header">
-                  <h5><i class="fas fa-calendar-times me-2"></i>Excepciones de Horario</h5>
-                  <small class="text-muted">Gestione cierres completos, horarios especiales y excepciones temporales</small>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h5 class="mb-1"><i class="fas fa-calendar-times me-2"></i>Excepciones de Horario</h5>
+                      <small class="text-muted">Gestione cierres completos, feriados, horarios especiales y excepciones temporales</small>
+                    </div>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleExceptionModal">
+                      <i class="fas fa-plus"></i> Nueva Excepción
+                    </button>
+                  </div>
                 </div>
                 <div class="card-body">
-                  <!-- Navigation Pills for subsections -->
-                  <ul class="nav nav-pills mb-4" id="exceptions-nav-tabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                      <button class="nav-link active" id="holiday-templates-tab" data-bs-toggle="pill" data-bs-target="#holiday-templates" type="button" role="tab">
-                        <i class="fas fa-star me-2"></i>Feriados Anuales
-                      </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                      <button class="nav-link" id="manual-exceptions-tab" data-bs-toggle="pill" data-bs-target="#manual-exceptions" type="button" role="tab">
-                        <i class="fas fa-calendar-plus me-2"></i>Excepciones Manuales
-                      </button>
-                    </li>
-                  </ul>
-
-                  <!-- Tab Content -->
-                  <div class="tab-content" id="exceptions-tab-content">
-                    <!-- Holiday Templates Tab -->
-                    <div class="tab-pane fade show active" id="holiday-templates" role="tabpanel">
-                      <div class="row mb-4">
-                        <div class="col-md-8">
-                          <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6><i class="fas fa-star me-2"></i>Plantillas de Feriados</h6>
-                            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addHolidayTemplateModal">
-                              <i class="fas fa-plus"></i> Nueva Plantilla
-                            </button>
-                          </div>
-                          <div id="holiday-templates-list">
-                            <!-- Holiday templates will be loaded here -->
-                          </div>
-                        </div>
-                        <div class="col-md-4">
-                          <div class="card bg-light">
-                            <div class="card-header">
-                              <h6><i class="fas fa-magic me-2"></i>Generar Feriados por Año</h6>
-                            </div>
-                            <div class="card-body">
-                              <p class="small text-muted">Genere automáticamente los feriados para un año específico basado en las plantillas activas.</p>
-                              <div class="mb-3">
-                                <label for="holiday-year-select" class="form-label">Seleccionar Año</label>
-                                <select class="form-select" id="holiday-year-select">
-                                  <option value="2024">2024</option>
-                                  <option value="2025" selected>2025</option>
-                                  <option value="2026">2026</option>
-                                  <option value="2027">2027</option>
-                                  <option value="2028">2028</option>
-                                </select>
-                              </div>
-                              <button type="button" class="btn btn-success w-100" id="generate-holidays-btn">
-                                <i class="fas fa-calendar-check"></i> Generar Feriados
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Manual Exceptions Tab -->
-                    <div class="tab-pane fade" id="manual-exceptions" role="tabpanel">
-                      <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6><i class="fas fa-calendar-plus me-2"></i>Excepciones Manuales</h6>
-                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleExceptionModal">
-                          <i class="fas fa-plus"></i> Nueva Excepción
-                        </button>
-                      </div>
-                      <div id="schedule-exceptions-list">
-                        <!-- Schedule exceptions will be loaded here -->
-                      </div>
-                    </div>
+                  <!-- Direct exceptions list (no more sub-tabs) -->
+                  <div id="schedule-exceptions-list">
+                    <!-- Schedule exceptions will be loaded here -->
                   </div>
                 </div>
               </div>
@@ -1138,10 +1080,10 @@
           </div>
         </div>
 
-        <!-- Add Schedule Exception Modal -->
+        <!-- Add Schedule Exception Modal - UPDATED WITH HOLIDAY & RECURRING OPTIONS -->
         <!--
           Add Schedule Exception Modal
-          Modal for adding a manual schedule exception (date range, custom hours, etc.).
+          Modal for adding a manual schedule exception with yearly recurrence and holiday type options.
         -->
         <div class="modal fade" id="addScheduleExceptionModal" tabindex="-1" aria-labelledby="addScheduleExceptionModalLabel" aria-hidden="true">
           <div class="modal-dialog modal-lg">
@@ -1165,7 +1107,15 @@
                     </div>
                     <div class="col-md-6">
                       <label for="exception-reason" class="form-label fw-bold">Motivo</label>
-                      <input type="text" class="form-control" id="exception-reason" placeholder="Ej: Vacaciones, Feriado, Mantenimiento" required>
+                      <select class="form-select" id="exception-reason" required>
+                        <option value="">Seleccionar motivo...</option>
+                        <option value="Feriado">🌟 Feriado</option>
+                        <option value="Vacaciones">🏖️ Vacaciones</option>
+                        <option value="Mantenimiento">🔧 Mantenimiento</option>
+                        <option value="Evento especial">🎉 Evento especial</option>
+                        <option value="Horario especial">⏰ Horario especial</option>
+                        <option value="Otro">📝 Otro</option>
+                      </select>
                     </div>
                   </div>
 
@@ -1216,6 +1166,63 @@
                             <input type="time" class="form-control" id="exception-break-end" value="14:00">
                           </div>
                         </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- NEW: Recurrence & Holiday Options -->
+                  <div class="card border-success mb-3">
+                    <div class="card-header bg-success text-white">
+                      <h6 class="mb-0"><i class="fas fa-sync me-2"></i>Opciones Especiales</h6>
+                    </div>
+                    <div class="card-body">
+                      <div class="row mb-3">
+                        <div class="col-md-6">
+                          <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="exception-is-holiday">
+                            <label class="form-check-label fw-bold text-danger" for="exception-is-holiday">
+                              <i class="fas fa-star me-1"></i>Es un feriado oficial
+                            </label>
+                          </div>
+                        </div>
+                        <div class="col-md-6">
+                          <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="exception-is-recurring">
+                            <label class="form-check-label fw-bold text-warning" for="exception-is-recurring">
+                              <i class="fas fa-sync me-1"></i>Repetir anualmente
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Year Selectors (shown when recurring is checked) -->
+                      <div id="recurring-year-selectors" class="d-none">
+                        <label class="form-label fw-bold mb-2">Generar para los años:</label>
+                        <div class="d-flex flex-wrap gap-2">
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="year-2024" value="2024">
+                            <label class="form-check-label" for="year-2024">2024</label>
+                          </div>
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="year-2025" value="2025" checked>
+                            <label class="form-check-label" for="year-2025">2025</label>
+                          </div>
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="year-2026" value="2026">
+                            <label class="form-check-label" for="year-2026">2026</label>
+                          </div>
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="year-2027" value="2027">
+                            <label class="form-check-label" for="year-2027">2027</label>
+                          </div>
+                          <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="year-2028" value="2028">
+                            <label class="form-check-label" for="year-2028">2028</label>
+                          </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-success mt-2" id="generate-yearly-exceptions-btn">
+                          <i class="fas fa-magic"></i> Generar Excepciones
+                        </button>
                       </div>
                     </div>
                   </div>
