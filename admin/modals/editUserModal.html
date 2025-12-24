@@ -1,29 +1,43 @@
-<!-- Edit User Modal extracted from adminOptions.html
-     This modal allows admins to edit user details. -->
+<!-- Edit User Modal - Updated for Sequelize DB -->
 <div class="modal fade" id="editUserModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Editar Usuario</h5>
+        <h5 class="modal-title">
+          <i class="fas fa-user-edit me-2"></i>Editar Usuario
+        </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <form id="edit-user-form">
           <input type="hidden" id="edit-user-id">
+          
           <div class="mb-3">
-            <label for="edit-user-name" class="form-label">Nombre Completo</label>
+            <label for="edit-user-name" class="form-label">Nombre Completo <span class="text-danger">*</span></label>
             <input type="text" class="form-control" id="edit-user-name" required>
           </div>
+          
           <div class="mb-3">
-            <label for="edit-user-email" class="form-label">Email</label>
+            <label for="edit-user-email" class="form-label">Email <span class="text-danger">*</span></label>
             <input type="email" class="form-control" id="edit-user-email" required>
           </div>
+          
           <div class="mb-3">
             <label for="edit-user-phone" class="form-label">Teléfono</label>
-            <input type="tel" class="form-control" id="edit-user-phone">
+            <input type="tel" class="form-control" id="edit-user-phone" placeholder="+52 123 456 7890">
           </div>
+          
           <div class="mb-3">
-            <label for="edit-user-role" class="form-label">Rol</label>
+            <label for="edit-user-provider" class="form-label">Proveedor de Autenticación</label>
+            <select class="form-select" id="edit-user-provider">
+              <option value="local">Local</option>
+              <option value="google">Google</option>
+              <option value="facebook">Facebook</option>
+            </select>
+          </div>
+          
+          <div class="mb-3">
+            <label for="edit-user-role" class="form-label">Rol <span class="text-danger">*</span></label>
             <select class="form-select" id="edit-user-role" required>
               <option value="user">Usuario</option>
               <option value="admin">Administrador</option>
@@ -32,9 +46,91 @@
         </form>
       </div>
       <div class="modal-footer">
-  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-  <button type="button" class="btn btn-primary" id="save-user-btn">Guardar Cambios</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="save-user-btn">
+          <i class="fas fa-save me-2"></i>Guardar Cambios
+        </button>
       </div>
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const modal = document.getElementById('editUserModal');
+  const saveBtn = document.getElementById('save-user-btn');
+  const form = document.getElementById('edit-user-form');
+  
+  // Function to populate modal with user data
+  window.openEditUserModal = function(user) {
+    document.getElementById('edit-user-id').value = user.id;
+    document.getElementById('edit-user-name').value = user.fullName || '';
+    document.getElementById('edit-user-email').value = user.email || '';
+    document.getElementById('edit-user-phone').value = user.phone || '';
+    document.getElementById('edit-user-provider').value = user.provider || user.authProvider || 'local';
+    document.getElementById('edit-user-role').value = user.role || 'user';
+    
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+  };
+  
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async function() {
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
+      
+      const userId = document.getElementById('edit-user-id').value;
+      const data = {
+        fullName: document.getElementById('edit-user-name').value.trim(),
+        email: document.getElementById('edit-user-email').value.trim(),
+        phone: document.getElementById('edit-user-phone').value.trim(),
+        provider: document.getElementById('edit-user-provider').value,
+        role: document.getElementById('edit-user-role').value
+      };
+      
+      try {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+        
+        const response = await fetch(`/api/admin/users/${userId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          alert('Usuario actualizado exitosamente');
+          bootstrap.Modal.getInstance(modal).hide();
+          
+          // Refresh users list if function exists
+          if (typeof loadUsers === 'function') {
+            loadUsers();
+          } else if (typeof refreshUserTable === 'function') {
+            refreshUserTable();
+          }
+        } else {
+          alert('Error: ' + (result.error || 'No se pudo actualizar el usuario'));
+        }
+      } catch (error) {
+        console.error('Error updating user:', error);
+        alert('Error al conectar con el servidor');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save me-2"></i>Guardar Cambios';
+      }
+    });
+  }
+  
+  // Reset form when modal is closed
+  modal.addEventListener('hidden.bs.modal', function() {
+    form.reset();
+  });
+});
+</script>
