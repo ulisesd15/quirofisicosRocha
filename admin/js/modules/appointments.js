@@ -126,6 +126,7 @@ export class AppointmentsModule {
     this.currentPage = 1;
     this.itemsPerPage = 10;
     this.searchTimeout = null;
+    this.listenersInitialized = false;
     this.setupEventListeners();
   }
 
@@ -159,14 +160,20 @@ export class AppointmentsModule {
       saveBtn.dataset.listenerAttached = 'true';
     }
 
-    // Setup search and filter listeners
-    this.setupSearchListeners();
+    // Note: Search listeners are set up in setupSearchListeners() when loadAppointments() is called
   }
 
   /**
    * Sets up search and filter event listeners with instant search.
+   * Called when the appointments section is shown.
    */
   setupSearchListeners() {
+    // Prevent duplicate listeners
+    if (this.listenersInitialized) {
+      console.log('Appointments search listeners already initialized');
+      return;
+    }
+
     // Search input with debounce (instant search)
     const searchInput = document.getElementById('appointments-search');
     if (searchInput) {
@@ -186,6 +193,9 @@ export class AppointmentsModule {
           this.loadAppointments();
         }
       });
+      console.log('Appointments search input listener attached');
+    } else {
+      console.warn('appointments-search input not found');
     }
 
     // Search button
@@ -195,6 +205,9 @@ export class AppointmentsModule {
         this.currentPage = 1;
         this.loadAppointments();
       });
+      console.log('Appointments search button listener attached');
+    } else {
+      console.warn('search-appointments-btn not found');
     }
 
     // Status filter - instant change
@@ -204,6 +217,9 @@ export class AppointmentsModule {
         this.currentPage = 1;
         this.loadAppointments();
       });
+      console.log('Appointments status filter listener attached');
+    } else {
+      console.warn('appointments-status-filter not found');
     }
 
     // Date filter - instant change
@@ -213,6 +229,9 @@ export class AppointmentsModule {
         this.currentPage = 1;
         this.loadAppointments();
       });
+      console.log('Appointments date filter listener attached');
+    } else {
+      console.warn('appointments-date-filter not found');
     }
 
     // Refresh button
@@ -221,9 +240,11 @@ export class AppointmentsModule {
       refreshBtn.addEventListener('click', () => {
         this.loadAppointments();
       });
+      console.log('Appointments refresh button listener attached');
     }
 
-    console.log('Appointments search listeners initialized');
+    this.listenersInitialized = true;
+    console.log('Appointments search listeners initialized successfully');
   }
 
   /**
@@ -288,8 +309,14 @@ export class AppointmentsModule {
 
   /**
    * Loads appointments with pagination and filtering, and displays them in the UI.
+   * Also sets up search listeners if not already initialized.
    */
   async loadAppointments() {
+    // Initialize search listeners when appointments section is shown
+    if (!this.listenersInitialized) {
+      this.setupSearchListeners();
+    }
+
     try {
       this.showLoading();
       
