@@ -22,6 +22,7 @@ module.exports = (sequelize, DataTypes) => {
       message: {
         type: DataTypes.TEXT,
         allowNull: false,
+        field: 'content', // Maps to the existing 'content' column in the database
       },
 
       announcementType: {

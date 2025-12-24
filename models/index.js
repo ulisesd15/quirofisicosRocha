@@ -32,28 +32,19 @@ fs.readdirSync(__dirname)
   });
 
 // ✅ Define associations
-const { User, Appointment, Announcement } = db;
-
-if (User && Appointment) {
-  User.hasMany(Appointment, { foreignKey: 'userId', as: 'appointments' });
-  Appointment.belongsTo(User, { foreignKey: 'userId', as: 'user' });
-}
-
-if (User && Announcement) {
-  User.hasMany(Announcement, { foreignKey: 'createdBy', as: 'announcements' });
-  Announcement.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
-}
-
-// Legacy associate method support (will be removed after cleanup)
-Object.keys(db).forEach(modelName => {
-  if (db[modelName].associate) {
-    console.warn(`⚠️  Model ${modelName} still uses legacy associate() method. Consider removing it.`);
-    // Commented out to avoid duplicate associations
-    // db[modelName].associate(db);
-  }
-});
+const setupAssociations = require('./associations');
+setupAssociations(db);
 
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
+
+// ✅ Auto-sync database in development to fix "Unknown column" errors
+if (env === 'development') {
+  sequelize.sync({ alter: true }).then(() => {
+    console.log('✅ Database schema synchronized (missing columns added).');
+  }).catch(err => {
+    console.error('⚠️ Database sync failed:', err.message);
+  });
+}
 
 module.exports = db;
