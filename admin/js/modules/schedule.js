@@ -1,9 +1,9 @@
 /**
  * schedule.js
  *
- * Handles business hours, holiday templates, and schedule exceptions for the admin panel.
+ * Handles business hours and schedule exceptions for the admin panel.
  * - Loads, displays, and saves business hours and schedule exceptions.
- * - Manages holiday templates and yearly holiday generation.
+ * - All exceptions (holidays, closures, custom hours) are managed in ONE unified interface.
  * - Provides UI updates, event listeners, and error handling for schedule management.
  * - Exports a ScheduleModule for use in the admin UI.
  */
@@ -142,7 +142,6 @@ export class ScheduleModule {
     if (this.exceptionsTabInitialized) {
       console.log('Schedule exceptions tab already initialized, just refreshing data');
       await this.loadScheduleExceptions();
-      await this.loadHolidayTemplates();
       return;
     }
 
@@ -155,11 +154,8 @@ export class ScheduleModule {
     if (placeholder) placeholder.classList.add('d-none');
     if (content) content.classList.remove('d-none');
 
-    // Load data
-    await Promise.all([
-      this.loadScheduleExceptions(),
-      this.loadHolidayTemplates()
-    ]);
+    // Load all exceptions (includes holidays, closures, etc.)
+    await this.loadScheduleExceptions();
 
     // Set up event listeners
     this.setupScheduleExceptionsListeners();
@@ -173,14 +169,6 @@ export class ScheduleModule {
    */
   setupScheduleExceptionsListeners() {
     console.log('Setting up schedule exceptions listeners');
-
-    // Generate holidays button
-    const generateBtn = document.getElementById('generate-holidays-btn');
-    if (generateBtn && !generateBtn.dataset.listenerAttached) {
-      generateBtn.addEventListener('click', () => this.generateYearlyHolidays());
-      generateBtn.dataset.listenerAttached = 'true';
-      console.log('Generate holidays button listener attached');
-    }
 
     // Save schedule exception button
     const saveBtn = document.getElementById('save-schedule-exception');
@@ -222,6 +210,29 @@ export class ScheduleModule {
       });
       closedToggle.dataset.listenerAttached = 'true';
       console.log('Closed toggle listener attached');
+    }
+
+    // Recurring toggle - show/hide year selector
+    const recurringToggle = document.getElementById('exception-is-recurring');
+    const yearSelectors = document.getElementById('recurring-year-selectors');
+    if (recurringToggle && yearSelectors && !recurringToggle.dataset.listenerAttached) {
+      recurringToggle.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          yearSelectors.classList.remove('d-none');
+        } else {
+          yearSelectors.classList.add('d-none');
+        }
+      });
+      recurringToggle.dataset.listenerAttached = 'true';
+      console.log('Recurring toggle listener attached');
+    }
+
+    // Generate yearly exceptions button
+    const generateBtn = document.getElementById('generate-yearly-exceptions-btn');
+    if (generateBtn && !generateBtn.dataset.listenerAttached) {
+      generateBtn.addEventListener('click', () => this.generateYearlyExceptions());
+      generateBtn.dataset.listenerAttached = 'true';
+      console.log('Generate yearly exceptions button listener attached');
     }
   }
 
@@ -273,39 +284,82 @@ export class ScheduleModule {
 
     if (!exceptions || exceptions.length === 0) {
       container.innerHTML = `
-        <div class="text-center text-muted py-4">
-          <i class="fas fa-calendar-times fa-3x mb-3"></i>
-          <p>No hay excepciones de horario programadas</p>
+        <div class="text-center text-muted py-5">
+          <i class="fas fa-calendar-times fa-4x mb-3"></i>
+          <h5>No hay excepciones programadas</h5>
+          <p class="text-muted">Haga clic en "Nueva Excepción" para agregar cierres, feriados o horarios especiales.</p>
         </div>
       `;
       return;
     }
 
-    container.innerHTML = exceptions.map(exception => {
+    // Group exceptions by type
+    const holidays = exceptions.filter(e => e.isHoliday || e.is_holiday);
+    const regularExceptions = exceptions.filter(e => !(e.isHoliday || e.is_holiday));
+
+    let html = '';
+
+    // Show holidays section if any
+    if (holidays.length > 0) {
+      html += `
+        <div class="mb-4">
+          <h6 class="text-primary mb-3">
+            <i class="fas fa-star me-2"></i>Feriados (${holidays.length})
+          </h6>
+          ${this.renderExceptionCards(holidays)}
+        </div>
+      `;
+    }
+
+    // Show regular exceptions section
+    if (regularExceptions.length > 0) {
+      html += `
+        <div>
+          <h6 class="text-warning mb-3">
+            <i class="fas fa-calendar-times me-2"></i>Excepciones y Cierres (${regularExceptions.length})
+          </h6>
+          ${this.renderExceptionCards(regularExceptions)}
+        </div>
+      `;
+    }
+
+    container.innerHTML = html;
+    console.log(`Rendered ${exceptions.length} schedule exceptions`);
+  }
+
+  /**
+   * Renders exception cards HTML.
+   */
+  renderExceptionCards(exceptions) {
+    return exceptions.map(exception => {
       // Handle both camelCase and snake_case
       const isClosed = exception.isClosed !== undefined ? exception.isClosed : exception.is_closed;
-      const recurringType = exception.recurringType || exception.recurring_type;
+      const isRecurring = exception.isRecurring !== undefined ? exception.isRecurring : exception.is_recurring;
+      const isHoliday = exception.isHoliday !== undefined ? exception.isHoliday : exception.is_holiday;
       const startDate = exception.startDate || exception.start_date;
       const endDate = exception.endDate || exception.end_date;
       const customOpenTime = exception.customOpenTime || exception.custom_open_time;
       const customCloseTime = exception.customCloseTime || exception.custom_close_time;
       const exceptionType = exception.type || exception.exception_type;
       
+      // Determine badge color and icon
+      const badgeColor = isHoliday ? 'danger' : (isClosed ? 'danger' : 'info');
+      const badgeText = isClosed ? 'Cerrado' : (isHoliday ? 'Feriado' : 'Horario especial');
+      const icon = isHoliday ? 'fa-star' : 'fa-calendar-times';
+      
       return `
-        <div class="card mb-3">
+        <div class="card mb-3 shadow-sm">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-start">
               <div class="flex-grow-1">
-                <h6 class="card-title d-flex align-items-center">
-                  <i class="fas fa-calendar-times me-2 text-warning"></i>
+                <h6 class="card-title d-flex align-items-center mb-2">
+                  <i class="fas ${icon} me-2 text-${badgeColor}"></i>
                   ${exception.reason}
-                  <span class="badge bg-${isClosed ? 'danger' : 'info'} ms-2">
-                    ${isClosed ? 'Cerrado' : 'Horario especial'}
-                  </span>
-                  ${recurringType === 'yearly' ? '<span class="badge bg-warning ms-2">Anual</span>' : ''}
+                  <span class="badge bg-${badgeColor} ms-2">${badgeText}</span>
+                  ${isRecurring ? '<span class="badge bg-warning ms-1"><i class="fas fa-sync me-1"></i>Anual</span>' : ''}
                 </h6>
-                <p class="card-text text-muted mb-2">${exception.description || 'Sin descripción adicional'}</p>
-                <div class="d-flex gap-3 text-sm">
+                ${exception.description ? `<p class="card-text text-muted small mb-2">${exception.description}</p>` : ''}
+                <div class="d-flex flex-wrap gap-3 small">
                   <span><i class="fas fa-calendar me-1"></i> ${this.formatDateRange(startDate, endDate)}</span>
                   ${!isClosed && customOpenTime ? `
                     <span><i class="fas fa-clock me-1"></i> ${customOpenTime} - ${customCloseTime}</span>
@@ -323,8 +377,6 @@ export class ScheduleModule {
         </div>
       `;
     }).join('');
-
-    console.log(`Rendered ${exceptions.length} schedule exceptions`);
   }
 
   /**
@@ -338,6 +390,8 @@ export class ScheduleModule {
       startDate: document.getElementById('schedule-exception-start-date')?.value,
       endDate: document.getElementById('schedule-exception-end-date')?.value,
       isClosed: document.getElementById('exception-is-closed')?.checked || false,
+      isHoliday: document.getElementById('exception-is-holiday')?.checked || false,
+      isRecurring: document.getElementById('exception-is-recurring')?.checked || false,
       customOpenTime: document.getElementById('exception-open-time')?.value || null,
       customCloseTime: document.getElementById('exception-close-time')?.value || null,
       customBreakStart: document.getElementById('exception-break-start')?.value || null,
@@ -359,6 +413,14 @@ export class ScheduleModule {
       return;
     }
 
+    // If closed, clear custom hours
+    if (formData.isClosed) {
+      formData.customOpenTime = null;
+      formData.customCloseTime = null;
+      formData.customBreakStart = null;
+      formData.customBreakEnd = null;
+    }
+
     try {
       const response = await fetch('/api/admin/schedule-exceptions', {
         method: 'POST',
@@ -377,7 +439,7 @@ export class ScheduleModule {
       const result = await response.json();
       console.log('Schedule exception saved:', result);
 
-      this.showSuccess('Excepción de horario guardada exitosamente');
+      this.showSuccess('Excepción guardada exitosamente');
 
       // Close modal
       const modal = bootstrap.Modal.getInstance(document.getElementById('addScheduleExceptionModal'));
@@ -396,12 +458,54 @@ export class ScheduleModule {
   }
 
   /**
+   * Generates recurring exceptions for selected years.
+   */
+  async generateYearlyExceptions() {
+    const yearSelectors = document.querySelectorAll('#recurring-year-selectors input[type="checkbox"]:checked');
+    const years = Array.from(yearSelectors).map(checkbox => parseInt(checkbox.value));
+
+    if (years.length === 0) {
+      this.showError('Seleccione al menos un año para generar excepciones');
+      return;
+    }
+
+    if (!confirm(`¿Generar excepciones recurrentes para ${years.length} año(s)?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/schedule-exceptions/generate-recurring', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.getAuthToken()}`
+        },
+        body: JSON.stringify({ years })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText);
+      }
+
+      const result = await response.json();
+      this.showSuccess(result.message || 'Excepciones recurrentes generadas');
+      
+      await this.loadScheduleExceptions();
+
+    } catch (error) {
+      console.error('Error generating recurring exceptions:', error);
+      this.showError('Error al generar excepciones: ' + error.message);
+    }
+  }
+
+  /**
    * Deletes a schedule exception.
    */
   async deleteScheduleException(id) {
     console.log('Deleting schedule exception:', id);
 
-    if (!confirm('¿Está seguro de eliminar esta excepción de horario?')) {
+    if (!confirm('¿Está seguro de eliminar esta excepción?')) {
       return;
     }
 
@@ -436,128 +540,6 @@ export class ScheduleModule {
     if (!end || start === end) return startDate;
     const endDate = new Date(end).toLocaleDateString('es-ES');
     return `${startDate} - ${endDate}`;
-  }
-
-  /**
-   * Loads holiday templates.
-   */
-  async loadHolidayTemplates() {
-    console.log('Loading holiday templates');
-    try {
-      const response = await fetch('/api/admin/schedule/holiday-templates', {
-        headers: {
-          'Authorization': `Bearer ${this.getAuthToken()}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      const templates = data.holiday_templates || data.templates || [];
-      console.log('Holiday templates loaded:', templates);
-      this.renderHolidayTemplates(templates);
-
-    } catch (error) {
-      console.error('Error loading holiday templates:', error);
-      const container = document.getElementById('holiday-templates-list');
-      if (container) {
-        container.innerHTML = `
-          <div class="alert alert-info">
-            <i class="fas fa-info-circle me-2"></i>
-            No hay plantillas de feriados configuradas
-          </div>
-        `;
-      }
-    }
-  }
-
-  /**
-   * Renders holiday templates.
-   */
-  renderHolidayTemplates(templates) {
-    const container = document.getElementById('holiday-templates-list');
-    if (!container) {
-      console.warn('Holiday templates list container not found');
-      return;
-    }
-
-    if (!templates || templates.length === 0) {
-      container.innerHTML = `
-        <div class="text-center text-muted py-4">
-          <i class="fas fa-star fa-3x mb-3"></i>
-          <p>No hay plantillas de feriados configuradas</p>
-        </div>
-      `;
-      return;
-    }
-
-    const monthNames = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-
-    container.innerHTML = templates.map(template => {
-      const holidayType = template.holidayType || template.holiday_type || 'custom';
-      const isActive = template.isActive !== undefined ? template.isActive : template.is_active;
-      
-      return `
-        <div class="card mb-2">
-          <div class="card-body py-2">
-            <div class="d-flex justify-content-between align-items-center">
-              <div>
-                <strong>${template.name}</strong>
-                <span class="badge bg-${isActive ? 'success' : 'secondary'} ms-2">
-                  ${isActive ? 'Activo' : 'Inactivo'}
-                </span>
-                <small class="text-muted ms-2">${template.day} de ${monthNames[template.month]}</small>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    console.log(`Rendered ${templates.length} holiday templates`);
-  }
-
-  /**
-   * Generates holidays for a specific year.
-   */
-  async generateYearlyHolidays() {
-    const year = document.getElementById('holiday-year-select')?.value;
-    
-    if (!year) {
-      this.showError('Por favor seleccione un año');
-      return;
-    }
-
-    if (!confirm(`¿Generar feriados para el año ${year}? Esto creará excepciones de horario para todos los feriados activos.`)) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/admin/schedule/generate-holidays/${year}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.getAuthToken()}`
-        }
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText);
-      }
-
-      const result = await response.json();
-      this.showSuccess(result.message || `Feriados generados para ${year}`);
-      
-      // Reload exceptions to show the generated holidays
-      await this.loadScheduleExceptions();
-
-    } catch (error) {
-      console.error('Error generating holidays:', error);
-      this.showError('Error al generar feriados: ' + error.message);
-    }
   }
 
   /**
