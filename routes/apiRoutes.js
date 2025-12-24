@@ -71,17 +71,16 @@ router.get('/slots', async (req, res) => {
 
     const results = await BusinessHour.findAll({
       where: {
-        effectiveDate: latestEffectiveDate,
-        dayOfWeek: weekDayNames,
+        effectiveDate: latestEffectiveDate
       },
       order: [['effectiveDate', 'DESC']]
     });
 
-    // Map most recent override for each day
+    // Map by day of week (case-insensitive)
     const bhMap = {};
     for (const dow of weekDayNames) {
-      const overrides = results.filter(r => (r.dayOfWeek || '').toLowerCase() === dow);
-      if (overrides.length > 0) bhMap[dow] = overrides[0];
+      const record = results.find(r => (r.dayOfWeek || '').toLowerCase() === dow.toLowerCase());
+      if (record) bhMap[dow] = record;
     }
 
     // 2. Get all appointments for the week
@@ -100,7 +99,7 @@ router.get('/slots', async (req, res) => {
       const dow = weekDayNames[i];
       const bh = bhMap[dow];
       if (!bh || !bh.isOpen) {
-        slotsByDay[date] = []; // Keep as is
+        slotsByDay[date] = [];
         continue;
       }
       const allSlots = generateTimeSlots(bh.openTime, bh.closeTime);
@@ -186,12 +185,14 @@ router.get('/available-slots/:date', async (req, res) => {
       return res.json({ availableSlots: [] });
     }
 
-    const bh = await BusinessHour.findOne({
+    // Get all records for this effectiveDate and find the matching day (case-insensitive)
+    const allRecords = await BusinessHour.findAll({
       where: {
-        effectiveDate: latestEffectiveDate,
-        dayOfWeek: dayOfWeek,
+        effectiveDate: latestEffectiveDate
       }
     });
+
+    const bh = allRecords.find(r => (r.dayOfWeek || '').toLowerCase() === dayOfWeek.toLowerCase());
 
     if (!bh || !bh.isOpen) {
       console.log(`[API] Day is closed or no hours found for ${dayOfWeek} on ${dayISO}`);
@@ -280,19 +281,15 @@ router.get('/business-hours', async (req, res) => {
       return res.json({ businessHours: [] });
     }
 
-    // 2. Fetch the 7 records that make up the active weekly schedule.
-    const ordered = await BusinessHour.findAll({
+    // 2. Fetch all records for that effective date
+    const records = await BusinessHour.findAll({
       where: {
         effectiveDate: latestEffectiveDate
-      },
-      order: [
-        // Custom order to ensure Monday is first, Sunday is last, etc.
-        sequelize.literal("FIELD(dayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')")
-      ]
+      }
     });
     
-    console.log(`[/business-hours] Returning ${ordered.length} business hours for effectiveDate: ${latestEffectiveDate}`);
-    res.json({ businessHours: ordered });
+    console.log(`[/business-hours] Returning ${records.length} business hours for effectiveDate: ${latestEffectiveDate}`);
+    res.json({ businessHours: records });
   } catch (err) {
     console.error("Error fetching merged business hours:", err);
     res.status(500).json({ businessHours: [] });
@@ -323,18 +320,15 @@ router.get('/business-hours/:date', async (req, res) => {
       return res.json({ businessHours: [] });
     }
 
-    // 2. Fetch the 7 records for that effective date.
-    const ordered = await BusinessHour.findAll({
+    // 2. Fetch all records for that effective date
+    const records = await BusinessHour.findAll({
       where: {
         effectiveDate: latestEffectiveDate
-      },
-      order: [
-        sequelize.literal("FIELD(dayOfWeek, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')")
-      ]
+      }
     });
     
-    console.log(`[/business-hours/${dayISO}] Returning ${ordered.length} business hours for effectiveDate: ${latestEffectiveDate}`);
-    res.json({ businessHours: ordered });
+    console.log(`[/business-hours/${dayISO}] Returning ${records.length} business hours for effectiveDate: ${latestEffectiveDate}`);
+    res.json({ businessHours: records });
   } catch (err) {
     console.error(`Error fetching business hours for date ${dayISO}:`, err);
     res.status(500).json({ businessHours: [] });
