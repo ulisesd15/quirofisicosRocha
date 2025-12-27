@@ -117,32 +117,37 @@ router.put('/business-hours/:id', requireAdmin, async (req, res) => {
  * Bulk update or insert business hours for all days of the week.
  */
 router.put('/business-hours', requireAdmin, async (req, res) => {
-  const { businessHours } = req.body;
+  const { businessHours, effectiveDate } = req.body;
+  // Default to a baseline date if not provided (e.g., '2025-01-01') to ensure versioning works
+  const targetDate = effectiveDate || '2025-01-01';
+
   if (!businessHours || !Array.isArray(businessHours)) {
     return res.status(400).json({ error: 'Invalid business hours data' });
   }
   
   try {
-    const updatePromises = businessHours.map(async (hours) => {
-      const existing = await BusinessHour.findOne({
-        where: { dayOfWeek: hours.dayOfWeek }
+    await sequelize.transaction(async (t) => {
+      // 1. Delete existing records for this effective date (overwrite logic)
+      await BusinessHour.destroy({ 
+        where: { effectiveDate: targetDate },
+        transaction: t 
       });
 
-      const data = {
+      // 2. Insert new records
+      const records = businessHours.map(hours => ({
         dayOfWeek: hours.dayOfWeek,
         isOpen: hours.isOpen,
         openTime: hours.openTime,
         closeTime: hours.closeTime,
         breakStart: hours.breakStart || null,
-        breakEnd: hours.breakEnd || null
-      };
+        breakEnd: hours.breakEnd || null,
+        effectiveDate: targetDate
+      }));
 
-      if (existing) return existing.update(data);
-      return BusinessHour.create(data);
+      await BusinessHour.bulkCreate(records, { transaction: t });
     });
 
-    await Promise.all(updatePromises);
-    res.json({ message: 'Business hours updated successfully' });
+    res.json({ message: 'Business hours updated successfully', effectiveDate: targetDate });
   } catch (err) {
     console.error('Error updating business hours:', err);
     res.status(500).json({ error: 'Database error updating business hours' });
@@ -257,13 +262,12 @@ router.post('/schedule-exceptions', requireAdmin, async (req, res) => {
     const result = await ScheduleException.create({
       type: type || (isClosed ? 'CLOSURE' : 'OVERRIDE_HOURS'),
       startDate,
-      endDate: endDate || null,
+      endDate: endDate || startDate,
       customOpenTime: customOpenTime || null,
       customCloseTime: customCloseTime || null,
       customBreakStart: customBreakStart || null,
       customBreakEnd: customBreakEnd || null,
       reason: reason || '',
-      description: description || '',
       isRecurring: recurringType === 'yearly',
       recurringType: recurringType || null,
       isActive: true
@@ -302,13 +306,12 @@ router.put('/schedule-exceptions/:id', requireAdmin, async (req, res) => {
     const [updated] = await ScheduleException.update({
       type,
       startDate,
-      endDate,
+      endDate: endDate || startDate,
       customOpenTime,
       customCloseTime,
       customBreakStart,
       customBreakEnd,
       reason,
-      description,
       isRecurring: recurringType === 'yearly',
       recurringType,
       isActive

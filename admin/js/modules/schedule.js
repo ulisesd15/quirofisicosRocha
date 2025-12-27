@@ -711,6 +711,10 @@ export class ScheduleModule {
     datePicker.value = today;
 
     datePicker.addEventListener('change', () => this.updateScheduleStatus());
+    datePicker.addEventListener('change', () => {
+      this.updateScheduleStatus();
+      this.loadBusinessHours(datePicker.value);
+    });
     this.updateScheduleStatus();
   }
 
