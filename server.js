@@ -10,7 +10,6 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
-const cron = require('node-cron');
 
 // Load environment variables FIRST
 require('dotenv').config();
@@ -23,6 +22,9 @@ const routes = require('./routes/apiRoutes');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
+// Import cron job starter
+const { startAppointmentStatusUpdater } = require('./jobs/appointmentCronJobs');
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 const isProduction = process.env.NODE_ENV === 'production';
@@ -33,15 +35,15 @@ if (isProduction) {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-  styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-  scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-  scriptSrcAttr: ["'unsafe-inline'"],
-  imgSrc: ["'self'", "data:", "https:", "http:"],
-  connectSrc: ["'self'", "https://accounts.google.com", "https://www.googleapis.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-  fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
-  objectSrc: ["'none'"],
-  mediaSrc: ["'self'"],
-  frameSrc: ["'self'", "https://accounts.google.com", "https://content.googleapis.com", "https://www.google.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:", "http:"],
+        connectSrc: ["'self'", "https://accounts.google.com", "https://www.googleapis.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+        fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'self'", "https://accounts.google.com", "https://content.googleapis.com", "https://www.google.com"],
       },
     },
   }));
@@ -51,15 +53,15 @@ if (isProduction) {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-  styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-  scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-  scriptSrcAttr: ["'unsafe-inline'"],
-  imgSrc: ["'self'", "data:", "https:", "http:"],
-  connectSrc: ["'self'", "https://accounts.google.com", "https://www.googleapis.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-  fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
-  objectSrc: ["'none'"],
-  mediaSrc: ["'self'"],
-  frameSrc: ["'self'", "https://accounts.google.com", "https://content.googleapis.com", "https://www.google.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:", "http:"],
+        connectSrc: ["'self'", "https://accounts.google.com", "https://www.googleapis.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+        fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'self'", "https://accounts.google.com", "https://content.googleapis.com", "https://www.google.com"],
       },
     },
   }));
@@ -154,11 +156,17 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server is running on port http://localhost:${PORT}`);
   console.log(`CORS options:`, corsOptions);
   
-  
+  // Start cron jobs for automatic appointment status updates
+  startAppointmentStatusUpdater();
 });
 
 // Added this to listen for server errors e.g. EADDRINUSE
 server.on('error', (err) => {
-  console.error('Server startup error:', err);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use.`);
+    console.error(`   To fix, run this in PowerShell: Stop-Process -Id (Get-NetTCPConnection -LocalPort ${PORT}).OwningProcess -Force`);
+  } else {
+    console.error('Server startup error:', err);
+  }
   process.exit(1);
 });

@@ -267,26 +267,44 @@ export class AppointmentsModule {
    * Renders the appointments table in the UI.
    */
   displayAppointments(appointments) {
-    const tbody = document.getElementById('appointments-table');
-    
-    if (appointments.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="7" class="empty-state">
-            <i class="fas fa-calendar-times"></i>
-            <h5>No hay citas</h5>
-            <p>No se encontraron citas que coincidan con los criterios de búsqueda.</p>
-          </td>
-        </tr>
-      `;
-      return;
-    }
-
-    tbody.innerHTML = appointments.map(apt => `
+  const tbody = document.getElementById('appointments-table');
+  
+  if (appointments.length === 0) {
+    tbody.innerHTML = `
       <tr>
+        <td colspan="7" class="empty-state">
+          <i class="fas fa-calendar-times"></i>
+          <h5>No hay citas</h5>
+          <p>No se encontraron citas que coincidan con los criterios de búsqueda.</p>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = appointments.map(apt => {
+    // Determine row class based on classification
+    let rowClass = '';
+    let classificationBadge = '';
+    
+    if (apt.classification === 'past') {
+      rowClass = 'table-secondary opacity-75';
+      classificationBadge = '<span class="badge bg-secondary ms-2">Pasada</span>';
+    } else if (apt.classification === 'today') {
+      rowClass = 'table-info';
+      classificationBadge = '<span class="badge bg-info ms-2">Hoy</span>';
+    } else if (apt.classification === 'upcoming') {
+      classificationBadge = '<span class="badge bg-primary ms-2">Próxima</span>';
+    }
+    
+    return `
+      <tr class="${rowClass}">
         <td>${apt.id}</td>
-        <td>${this.formatDate(apt.appointment_date)}</td>
-        <td>${this.formatTime(apt.appointment_time)}</td>
+        <td>
+          ${this.formatDate(apt.appointment_date || apt.date)}
+          ${classificationBadge}
+        </td>
+        <td>${this.formatTime(apt.appointment_time || apt.time)}</td>
         <td>${apt.fullName}</td>
         <td>
           ${apt.email ? `<div>${apt.email}</div>` : ''}
@@ -295,17 +313,24 @@ export class AppointmentsModule {
         <td><span class="badge bg-${apt.status}">${this.getStatusText(apt.status)}</span></td>
         <td>
           <div class="action-buttons">
-            <button class="btn btn-outline-primary btn-sm btn-edit-appointment" data-appointment-id="${apt.id}" title="Editar">
+            <button class="btn btn-outline-primary btn-sm btn-edit-appointment" 
+                    data-appointment-id="${apt.id}" 
+                    ${apt.classification === 'past' ? 'disabled' : ''} 
+                    title="Editar">
               <i class="fas fa-edit"></i>
             </button>
-            <button class="btn btn-outline-danger btn-sm btn-delete-appointment" data-appointment-id="${apt.id}" title="Eliminar">
+            <button class="btn btn-outline-danger btn-sm btn-delete-appointment" 
+                    data-appointment-id="${apt.id}" 
+                    title="Eliminar">
               <i class="fas fa-trash"></i>
             </button>
           </div>
         </td>
       </tr>
-    `).join('');
-  }
+    `;
+  }).join('');
+}
+
 
   /**
    * Loads appointments with pagination and filtering, and displays them in the UI.

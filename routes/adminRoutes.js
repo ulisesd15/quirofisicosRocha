@@ -20,6 +20,8 @@
 const express = require('express');
 const requireAdmin = require('../middleware/requireAdmin');
 const authenticateToken = require('../middleware/authenticateToken');
+const validateAppointmentTime = require('../middleware/validateAppointmentTime');
+const appointmentStatusService = require('../services/appointmentStatusService');
 const router = express.Router();
 
 const { User, Appointment, BusinessHour, ScheduleException, Announcement, sequelize } = require('../models');
@@ -492,6 +494,30 @@ router.put('/users/:id/verify', requireAdmin, async (req, res) => {
 // APPOINTMENT MANAGEMENT
 // =================
 
+/**
+ * POST /appointments/update-statuses
+ * Manually trigger appointment status update (for testing/emergency use)
+ */
+router.post('/appointments/update-statuses', requireAdmin, async (req, res) => {
+  try {
+    const result = await appointmentStatusService.updatePastAppointments();
+    const cancelled = await appointmentStatusService.cancelOldPendingAppointments(7);
+    
+    res.json({
+      message: 'Appointment statuses updated successfully',
+      updated: result.total,
+      updatedPastDays: result.pastDays,
+      updatedToday: result.pastToday,
+      cancelled: cancelled
+    });
+  } catch (error) {
+    console.error('Error updating appointment statuses:', error);
+    res.status(500).json({ error: 'Error updating appointment statuses' });
+  }
+});
+
+// Get all appointments (paginated)
+
 router.get('/appointments', requireAdmin, async (req, res) => {
   console.log('DEBUG: /api/admin/appointments route hit');
   const page = parseInt(req.query.page) || 1;
@@ -527,8 +553,15 @@ router.get('/appointments', requireAdmin, async (req, res) => {
       order: [['date', 'DESC'], ['time', 'DESC']]
     });
 
+    // Add classification to each appointment
+    const classifiedRows = rows.map(apt => {
+      const plain = apt.get({ plain: true });
+      plain.classification = appointmentStatusService.classifyAppointment(apt);
+      return plain;
+    });
+
     res.json({
-      appointments: rows,
+      appointments: classifiedRows,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(count / limit),
@@ -541,6 +574,7 @@ router.get('/appointments', requireAdmin, async (req, res) => {
     res.status(500).json({ error: 'Database error' });
   }
 });
+
 
 // ADMIN: Get all unverified users
 

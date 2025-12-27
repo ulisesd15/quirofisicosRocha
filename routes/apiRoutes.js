@@ -12,6 +12,8 @@
 const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/authenticateToken');
+const validateAppointmentTime = require('../middleware/validateAppointmentTime');
+const appointmentStatusService = require('../services/appointmentStatusService');
 const { Appointment, BusinessHour, Announcement, ScheduleException, User, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
@@ -338,7 +340,7 @@ router.get('/business-hours/:date', async (req, res) => {
 /**
  * Creates a new appointment (supports guest and authenticated users).
  */
-router.post('/appointments', async (req, res) => {
+router.post('/appointments',validateAppointmentTime, async (req, res) => {
   let { fullName, email, phone, date, time, note = '', userId } = req.body;
 
   // Normalize empty user_id to null
@@ -401,7 +403,7 @@ router.post('/appointments', async (req, res) => {
 /**
  * Updates an appointment (authenticated, user or admin).
  */
-router.put('/appointments/:id', authenticateToken, async (req, res) => {
+router.put('/appointments/:id', authenticateToken , validateAppointmentTime,  async (req, res) => {
   const { fullName, email, phone, date, time, note } = req.body;
   const appointmentId = req.params.id;
   const userId = req.user.id;
@@ -554,7 +556,7 @@ router.put('/appointments/:id/cancel', authenticateToken, async (req, res) => {
  * POST /appointments/:id/reschedule
  * Reschedules an existing appointment to a new date and time.
  */
-router.post('/appointments/:id/reschedule', authenticateToken, async (req, res) => {
+router.post('/appointments/:id/reschedule', authenticateToken,  validateAppointmentTime, async (req, res) => {
   const appointmentId = req.params.id;
   const userId = req.user.id;
   const { newDate, newTime, note } = req.body;
