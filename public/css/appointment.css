@@ -157,6 +157,35 @@ h2{margin-bottom:20px;}
   border-radius:.4rem;
 }
 
+/* ───────── PAST TIME SLOT STYLES (Task #7) ───────── */
+.time-slot-btn.past-time-slot {
+  background-color: #f8f9fa !important;
+  border-color: #dee2e6 !important;
+  color: #adb5bd !important;
+  cursor: not-allowed;
+  opacity: 0.6;
+  position: relative;
+}
+
+.time-slot-btn.past-time-slot:hover {
+  background-color: #f8f9fa !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Add a subtle "past" indicator */
+.time-slot-btn.past-time-slot::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, transparent 45%, #dee2e6 45%, #dee2e6 55%, transparent 55%);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
 /* ───────── FORM & MISC ───────── */
 .offcanvas-start{width:250px;}
 .menu-toggle{position:fixed;
