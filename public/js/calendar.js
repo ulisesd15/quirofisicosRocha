@@ -7,6 +7,7 @@
  * - Properly handles schedule exceptions (holidays, closures, custom hours)
  * - Manages slot availability with 30-minute intervals
  * - Prevents booking within 30 minutes or beyond 90 days
+ * - Grays out past time slots for current day (Task #7)
  *
  * Main function call flow:
  * - renderMonthlyCalendar() and renderWeeklyCalendar() are entry points for UI rendering
@@ -635,6 +636,7 @@ export class Calendar {
 
   /**
    * Renders available time slots for a given date
+   * ENHANCED: Grays out past time slots for current day (Task #7)
    */
   async renderTimeSlots(date, slotContainerId = 'timeCards') {
     const slotContainer = document.getElementById(slotContainerId);
@@ -670,6 +672,7 @@ export class Calendar {
     
     const now = new Date();
     const minBookingTime = new Date(now.getTime() + 30 * 60 * 1000); // 30 minutes from now
+    const isToday = this.isToday(date);
     
     slots.forEach(time => {
       // Ensure slot is within business hours
@@ -696,10 +699,23 @@ export class Calendar {
       
       // Check if slot is in the past or too soon
       const slotDateTime = new Date(`${this.formatDate(date)}T${time}:00`);
-      if (slotDateTime < minBookingTime) {
+      const isPastSlot = slotDateTime < minBookingTime;
+      
+      if (isPastSlot) {
         btn.disabled = true;
-        btn.classList.add('disabled');
-        btn.title = 'No disponible (menos de 30 minutos de anticipación)';
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('disabled', 'btn-outline-secondary', 'opacity-50');
+        
+        // Add visual indicator for past slots on today
+        if (isToday) {
+          btn.classList.add('past-time-slot');
+          btn.title = 'Horario pasado';
+          // Add strikethrough text
+          btn.style.textDecoration = 'line-through';
+          btn.style.color = '#6c757d';
+        } else {
+          btn.title = 'No disponible (menos de 30 minutos de anticipación)';
+        }
       } else {
         btn.addEventListener('click', () => this.selectTimeSlot(time, btn));
       }
