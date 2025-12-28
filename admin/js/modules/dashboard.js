@@ -95,6 +95,19 @@ export class DashboardModule {
   }
 
   /**
+   * Returns a human-readable status string for an appointment.
+   */
+  getStatusText(status) {
+    switch (status) {
+      case 'pending': return 'Pendiente';
+      case 'confirmed': return 'Confirmada';
+      case 'completed': return 'Completada';
+      case 'cancelled': return 'Cancelada';
+      default: return status;
+    }
+  }
+
+  /**
    * Renders the recent appointments table in the UI.
    */
   displayRecentAppointments(appointments) {
@@ -131,21 +144,12 @@ export class DashboardModule {
     }
 
     tbody.innerHTML = appointments.map(apt => {
-      const statusClass = this.getStatusBadgeClass?.(apt.status) || '';
-      const statusText = this.getStatusText?.(apt.status) || apt.status;
-      let textColor = '';
-      switch (apt.status) {
-        case 'pending': textColor = 'text-warning'; break;
-        case 'confirmed': textColor = 'text-success'; break;
-        case 'cancelled': textColor = 'text-danger'; break;
-        default: textColor = 'text-secondary';
-      }
       return `
         <tr>
           <td>${formatDate(apt.date)}</td>
           <td>${formatTimeToAMPM(apt.time)}</td>
           <td>${apt.fullName}</td>
-          <td><span class="badge ${statusClass} ${textColor}">${statusText}</span></td>
+          <td><span class="badge bg-${apt.status}">${this.getStatusText(apt.status)}</span></td>
           <td>
             <button class="btn btn-sm btn-outline-primary btn-edit-appointment" data-appointment-id="${apt.id}" title="Editar">
               <i class="fas fa-edit"></i>
