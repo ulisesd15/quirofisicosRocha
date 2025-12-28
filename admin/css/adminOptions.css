@@ -26,7 +26,7 @@ main {
   margin-left: 240px; /* Matches sidebar width when expanded */
   padding: 2rem;
   min-height: calc(100vh - 56px);
-  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   width: calc(100% - 240px);
 }
 
@@ -36,7 +36,7 @@ main {
 }
 
 /* Main content fills full width when sidebar is collapsed */
-body:has(.sidebar.collapsed) main {
+main.sidebar-collapsed {
   margin-left: 0;
   width: 100%;
 }
