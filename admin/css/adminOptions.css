@@ -2,13 +2,14 @@
    SIDEBAR COLLAPSIBLE LAYOUT FIX
    ============================================
    Desktop:
-   - Sidebar is always visible (full or narrow).
-   - Main content shifts based on sidebar width.
+   - Sidebar is visible by default at 240px width
+   - When collapsed, sidebar moves off-screen (not just narrowed)
+   - Main content shifts accordingly
    Mobile:
-   - Sidebar is hidden by default and slides over content when opened.
+   - Sidebar is hidden by default and slides over content when opened
 */
 
-/* Sidebar Base Styles (Desktop default: expanded) */
+/* Sidebar Base Styles (Desktop default: expanded and visible) */
 .sidebar {
   position: fixed;
   top: 56px; /* Below navbar */
@@ -20,13 +21,12 @@
   overflow-x: hidden;
   overflow-y: auto;
   transition:
-    width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1040;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
 }
 
-/* Main Content Area - Desktop default: expanded sidebar */
+/* Main Content Area - Desktop default: sidebar visible at 240px */
 main {
   margin-left: 240px;              /* matches sidebar width */
   padding: 2rem;
@@ -37,22 +37,21 @@ main {
   width: calc(100% - 240px);
 }
 
-/* Sidebar Collapsed State (Desktop) - keep it visible but narrow */
+/* Sidebar Collapsed State (Desktop) - hide it completely off-screen */
 .sidebar.collapsed {
-  width: 60px;                     /* choose your collapsed width */
-  transform: none;                 /* do NOT move it off-screen */
+  transform: translateX(-100%);    /* move completely off-screen */
 }
 
-/* Main content with collapsed sidebar (Desktop) */
+/* Main content with collapsed sidebar (Desktop) - expand to full width */
 main.sidebar-collapsed {
-  margin-left: 60px;               /* match collapsed sidebar width */
-  width: calc(100% - 60px);
+  margin-left: 0;                  /* no left margin */
+  width: 100%;                     /* full width */
 }
 
 /* ============================================
    Mobile View (< 992px)
-   - Sidebar hidden by default.
-   - .show slides it in over the content.
+   - Sidebar hidden by default
+   - .show slides it in over the content
    ============================================
 */
 @media (max-width: 991.98px) {
@@ -69,11 +68,6 @@ main.sidebar-collapsed {
   /* Sidebar visible on mobile */
   .sidebar.show {
     transform: translateX(0);
-  }
-
-  /* Optional: ignore .collapsed on mobile, treat it same as hidden */
-  .sidebar.collapsed {
-    transform: translateX(-100%);
   }
 
   /* Main content always full width on mobile */
