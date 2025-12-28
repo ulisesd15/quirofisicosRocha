@@ -88,7 +88,7 @@ class AdminPanel {
     this.dashboard = new DashboardModule();
     this.appointments = new AppointmentsModule();
     this.users = new UsersModule();
-  this.schedule = new ScheduleModule();
+	this.schedule = new ScheduleModule();
     this.settings = new SettingsModule();
     this.userVerification = new UserVerificationModule();
     this.serverStatus = new ServerStatusModule();
@@ -101,7 +101,8 @@ class AdminPanel {
     document.body.classList.toggle('mobile-admin', this.isMobile);
     this.initEventListeners();
     this.verifyAdminAccess(); // Add this line to verify role on load
-    // Sidebar hamburger toggle
+    
+    // Sidebar hamburger toggle - CORRECTED LOGIC
     const sidebarToggle = document.getElementById('sidebar-toggle');
     const sidebar = document.getElementById('admin-sidebar');
     const mainContent = document.querySelector('main');
@@ -109,19 +110,26 @@ class AdminPanel {
     if (sidebarToggle && sidebar && !sidebarToggle.hasAttribute('data-listener-added')) {
       sidebarToggle.addEventListener('click', (e) => {
         e.stopPropagation();
-        sidebar.classList.toggle('show');
-        sidebar.classList.toggle('collapsed');
         
-        // Toggle main content expansion
-        if (mainContent) {
-          mainContent.classList.toggle('sidebar-collapsed');
+        // Desktop (>= 768px): Toggle collapsed state
+        if (window.innerWidth >= 768) {
+          sidebar.classList.toggle('collapsed');
+          
+          // Toggle main content expansion
+          if (mainContent) {
+            mainContent.classList.toggle('sidebar-collapsed');
+          }
+        }
+        // Mobile (< 768px): Toggle show state (overlay)
+        else {
+          sidebar.classList.toggle('show');
         }
       });
       sidebarToggle.setAttribute('data-listener-added', 'true');
       
       // Hide sidebar when clicking outside (mobile only)
       document.addEventListener('click', (e) => {
-        if (window.innerWidth < 992 && sidebar.classList.contains('show')) {
+        if (window.innerWidth < 768 && sidebar.classList.contains('show')) {
           if (!sidebar.contains(e.target) && e.target !== sidebarToggle) {
             sidebar.classList.remove('show');
           }
@@ -244,7 +252,7 @@ class AdminPanel {
     const isRecurring = document.getElementById(`recurring${suffix}`)?.checked;
     
     if (!date || !reason) {
-  showNotification('Por favor complete los campos requeridos', 'error');
+	showNotification('Por favor complete los campos requeridos', 'error');
       return;
     }
     
@@ -267,7 +275,7 @@ class AdminPanel {
       });
       
       if (response.ok) {
-  showNotification('Día cerrado agregado exitosamente', 'success');
+	showNotification('Día cerrado agregado exitosamente', 'success');
         // Clear form based on context
         const formId = `annual-closure-form-${context}`;
         document.getElementById(formId)?.reset();
@@ -278,7 +286,7 @@ class AdminPanel {
       }
     } catch (error) {
       console.error('Error adding annual closure:', error);
-  showNotification('Error al agregar día cerrado', 'error');
+	showNotification('Error al agregar día cerrado', 'error');
     }
   }
 
@@ -313,7 +321,7 @@ class AdminPanel {
     const isRecurring = document.getElementById(`recurring${suffix === '' ? '-yearly' : suffix}`)?.checked;
     
     if (!date || !reason) {
-  showNotification('Por favor complete los campos requeridos', 'error');
+	showNotification('Por favor complete los campos requeridos', 'error');
       return;
     }
     
@@ -331,7 +339,7 @@ class AdminPanel {
       const closeTime = document.getElementById(`custom-close${suffix === '' ? '-yearly' : suffix}`)?.value;
       
       if (!openTime || !closeTime) {
-  showNotification('Por favor especifique las horas personalizadas', 'error');
+	showNotification('Por favor especifique las horas personalizadas', 'error');
         return;
       }
       
@@ -350,7 +358,7 @@ class AdminPanel {
       });
       
       if (response.ok) {
-  showNotification('Día cerrado agregado exitosamente', 'success');
+	showNotification('Día cerrado agregado exitosamente', 'success');
         // Clear form based on context
         const formId = context === 'schedule' ? 'yearly-closure-form-schedule' : 'yearly-closure-form';
         document.getElementById(formId)?.reset();
@@ -361,7 +369,7 @@ class AdminPanel {
       }
     } catch (error) {
       console.error('Error adding yearly closure:', error);
-  showNotification('Error al agregar día cerrado', 'error');
+	showNotification('Error al agregar día cerrado', 'error');
     }
   }
   // New methods for scheduled business hours functionality
@@ -376,13 +384,13 @@ class AdminPanel {
       const scheduleData = this.collectBusinessHoursData();
       
       if (!effectiveDate) {
-  showNotification('Por favor selecciona una fecha efectiva', 'error');
+	showNotification('Por favor selecciona una fecha efectiva', 'error');
         return;
       }
 
       // Validate schedule data
       if (!this.validateScheduleData(scheduleData)) {
-  showNotification('Por favor verifica los horarios ingresados', 'error');
+	showNotification('Por favor verifica los horarios ingresados', 'error');
         return;
       }
 
@@ -405,7 +413,7 @@ class AdminPanel {
       const result = await response.json();
       
       if (result.success) {
-  showNotification('Horarios programados guardados exitosamente', 'success');
+	showNotification('Horarios programados guardados exitosamente', 'success');
         
         // Reload business hours to show current state
         await this.loadBusinessHours();
@@ -424,7 +432,7 @@ class AdminPanel {
 
     } catch (error) {
       console.error('Error saving scheduled business hours:', error);
-  showNotification('Error al guardar los horarios programados', 'error');
+	showNotification('Error al guardar los horarios programados', 'error');
     } finally {
       this.hideLoading();
     }
@@ -754,14 +762,14 @@ class AdminPanel {
         this.showSection(section);
           // Hide sidebar on mobile after tab click
           const sidebar = document.getElementById('admin-sidebar');
-          if (window.innerWidth < 992 && sidebar && sidebar.classList.contains('show')) {
+          if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('show')) {
             sidebar.classList.remove('show');
           }
       });
     });
 
-  // Initialize SMS tab listeners for notification settings
-  this.initializeSMSTabListeners();
+	// Initialize SMS tab listeners for notification settings
+	this.initializeSMSTabListeners();
 
 
     // Dashboard card navigation
