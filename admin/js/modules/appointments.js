@@ -108,6 +108,7 @@ export class AppointmentsModule {
     switch (status) {
       case 'pending': return 'Pendiente';
       case 'confirmed': return 'Confirmada';
+      case 'completed': return 'Completada';
       case 'cancelled': return 'Cancelada';
       default: return status;
     }
@@ -315,7 +316,6 @@ export class AppointmentsModule {
           <div class="action-buttons">
             <button class="btn btn-outline-primary btn-sm btn-edit-appointment" 
                     data-appointment-id="${apt.id}" 
-                    ${apt.classification === 'past' ? 'disabled' : ''} 
                     title="Editar">
               <i class="fas fa-edit"></i>
             </button>
