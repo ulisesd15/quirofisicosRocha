@@ -20,8 +20,8 @@
   border-right: 1px solid #dee2e6;
   overflow-x: hidden;
   overflow-y: auto;
-  transition:
-    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateX(0);            /* Explicitly visible by default */
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1040;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
 }
@@ -56,13 +56,7 @@ main.sidebar-collapsed {
 */
 @media (max-width: 991.98px) {
   .sidebar {
-    position: fixed;
-    top: 56px;
-    left: 0;
-    height: calc(100vh - 56px);
-    width: 240px;
-    transform: translateX(-100%);  /* hidden by default */
-    z-index: 1050;
+    transform: translateX(-100%);  /* hidden by default on mobile */
   }
 
   /* Sidebar visible on mobile */
@@ -88,6 +82,11 @@ main.sidebar-collapsed {
 @media (min-width: 992px) {
   #sidebar-toggle {
     display: none !important;
+  }
+  
+  /* Ensure sidebar is visible on desktop unless collapsed */
+  .sidebar:not(.collapsed) {
+    transform: translateX(0);
   }
 }
 
