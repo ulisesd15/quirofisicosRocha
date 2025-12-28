@@ -1,11 +1,14 @@
 /* ============================================
    SIDEBAR COLLAPSIBLE LAYOUT FIX
    ============================================
-   Main content now dynamically fills the space when sidebar collapses.
-   Sidebar is fixed position and toggles via .collapsed class.
+   Desktop:
+   - Sidebar is always visible (full or narrow).
+   - Main content shifts based on sidebar width.
+   Mobile:
+   - Sidebar is hidden by default and slides over content when opened.
 */
 
-/* Sidebar Base Styles */
+/* Sidebar Base Styles (Desktop default: expanded) */
 .sidebar {
   position: fixed;
   top: 56px; /* Below navbar */
@@ -16,52 +19,71 @@
   border-right: 1px solid #dee2e6;
   overflow-x: hidden;
   overflow-y: auto;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1040;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
 }
 
-/* Main Content Area - Dynamically Shifts Based on Sidebar State */
+/* Main Content Area - Desktop default: expanded sidebar */
 main {
-  margin-left: 240px; /* Matches sidebar width when expanded */
+  margin-left: 240px;              /* matches sidebar width */
   padding: 2rem;
   min-height: calc(100vh - 56px);
-  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   width: calc(100% - 240px);
 }
 
-/* Sidebar Collapsed State (Desktop) */
+/* Sidebar Collapsed State (Desktop) - keep it visible but narrow */
 .sidebar.collapsed {
-  transform: translateX(-240px);
+  width: 60px;                     /* choose your collapsed width */
+  transform: none;                 /* do NOT move it off-screen */
 }
 
-/* Main content fills full width when sidebar is collapsed */
+/* Main content with collapsed sidebar (Desktop) */
 main.sidebar-collapsed {
-  margin-left: 0;
-  width: 100%;
+  margin-left: 60px;               /* match collapsed sidebar width */
+  width: calc(100% - 60px);
 }
 
-/* Mobile View (< 992px) - Sidebar is hidden by default, overlays when shown */
+/* ============================================
+   Mobile View (< 992px)
+   - Sidebar hidden by default.
+   - .show slides it in over the content.
+   ============================================
+*/
 @media (max-width: 991.98px) {
   .sidebar {
-    transform: translateX(-100%);
+    position: fixed;
+    top: 56px;
+    left: 0;
+    height: calc(100vh - 56px);
+    width: 240px;
+    transform: translateX(-100%);  /* hidden by default */
     z-index: 1050;
   }
-  
+
+  /* Sidebar visible on mobile */
   .sidebar.show {
     transform: translateX(0);
   }
-  
+
+  /* Optional: ignore .collapsed on mobile, treat it same as hidden */
   .sidebar.collapsed {
     transform: translateX(-100%);
   }
-  
-  main {
+
+  /* Main content always full width on mobile */
+  main,
+  main.sidebar-collapsed {
     margin-left: 0;
     width: 100%;
     padding: 1rem;
   }
-  
+
   /* Sidebar toggle button visible on mobile */
   #sidebar-toggle {
     display: block !important;
@@ -74,6 +96,7 @@ main.sidebar-collapsed {
     display: none !important;
   }
 }
+
 
 /* Sidebar Navigation Links */
 .sidebar .nav-link {
