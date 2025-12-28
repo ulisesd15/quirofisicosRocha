@@ -3,7 +3,8 @@
    ============================================
    Desktop:
    - Sidebar is visible by default at 240px width
-   - When collapsed, sidebar moves off-screen (not just narrowed)
+   - Hamburger button always available to toggle sidebar
+   - When collapsed, sidebar moves off-screen
    - Main content shifts accordingly
    Mobile:
    - Sidebar is hidden by default and slides over content when opened
@@ -37,56 +38,84 @@ main {
   width: calc(100% - 240px);
 }
 
-/* Sidebar Collapsed State (Desktop) - hide it completely off-screen */
+/* Sidebar Collapsed State - hide it completely off-screen on all devices */
 .sidebar.collapsed {
   transform: translateX(-100%);    /* move completely off-screen */
 }
 
-/* Main content with collapsed sidebar (Desktop) - expand to full width */
+/* Main content with collapsed sidebar - expand to full width on all devices */
 main.sidebar-collapsed {
   margin-left: 0;                  /* no left margin */
   width: 100%;                     /* full width */
 }
 
 /* ============================================
-   Mobile View (< 992px)
-   - Sidebar hidden by default
-   - .show slides it in over the content
+   Hamburger Button - Always Visible
    ============================================
 */
-@media (max-width: 991.98px) {
+#sidebar-toggle {
+  display: block !important;
+  position: fixed;
+  top: 8px;
+  left: 12px;
+  z-index: 1050;
+  background-color: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#sidebar-toggle:hover {
+  background-color: #f8f9fa;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+#sidebar-toggle:active {
+  transform: scale(0.95);
+}
+
+/* ============================================
+   Mobile View (< 768px) - Overlay behavior
+   ============================================
+*/
+@media (max-width: 767.98px) {
   .sidebar {
     transform: translateX(-100%);  /* hidden by default on mobile */
+    z-index: 1060;                 /* above hamburger on mobile */
   }
 
-  /* Sidebar visible on mobile */
+  /* Sidebar visible on mobile - overlay style */
   .sidebar.show {
     transform: translateX(0);
   }
 
-  /* Main content always full width on mobile */
+  /* Main content always full width on mobile, no shift */
   main,
   main.sidebar-collapsed {
     margin-left: 0;
     width: 100%;
     padding: 1rem;
   }
-
-  /* Sidebar toggle button visible on mobile */
-  #sidebar-toggle {
-    display: block !important;
-  }
 }
 
-/* Desktop - Hide mobile toggle by default */
-@media (min-width: 992px) {
-  #sidebar-toggle {
-    display: none !important;
-  }
-  
-  /* Ensure sidebar is visible on desktop unless collapsed */
+/* ============================================
+   Tablet and Desktop (>= 768px)
+   - Sidebar pushes content by default
+   ============================================
+*/
+@media (min-width: 768px) {
+  /* Ensure sidebar is visible on larger screens unless collapsed */
   .sidebar:not(.collapsed) {
     transform: translateX(0);
+  }
+  
+  /* Main content properly offset when sidebar is visible */
+  main:not(.sidebar-collapsed) {
+    margin-left: 240px;
+    width: calc(100% - 240px);
   }
 }
 
