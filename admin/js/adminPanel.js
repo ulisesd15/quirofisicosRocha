@@ -104,12 +104,21 @@ class AdminPanel {
     // Sidebar hamburger toggle
     const sidebarToggle = document.getElementById('sidebar-toggle');
     const sidebar = document.getElementById('admin-sidebar');
+    const mainContent = document.querySelector('main');
+    
     if (sidebarToggle && sidebar && !sidebarToggle.hasAttribute('data-listener-added')) {
       sidebarToggle.addEventListener('click', (e) => {
         e.stopPropagation();
         sidebar.classList.toggle('show');
+        sidebar.classList.toggle('collapsed');
+        
+        // Toggle main content expansion
+        if (mainContent) {
+          mainContent.classList.toggle('sidebar-collapsed');
+        }
       });
       sidebarToggle.setAttribute('data-listener-added', 'true');
+      
       // Hide sidebar when clicking outside (mobile only)
       document.addEventListener('click', (e) => {
         if (window.innerWidth < 992 && sidebar.classList.contains('show')) {
