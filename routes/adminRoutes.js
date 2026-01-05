@@ -259,8 +259,21 @@ router.post('/schedule-exceptions', requireAdmin, async (req, res) => {
   } = req.body;
 
   try {
+    // Map frontend type to model ENUM values
+    let modelType;
+    if (type === 'single_day' || type === 'specific_date') {
+      // Frontend sends 'single_day' for specific dates
+      modelType = isClosed ? 'CLOSURE' : 'OVERRIDE_HOURS';
+    } else if (type === 'CLOSURE' || type === 'OVERRIDE_HOURS' || type === 'BLOCK_SLOT') {
+      // Already a valid ENUM value
+      modelType = type;
+    } else {
+      // Fallback logic
+      modelType = isClosed ? 'CLOSURE' : 'OVERRIDE_HOURS';
+    }
+
     const result = await ScheduleException.create({
-      type: type || (isClosed ? 'CLOSURE' : 'OVERRIDE_HOURS'),
+      type: modelType,  // Changed from: type: type || (isClosed ? 'CLOSURE' : 'OVERRIDE_HOURS')
       startDate,
       endDate: endDate || startDate,
       customOpenTime: customOpenTime || null,

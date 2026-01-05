@@ -171,24 +171,23 @@ router.get('/announcements/active', async (req, res) => {
  */
 router.get('/available-slots/:date', async (req, res) => {
   const dayISO = req.params.date;
-  // Parse as local date to avoid timezone issues
   const [year, month, day] = dayISO.split('-').map(Number);
   const dateObj = new Date(year, month - 1, day);
   if (isNaN(dateObj)) return res.status(400).json({ availableSlots: [] });
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const dayOfWeek = days[dateObj.getDay()];
   console.log(`[API] /available-slots/${dayISO} | dayOfWeek: ${dayOfWeek}`);
+  
   try {
-    // Find the most recent effective date that applies to this date
-    const latestEffectiveDate = await BusinessHour.max('effectiveDate', { 
-      where: { 
-        effectiveDate: { [Op.lte]: dayISO } 
-      } 
+    // **NEW: Check for schedule exceptions first**
+    const exceptions = await ScheduleException.findAll({
+      where: { isActive: true }
     });
-
-    if (!latestEffectiveDate) {
-      console.log(`[API] No business hours found in database for ${dayISO}`);
-      return res.json({ availableSlots: [] });
+    
+    const exception = getExceptionForDate(dayISO, exceptions);
+    if (exception && exception.type === 'CLOSURE') {
+      console.log(`[API] Date ${dayISO} is closed due to exception: ${exception.reason}`);
+      return res.json({ availableSlots: [], reason: exception.reason });
     }
 
     // Get all records for this effectiveDate and find the matching day (case-insensitive)
@@ -315,7 +314,38 @@ router.get('/business-hours/:date', async (req, res) => {
   if (isNaN(dateObj)) return res.status(400).json({ businessHours: [] });
 
   try {
-    // 1. Find the most recent effectiveDate that is on or before the requested date.
+    // 1. Check for schedule exceptions first
+    const exceptions = await ScheduleException.findAll({
+      where: { isActive: true }
+    });
+    
+    const exception = getExceptionForDate(dayISO, exceptions);
+    
+    // If there's a CLOSURE exception, return closed status
+    if (exception && exception.type === 'CLOSURE') {
+      console.log(`[/business-hours/${dayISO}] Date is CLOSED due to exception: ${exception.reason}`);
+      
+      // Return all days as closed
+      const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      const closedRecords = days.map(day => ({
+        dayOfWeek: day,
+        isOpen: false,
+        openTime: null,
+        closeTime: null,
+        effectiveDate: dayISO,
+        reason: exception.reason
+      }));
+      
+      return res.json({ 
+        businessHours: closedRecords,
+        exception: {
+          type: 'CLOSURE',
+          reason: exception.reason
+        }
+      });
+    }
+
+    // 2. Find the most recent effectiveDate that is on or before the requested date
     const latestEffectiveDate = await BusinessHour.max('effectiveDate', {
       where: {
         effectiveDate: {
@@ -332,12 +362,42 @@ router.get('/business-hours/:date', async (req, res) => {
       });
     }
 
-    // 2. Fetch all records for that effective date
+    // 3. Fetch all records for that effective date
     const records = await BusinessHour.findAll({
       where: {
         effectiveDate: latestEffectiveDate
       }
     });
+    
+    // 4. If there's an OVERRIDE_HOURS exception, apply custom hours
+    if (exception && exception.type === 'OVERRIDE_HOURS') {
+      console.log(`[/business-hours/${dayISO}] Applying OVERRIDE_HOURS exception`);
+      
+      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const targetDayOfWeek = days[dateObj.getDay()];
+      
+      const modifiedRecords = records.map(record => {
+        // Only modify the matching day of week
+        if ((record.dayOfWeek || '').toLowerCase() === targetDayOfWeek.toLowerCase()) {
+          return {
+            ...record.get({ plain: true }),
+            openTime: exception.customOpenTime || record.openTime,
+            closeTime: exception.customCloseTime || record.closeTime,
+            isOpen: true,
+            reason: exception.reason
+          };
+        }
+        return record.get({ plain: true });
+      });
+      
+      return res.json({ 
+        businessHours: modifiedRecords,
+        exception: {
+          type: 'OVERRIDE_HOURS',
+          reason: exception.reason
+        }
+      });
+    }
     
     console.log(`[/business-hours/${dayISO}] Returning ${records.length} business hours for effectiveDate: ${latestEffectiveDate}`);
     res.json({ businessHours: records });
@@ -346,6 +406,8 @@ router.get('/business-hours/:date', async (req, res) => {
     res.status(500).json({ businessHours: [] });
   }
 });
+
+
 
 /**
  * Creates a new appointment (supports guest and authenticated users).
