@@ -483,7 +483,7 @@ export class Calendar {
 
   /**
    * Renders the weekly calendar view
-   * Fixed: Now shows current week, not next week
+   * Fixed: Now shows current week by default, only advances if NO bookable slots
    */
   async renderWeeklyCalendar(containerId = 'weeklyCalendar') {
     const calendarContainer = document.getElementById(containerId);
@@ -495,28 +495,103 @@ export class Calendar {
     const today = new Date();
     const weekMonday = this.getMonday(today);
     
-    console.log('[renderWeeklyCalendar] Starting with week of:', this.formatDate(weekMonday));
+    console.log('📅 [renderWeeklyCalendar] Starting with current week:', this.formatDate(weekMonday));
     
     await this.fetchBusinessHours(weekMonday);
     await this.fetchScheduleExceptions();
     
-    // Fetch slots for auto-advance feature
-    const weekSlots = await this.fetchSlotsForWeek(weekMonday);
-    console.log('[renderWeeklyCalendar] weekSlots:', weekSlots);
+    // Check if current week has any bookable slots (improved logic)
+    const hasBookableSlots = await this.weekHasBookableSlots(weekMonday);
     
-    let advanced = false;
-    await this.autoAdvanceIfNoAvailableSlots(
-      weekSlots,
-      (mondayDate) => {
-        advanced = true;
-        this.renderWeeklyCalendarForDate(mondayDate, containerId);
-      },
-      weekMonday
-    );
+    if (hasBookableSlots) {
+      console.log('✅ [renderWeeklyCalendar] Current week has bookable slots - displaying it');
+      this.renderWeeklyCalendarForDate(weekMonday, containerId);
+    } else {
+      console.log('⏩ [renderWeeklyCalendar] Current week has NO bookable slots - searching for next available week');
+      
+      // Find next week with available slots
+      let found = false;
+      let weeksAhead = 1;
+      
+      while (weeksAhead <= 12 && !found) {
+        const nextMonday = new Date(weekMonday);
+        nextMonday.setDate(weekMonday.getDate() + 7 * weeksAhead);
+        
+        console.log(`🔍 Checking week ${weeksAhead}: ${this.formatDate(nextMonday)}`);
+        
+        const nextHasSlots = await this.weekHasBookableSlots(nextMonday);
+        if (nextHasSlots) {
+          console.log(`✅ Found available week ${weeksAhead} weeks ahead`);
+          found = true;
+          this.renderWeeklyCalendarForDate(nextMonday, containerId);
+          break;
+        }
+        
+        weeksAhead++;
+      }
+      
+      if (!found) {
+        calendarContainer.innerHTML = '<div class="alert alert-warning text-center">No hay horarios disponibles en las próximas 12 semanas.</div>';
+      }
+    }
+  }
+
+  /**
+   * Checks if a given week (starting Monday) has any bookable time slots
+   * Returns true if at least one slot is available and bookable (30+ min from now)
+   * FIXED: Properly checks each day for actual bookable slots
+   */
+  async weekHasBookableSlots(mondayDate) {
+    const now = new Date();
+    const minBookingTime = new Date(now.getTime() + 30 * 60 * 1000); // 30 minutes from now
     
-    if (advanced) return;
+    console.log(`\n🔍 [weekHasBookableSlots] Checking week starting ${this.formatDate(mondayDate)}`);
+    console.log(`   Current time: ${now.toLocaleString()}`);
+    console.log(`   Min booking time: ${minBookingTime.toLocaleString()}`);
     
-    this.renderWeeklyCalendarForDate(weekMonday, containerId);
+    // Check each day of the week (Monday to Sunday)
+    for (let d = 0; d < 7; d++) {
+      const dayDate = new Date(mondayDate.getTime() + d * 24 * 60 * 60 * 1000);
+      const dateStr = this.formatDate(dayDate);
+      
+      console.log(`\n  📅 Checking ${dateStr}:`);
+      
+      // Skip if day is in the past
+      if (this.isPastDate(dayDate)) {
+        console.log(`    ⏭️  Day is in the past, skipping`);
+        continue;
+      }
+      
+      // Check if day is open for business
+      if (!this.isDayOpen(dayDate)) {
+        console.log(`    🚫 Day is closed`);
+        continue;
+      }
+      
+      // Fetch available slots for this day
+      const slots = await this.fetchAvailableSlots(dayDate);
+      console.log(`    📋 Found ${slots.length} total slots`);
+      
+      if (!slots.length) {
+        console.log(`    ❌ No slots available`);
+        continue;
+      }
+      
+      // Check if any slot is bookable (at least 30 minutes from now)
+      for (const timeStr of slots) {
+        const slotDateTime = new Date(`${dateStr}T${timeStr}:00`);
+        
+        if (slotDateTime >= minBookingTime) {
+          console.log(`    ✅ FOUND BOOKABLE SLOT: ${timeStr} (${slotDateTime.toLocaleString()})`);
+          return true; // Found at least one bookable slot!
+        } else {
+          console.log(`    ⏰ Slot ${timeStr} is too soon (${slotDateTime.toLocaleString()})`);
+        }
+      }
+    }
+    
+    console.log(`\n  ❌ No bookable slots found in this week`);
+    return false; // No bookable slots found in entire week
   }
 
   /**
@@ -764,59 +839,19 @@ export class Calendar {
   }
 
   // ============================================
-  // AUTO-ADVANCE FEATURE
+  // AUTO-ADVANCE FEATURE (DEPRECATED)
   // ============================================
 
   /**
-   * Auto-advances to next week if current week has no available slots
-   * Fixed: Only advances if truly no slots available (respects today)
+   * @deprecated This function is no longer used in the new implementation
+   * Replaced by weekHasBookableSlots() in renderWeeklyCalendar()
+   * 
+   * Old auto-advance logic that was causing issues with skipping current week
    */
   async autoAdvanceIfNoAvailableSlots(weekSlots, renderWeekFn, currentMonday) {
-    const now = new Date();
+    console.warn('[autoAdvanceIfNoAvailableSlots] This function is deprecated and should not be called');
     
-    // Filter for available slots that are in the future and not filled
-    const available = weekSlots.filter(slot => {
-      const slotDate = new Date(slot.date + 'T' + slot.time);
-      // Slot must be at least 30 minutes from now
-      const minBookingTime = new Date(now.getTime() + 30 * 60 * 1000);
-      return !slot.filled && slotDate >= minBookingTime;
-    });
-    
-    if (available.length > 0) {
-      console.log(`[autoAdvance] Found ${available.length} available slots this week`);
-      return; // Has available slots
-    }
-    
-    console.log('[autoAdvance] No slots available this week, searching ahead...');
-    
-    // Search up to 12 weeks ahead
-    let weeksAhead = 1;
-    let found = false;
-    let nextMonday = new Date(currentMonday);
-    
-    while (weeksAhead <= 12 && !found) {
-      nextMonday = new Date(currentMonday);
-      nextMonday.setDate(currentMonday.getDate() + 7 * weeksAhead);
-      
-      const nextWeekSlots = await this.fetchSlotsForWeek(nextMonday);
-      const nextAvailable = nextWeekSlots.filter(slot => {
-        const slotDate = new Date(slot.date + 'T' + slot.time);
-        const minBookingTime = new Date(now.getTime() + 30 * 60 * 1000);
-        return !slot.filled && slotDate >= minBookingTime;
-      });
-      
-      if (nextAvailable.length > 0) {
-        found = true;
-        console.log(`[autoAdvance] Found available slots ${weeksAhead} weeks ahead`);
-        renderWeekFn(nextMonday);
-        break;
-      }
-      
-      weeksAhead++;
-    }
-    
-    if (!found) {
-      alert('No se encontraron horarios disponibles en las próximas semanas.');
-    }
+    // This function is kept for backwards compatibility but should not be used
+    // The new logic in renderWeeklyCalendar() uses weekHasBookableSlots() instead
   }
 }
