@@ -46,6 +46,7 @@ router.get('/slots', async (req, res) => {
   if (!weekStart) return res.status(400).json({ error: 'Missing weekStart' });
   const startDate = new Date(weekStart);
   if (isNaN(startDate)) return res.status(400).json({ error: 'Invalid weekStart' });
+  
   // Build array of 7 dates (Mon-Sun)
   const days = [];
   for (let i = 0; i < 7; i++) {
@@ -53,17 +54,17 @@ router.get('/slots', async (req, res) => {
     d.setDate(startDate.getDate() + i);
     days.push(d.toISOString().slice(0, 10));
   }
+  
   // Get day names for each date
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  
   try {
-    // 1. Get all potentially relevant business hours (effective <= end of week)
     const relevantBusinessHours = await BusinessHour.findAll({
       where: {
         effectiveDate: { [Op.lte]: days[6] }
       }
     });
 
-    // 2. Get all appointments for the week
     const appts = await Appointment.findAll({
       where: {
         date: { [Op.in]: days },
@@ -72,7 +73,8 @@ router.get('/slots', async (req, res) => {
       attributes: ['date', 'time']
     });
 
-    // 3. Build slots for each day
+    console.log(`[GET /slots] Found ${appts.length} appointments for week starting ${weekStart}`);
+
     const slotsByDay = {};
     for (let i = 0; i < days.length; i++) {
       const dateStr = days[i];
@@ -90,10 +92,16 @@ router.get('/slots', async (req, res) => {
       }
 
       // Find max effectiveDate (string comparison works for YYYY-MM-DD)
-      const maxEffectiveDate = applicable.reduce((max, curr) => curr.effectiveDate > max ? curr.effectiveDate : max, applicable[0].effectiveDate);
+      const maxEffectiveDate = applicable.reduce((max, curr) => 
+        curr.effectiveDate > max ? curr.effectiveDate : max, 
+        applicable[0].effectiveDate
+      );
       
       // Get the specific record for this day of week from the max effective set
-      const bh = applicable.find(r => r.effectiveDate === maxEffectiveDate && (r.dayOfWeek || '').toLowerCase() === dow.toLowerCase());
+      const bh = applicable.find(r => 
+        r.effectiveDate === maxEffectiveDate && 
+        (r.dayOfWeek || '').toLowerCase() === dow.toLowerCase()
+      );
 
       if (!bh || !bh.isOpen) {
         slotsByDay[dateStr] = [];
@@ -102,13 +110,20 @@ router.get('/slots', async (req, res) => {
 
       const allSlots = generateTimeSlots(bh.openTime, bh.closeTime);
       
-      // Count bookings for this day to enforce limit of 2
+      
       const dayAppts = appts.filter(a => a.date === dateStr);
       const bookingCounts = {};
+      
+      
       dayAppts.forEach(a => {
-        bookingCounts[a.time] = (bookingCounts[a.time] || 0) + 1;
+        // Convert "09:00:00" to "09:00"
+        const timeKey = a.time.substring(0, 5);
+        bookingCounts[timeKey] = (bookingCounts[timeKey] || 0) + 1;
       });
 
+      console.log(`[GET /slots] ${dateStr} bookings:`, bookingCounts);
+
+      // Filter out slots that have 2 or more bookings
       let available = allSlots.filter(t => (bookingCounts[t] || 0) < 2);
 
       // Filter out slots less than 30 min from now (if today)
@@ -121,14 +136,18 @@ router.get('/slots', async (req, res) => {
           return slotDateTime >= thirtyMinFromNow;
         });
       }
+      
       slotsByDay[dateStr] = available;
+      console.log(`[GET /slots] ${dateStr} available: ${available.length} slots`);
     }
+    
     res.json({ slots: slotsByDay });
   } catch (e) {
     console.error('Error in /slots:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 /**
  * Returns public clinic settings (name, address, phone, email).
@@ -167,80 +186,117 @@ router.get('/announcements/active', async (req, res) => {
 });
 
 /**
- * Returns available slots for a specific date.
+ * GET /api/available-slots/:date
+ * Returns available time slots for a specific date
+ * Used by calendar.js fetchAvailableSlots()
  */
 router.get('/available-slots/:date', async (req, res) => {
-  const dayISO = req.params.date;
-  // Parse as local date to avoid timezone issues
-  const [year, month, day] = dayISO.split('-').map(Number);
+  const dateStr = req.params.date;
+  
+  // Validate date format
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+  }
+  
+  const [year, month, day] = dateStr.split('-').map(Number);
   const dateObj = new Date(year, month - 1, day);
-  if (isNaN(dateObj)) return res.status(400).json({ availableSlots: [] });
-  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  const dayOfWeek = days[dateObj.getDay()];
-  console.log(`[API] /available-slots/${dayISO} | dayOfWeek: ${dayOfWeek}`);
+  
+  if (isNaN(dateObj)) {
+    return res.status(400).json({ availableSlots: [] });
+  }
+  
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const dayOfWeek = dayNames[dateObj.getDay()];
+  
+  console.log(`[GET /available-slots/${dateStr}] Day of week: ${dayOfWeek}`);
+  
   try {
-    // Find the most recent effective date that applies to this date
-    const latestEffectiveDate = await BusinessHour.max('effectiveDate', { 
-      where: { 
-        effectiveDate: { [Op.lte]: dayISO } 
-      } 
-    });
-
-    if (!latestEffectiveDate) {
-      console.log(`[API] No business hours found in database for ${dayISO}`);
-      return res.json({ availableSlots: [] });
-    }
-
-    // Get all records for this effectiveDate and find the matching day (case-insensitive)
-    const allRecords = await BusinessHour.findAll({
+    // 1. Find the most recent business hours effective date
+    const latestEffectiveDate = await BusinessHour.max('effectiveDate', {
       where: {
-        effectiveDate: latestEffectiveDate
+        effectiveDate: { [Op.lte]: dateStr }
       }
     });
-
-    const bh = allRecords.find(r => (r.dayOfWeek || '').toLowerCase() === dayOfWeek.toLowerCase());
-
-    if (!bh || !bh.isOpen) {
-      console.log(`[API] Day is closed or no hours found for ${dayOfWeek} on ${dayISO}`);
+    
+    if (!latestEffectiveDate) {
+      console.log(`[GET /available-slots/${dateStr}] No business hours found`);
       return res.json({ availableSlots: [] });
     }
-
-    const allSlots = generateTimeSlots(bh.openTime, bh.closeTime);
     
-    // Get taken appointments
-    const takenRows = await Appointment.findAll({
+    console.log(`[GET /available-slots/${dateStr}] Using effective date: ${latestEffectiveDate}`);
+    
+    // 2. Get business hours for this day of week
+    const businessHour = await BusinessHour.findOne({
       where: {
-        date: dayISO,
+        effectiveDate: latestEffectiveDate,
+        dayOfWeek: dayOfWeek  // ✅ Direct string comparison (no Op.like needed)
+      }
+    });
+    
+    if (!businessHour) {
+      console.log(`[GET /available-slots/${dateStr}] No business hours found for ${dayOfWeek}`);
+      return res.json({ availableSlots: [] });
+    }
+    
+    if (!businessHour.isOpen) {
+      console.log(`[GET /available-slots/${dateStr}] Day is closed`);
+      return res.json({ availableSlots: [] });
+    }
+    
+    console.log(`[GET /available-slots/${dateStr}] Business hours: ${businessHour.openTime} - ${businessHour.closeTime}`);
+    
+    // 3. Generate all possible slots
+    const allSlots = generateTimeSlots(businessHour.openTime, businessHour.closeTime);
+    console.log(`[GET /available-slots/${dateStr}] Generated ${allSlots.length} total slots`);
+    
+    // 4. Get existing appointments for this date
+    const appointments = await Appointment.findAll({
+      where: {
+        date: dateStr,
         status: ['pending', 'confirmed', 'completed', 'no_show']
       },
-      attributes: ['time', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
-      group: ['time']
+      attributes: ['time']
     });
-
+    
+    // 5. Count bookings per slot (normalize time format)
     const bookingCounts = {};
-    takenRows.forEach(row => {
-      bookingCounts[row.time] = row.get('count');
+    appointments.forEach(appt => {
+      const timeKey = appt.time.substring(0, 5); // Strip seconds: "09:00:00" → "09:00"
+      bookingCounts[timeKey] = (bookingCounts[timeKey] || 0) + 1;
     });
-
-    // A slot is available if it has been booked less than 2 times.
-    let available = allSlots.filter(slot => (bookingCounts[slot + ':00'] || 0) < 2);
-
-    // Filter out slots less than 30 min from now (if today)
+    
+    console.log(`[GET /available-slots/${dateStr}] Found ${appointments.length} appointments. Booking counts:`, bookingCounts);
+    
+    // 6. Filter out fully booked slots (2 bookings = full)
+    let availableSlots = allSlots.filter(slot => (bookingCounts[slot] || 0) < 2);
+    
+    // 7. Filter out past slots if today
     const now = new Date();
     const todayISO = now.toISOString().split('T')[0];
-    if (dayISO === todayISO) {
-      const thirtyMinFromNow = new Date(now.getTime() + 30 * 60 * 1000);
-      available = available.filter(timeSlot => {
-        const slotDateTime = new Date(`${dayISO}T${timeSlot}:00`);
-        return slotDateTime >= thirtyMinFromNow;
+    
+    if (dateStr === todayISO) {
+      const minBookingTime = new Date(now.getTime() + 30 * 60 * 1000);
+      const beforeCount = availableSlots.length;
+      
+      availableSlots = availableSlots.filter(slot => {
+        const slotDateTime = new Date(`${dateStr}T${slot}:00`);
+        return slotDateTime >= minBookingTime;
       });
+      
+      console.log(`[GET /available-slots/${dateStr}] Filtered ${beforeCount - availableSlots.length} past slots (today)`);
     }
-    res.json({ availableSlots: available });
-  } catch (e) {
-    console.error('Error in /available-slots:', e);
-    res.json({ availableSlots: [] });
+    
+    console.log(`[GET /available-slots/${dateStr}] ✅ Returning ${availableSlots.length} available slots`);
+    
+    res.json({ availableSlots });
+    
+  } catch (error) {
+    console.error(`[GET /available-slots/${dateStr}] ❌ Error:`, error);
+    res.status(500).json({ error: 'Server error', availableSlots: [] });
   }
 });
+
+
 
 /**
  * Returns all active schedule exceptions for the calendar/frontend.
@@ -315,7 +371,38 @@ router.get('/business-hours/:date', async (req, res) => {
   if (isNaN(dateObj)) return res.status(400).json({ businessHours: [] });
 
   try {
-    // 1. Find the most recent effectiveDate that is on or before the requested date.
+    // 1. Check for schedule exceptions first
+    const exceptions = await ScheduleException.findAll({
+      where: { isActive: true }
+    });
+    
+    const exception = getExceptionForDate(dayISO, exceptions);
+    
+    // If there's a CLOSURE exception, return closed status
+    if (exception && exception.type === 'CLOSURE') {
+      console.log(`[/business-hours/${dayISO}] Date is CLOSED due to exception: ${exception.reason}`);
+      
+      // Return all days as closed
+      const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      const closedRecords = days.map(day => ({
+        dayOfWeek: day,
+        isOpen: false,
+        openTime: null,
+        closeTime: null,
+        effectiveDate: dayISO,
+        reason: exception.reason
+      }));
+      
+      return res.json({ 
+        businessHours: closedRecords,
+        exception: {
+          type: 'CLOSURE',
+          reason: exception.reason
+        }
+      });
+    }
+
+    // 2. Find the most recent effectiveDate that is on or before the requested date
     const latestEffectiveDate = await BusinessHour.max('effectiveDate', {
       where: {
         effectiveDate: {
@@ -332,12 +419,42 @@ router.get('/business-hours/:date', async (req, res) => {
       });
     }
 
-    // 2. Fetch all records for that effective date
+    // 3. Fetch all records for that effective date
     const records = await BusinessHour.findAll({
       where: {
         effectiveDate: latestEffectiveDate
       }
     });
+    
+    // 4. If there's an OVERRIDE_HOURS exception, apply custom hours
+    if (exception && exception.type === 'OVERRIDE_HOURS') {
+      console.log(`[/business-hours/${dayISO}] Applying OVERRIDE_HOURS exception`);
+      
+      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const targetDayOfWeek = days[dateObj.getDay()];
+      
+      const modifiedRecords = records.map(record => {
+        // Only modify the matching day of week
+        if ((record.dayOfWeek || '').toLowerCase() === targetDayOfWeek.toLowerCase()) {
+          return {
+            ...record.get({ plain: true }),
+            openTime: exception.customOpenTime || record.openTime,
+            closeTime: exception.customCloseTime || record.closeTime,
+            isOpen: true,
+            reason: exception.reason
+          };
+        }
+        return record.get({ plain: true });
+      });
+      
+      return res.json({ 
+        businessHours: modifiedRecords,
+        exception: {
+          type: 'OVERRIDE_HOURS',
+          reason: exception.reason
+        }
+      });
+    }
     
     console.log(`[/business-hours/${dayISO}] Returning ${records.length} business hours for effectiveDate: ${latestEffectiveDate}`);
     res.json({ businessHours: records });
@@ -347,14 +464,24 @@ router.get('/business-hours/:date', async (req, res) => {
   }
 });
 
+
+
 /**
  * Creates a new appointment (supports guest and authenticated users).
  */
-router.post('/appointments',validateAppointmentTime, async (req, res) => {
+router.post('/appointments', validateAppointmentTime, async (req, res) => {
   let { fullName, email, phone, date, time, note = '', userId } = req.body;
 
   // Normalize empty user_id to null
   userId = userId ? userId : null;
+
+  // ✅ Normalize time format to HH:MM:SS (simpler check)
+  if (time && time.length === 5) {
+    time = time + ':00';
+    console.log('[POST /appointments] Normalized time to:', time);
+  }
+
+  console.log(`[POST /appointments] Request: ${fullName} - ${date} at ${time}`);
 
   // --- 90-Day Booking Limit Validation ---
   const today = new Date();
@@ -364,8 +491,12 @@ router.post('/appointments',validateAppointmentTime, async (req, res) => {
   const requestedDate = new Date(date);
 
   if (requestedDate > maxBookingDate) {
-    return res.status(400).json({ error: 'Booking too far in advance', message: 'No se puede agendar con más de 90 días de antelación.' });
+    return res.status(400).json({ 
+      error: 'Booking too far in advance', 
+      message: 'No se puede agendar con más de 90 días de antelación.' 
+    });
   }
+
   // Validate required fields
   if (!fullName || !date || !time) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -381,8 +512,14 @@ router.post('/appointments',validateAppointmentTime, async (req, res) => {
       }
     });
 
+    console.log(`[POST /appointments] Found ${count} existing appointments for ${date} at ${time}`);
+
     if (count >= 2) {
-      return res.status(409).json({ error: 'Time slot already taken', message: 'Este horario ya está ocupado' });
+      console.log(`[POST /appointments] ❌ Slot full - rejecting booking`);
+      return res.status(409).json({ 
+        error: 'Time slot already taken', 
+        message: 'Este horario ya está ocupado' 
+      });
     }
 
     let status = 'pending';
@@ -398,17 +535,22 @@ router.post('/appointments',validateAppointmentTime, async (req, res) => {
       fullName, email, phone, date, time, note, userId, status
     });
 
+    console.log(`[POST /appointments] ✅ Created appointment ID ${appointment.id} with status: ${status}`);
+
     res.json({ 
-      message: status === 'confirmed' ? 'Cita agendada correctamente' : 'Cita agendada, pendiente de confirmación', 
+      message: status === 'confirmed' 
+        ? 'Cita agendada correctamente' 
+        : 'Cita agendada, pendiente de confirmación', 
       id: appointment.id, 
       status 
     });
 
   } catch (err) {
-    console.error('Error creating appointment:', err);
+    console.error('[POST /appointments] ❌ Error creating appointment:', err);
     res.status(500).json({ error: 'Database error creating appointment' });
   }
 });
+
 
 /**
  * Updates an appointment (authenticated, user or admin).

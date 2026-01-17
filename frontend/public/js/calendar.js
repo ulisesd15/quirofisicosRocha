@@ -264,31 +264,43 @@ export class Calendar {
    * Fetches available slots for a given date from the backend
    * Returns array of time strings (e.g., ['09:00', '09:30', ...])
    */
-  async fetchAvailableSlots(date) {
-    try {
-      const dateStr = this.formatDate(date);
-      console.log(`[fetchAvailableSlots] Fetching /api/available-slots/${dateStr}`);
-      
-      const response = await fetch(`/api/available-slots/${dateStr}`);
-      
-      if (!response.ok) {
-        console.error(`[fetchAvailableSlots] Bad response`, response.status, response.statusText);
-        return [];
-      }
-      
-      const data = await response.json();
-      console.log(`[fetchAvailableSlots] Response data:`, data);
-      
-      // Normalize response - handle different response structures
-      if (data.availableSlots && Array.isArray(data.availableSlots)) return data.availableSlots;
-      if (data.slots && Array.isArray(data.slots)) return data.slots;
-      
-      return [];
-    } catch (e) {
-      console.error('[fetchAvailableSlots] Error:', e);
+async fetchAvailableSlots(date) {
+  try {
+    const dateStr = this.formatDate(date);
+    console.log(`[fetchAvailableSlots] Fetching /api/available-slots/${dateStr}`);
+    
+    const response = await fetch(`/api/available-slots/${dateStr}`);
+    
+    if (!response.ok) {
+      console.error(`[fetchAvailableSlots] Bad response`, response.status, response.statusText);
       return [];
     }
+    
+    const data = await response.json();
+    console.log(`[fetchAvailableSlots] Response data:`, data);
+    
+    // Normalize response - handle different response structures
+    let slots = [];
+    if (Array.isArray(data.availableSlots)) {
+      slots = data.availableSlots;
+    } else if (Array.isArray(data.slots)) {
+      slots = data.slots;
+    } else if (Array.isArray(data)) {
+      slots = data;
+    }
+    
+    // Ensure all times are in HH:MM format (strip seconds if present)
+    slots = slots.map(slot => slot.substring(0, 5));
+    
+    console.log(`[fetchAvailableSlots] Returning ${slots.length} slots`);
+    return slots;
+    
+  } catch (e) {
+    console.error('[fetchAvailableSlots] Error:', e);
+    return [];
   }
+}
+
 
   /**
    * Fetch slots for a week given a Monday date

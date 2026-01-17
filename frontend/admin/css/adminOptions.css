@@ -99,6 +99,7 @@ main.sidebar-collapsed {
   white-space: nowrap;
   margin: 0;
   padding: 0;
+  padding-left: 40px
 }
 
 .navbar-brand i {
