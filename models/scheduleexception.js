@@ -19,37 +19,37 @@ module.exports = (sequelize, DataTypes) => {
       },
       startDate: {
         type: DataTypes.DATE,
-        field: 'start_date'
+        field: 'startDate'
       },
       endDate: {
         type: DataTypes.DATE,
-        field: 'end_date'
+        field: 'endDate'
       },
       month: DataTypes.INTEGER,
       day: DataTypes.INTEGER,
       calculationRule: {
         type: DataTypes.STRING,
-        field: 'calculation_rule'
+        field: 'calculationRule'
       },
       customOpenTime: {
         type: DataTypes.TIME,
-        field: 'custom_open_time'
+        field: 'customOpenTime'
       },
       customCloseTime: {
         type: DataTypes.TIME,
-        field: 'custom_close_time'
+        field: 'customCloseTime'
       },
       reason: DataTypes.TEXT,
       isActive: {
         type: DataTypes.BOOLEAN,
-        field: 'is_active',
+        field: 'isActive',
         defaultValue: true
       }
     },
     {
       sequelize,
       modelName: 'ScheduleException',
-      tableName: 'schedule_exceptions',
+      tableName: 'scheduleExceptions',
       underscored: true
     }
   );

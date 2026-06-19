@@ -22,7 +22,7 @@ export class UserVerificationModule {
    * Retrieves the current authentication token from localStorage.
    */
   getAuthToken() {
-    return localStorage.getItem('user_token') || localStorage.getItem('token') || '';
+    return localStorage.getItem('userToken') || localStorage.getItem('token') || '';
   }
 
   /**
@@ -117,7 +117,7 @@ export class UserVerificationModule {
         ${users.map(user => `
           <tr>
             <td>${user.id}</td>
-            <td>${user.full_name}</td>
+            <td>${user.fullName}</td>
             <td>${user.email}</td>
             <td>${user.phone || 'N/A'}</td>
             <td>
@@ -179,8 +179,8 @@ export class UserVerificationModule {
     tbody.innerHTML = appointments.map(apt => `
       <tr>
         <td>${apt.id}</td>
-        <td>${this.formatDate(apt.appointment_date)}</td>
-        <td>${this.formatTime(apt.appointment_time)}</td>
+        <td>${this.formatDate(apt.appointmentDate)}</td>
+        <td>${this.formatTime(apt.appointmentTime)}</td>
         <td>${apt.name}</td>
         <td>
           ${apt.email ? `<div>${apt.email}</div>` : ''}
@@ -293,15 +293,15 @@ export class UserVerificationModule {
     return `
       <div class="appointment-item">
         <div class="appointment-details">
-          <h4>Cita de: ${item.full_name || 'No disponible'}</h4>
+          <h4>Cita de: ${item.fullName || 'No disponible'}</h4>
           <p><strong>Email:</strong> ${item.email || 'No disponible'}</p>
           <p><strong>Fecha:</strong> ${formattedDate}</p>
           <p><strong>Hora de Cita:</strong> ${formattedTime}</p>
-          <p class="text-muted small">ID Usuario: ${item.user_id} | ID Cita: ${item.appointment_id}</p>
+          <p class="text-muted small">ID Usuario: ${item.userId} | ID Cita: ${item.appointmentId}</p>
         </div>
         <div class="appointment-actions">
-          <button class="btn-approve" data-user-id="${item.user_id}" data-appointment-id="${item.appointment_id}">Aprobar</button>
-          <button class="btn-reject" data-appointment-id="${item.appointment_id}">Rechazar</button>
+          <button class="btn-approve" data-user-id="${item.userId}" data-appointment-id="${item.appointmentId}">Aprobar</button>
+          <button class="btn-reject" data-appointment-id="${item.appointmentId}">Rechazar</button>
         </div>
       </div>
     `;

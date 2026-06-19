@@ -13,7 +13,7 @@ export class ScheduleModule {
    * Retrieves the current authentication token from localStorage.
    */
   getAuthToken() {
-    return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+    return localStorage.getItem('token') || localStorage.getItem('userToken') || '';
   }
 
 
@@ -114,24 +114,24 @@ export class ScheduleModule {
       const dayLower = day.toLowerCase();
       const isOpen = document.getElementById(`open-${dayLower}`)?.checked || false;
       return {
-        day_of_week: day,
-        is_open: isOpen ? 1 : 0,
-        open_time: isOpen ? document.getElementById(`start-${dayLower}`)?.value || null : null,
-        close_time: isOpen ? document.getElementById(`end-${dayLower}`)?.value || null : null,
-        break_start: isOpen ? document.getElementById(`break-start-${dayLower}`)?.value || null : null,
-        break_end: isOpen ? document.getElementById(`break-end-${dayLower}`)?.value || null : null
+        dayOfWeek: day,
+        isOpen: isOpen ? 1 : 0,
+        openTime: isOpen ? document.getElementById(`start-${dayLower}`)?.value || null : null,
+        closeTime: isOpen ? document.getElementById(`end-${dayLower}`)?.value || null : null,
+        breakStart: isOpen ? document.getElementById(`break-start-${dayLower}`)?.value || null : null,
+        breakEnd: isOpen ? document.getElementById(`break-end-${dayLower}`)?.value || null : null
       };
     });
     // Get effective date from date picker
     const datePicker = document.getElementById('schedule-effective-date');
-    const effective_date = datePicker ? datePicker.value : null;
+    const effectiveDate = datePicker ? datePicker.value : null;
 
     // Optional: validate data here
-    if (!businessHours.some(day => day.is_open)) {
+    if (!businessHours.some(day => day.isOpen)) {
       this.showError('Debe abrir al menos un día de la semana');
       return;
     }
-    if (!effective_date) {
+    if (!effectiveDate) {
       this.showError('Debe seleccionar una fecha de inicio');
       return;
     }
@@ -143,13 +143,13 @@ export class ScheduleModule {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${this.getAuthToken()}`
         },
-        body: JSON.stringify({ businessHours, effective_date })
+        body: JSON.stringify({ businessHours, effectiveDate })
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || 'Error al guardar horarios');
       this.showSuccess('Horarios guardados exitosamente');
       // Reload the business hours for the date that was just saved to reflect the changes.
-      await this.loadBusinessHours(effective_date);
+      await this.loadBusinessHours(effectiveDate);
     } catch (error) {
       console.error('Error saving business hours:', error);
       this.showError('Error al guardar horarios: ' + error.message);
@@ -205,7 +205,7 @@ export class ScheduleModule {
       closureTypeSelectSchedule.addEventListener('change', (e) => {
         const customHoursDiv = document.getElementById('custom-hours-schedule');
         if (customHoursDiv) {
-          if (e.target.value === 'custom_hours') {
+          if (e.target.value === 'customHours') {
             customHoursDiv.classList.remove('d-none');
           } else {
             customHoursDiv.classList.add('d-none');
@@ -228,7 +228,7 @@ export class ScheduleModule {
       if (!response.ok) throw new Error('Failed to load holiday templates');
 
       const data = await response.json();
-      this.renderHolidayTemplates(data.holiday_templates, context);
+      this.renderHolidayTemplates(data.holidayTemplates, context);
     } catch (error) {
       console.error('Error loading holiday templates:', error);
       this.showError('Error al cargar plantillas de feriados');
@@ -262,9 +262,9 @@ export class ScheduleModule {
       };
 
       const closureLabels = {
-        'full_day': 'Cerrado todo el día',
+        'fullDay': 'Cerrado todo el día',
         'partial': 'Cerrado parcialmente',
-        'custom_hours': 'Horarios personalizados'
+        'customHours': 'Horarios personalizados'
       };
 
       const typeColor = {
@@ -272,7 +272,7 @@ export class ScheduleModule {
         'religious': 'info',
         'cultural': 'warning',
         'custom': 'secondary'
-      }[template.holiday_type] || 'secondary';
+      }[template.holidayType] || 'secondary';
 
       return `
         <div class="card mb-3">
@@ -282,8 +282,8 @@ export class ScheduleModule {
                 <h6 class="card-title d-flex align-items-center">
                   <i class="fas fa-star me-2 text-${typeColor}"></i>
                   ${template.name}
-                  <span class="badge bg-${typeColor} ms-2">${typeLabels[template.holiday_type]}</span>
-                  ${template.is_active ? '<span class="badge bg-success ms-1">Activo</span>' : '<span class="badge bg-secondary ms-1">Inactivo</span>'}
+                  <span class="badge bg-${typeColor} ms-2">${typeLabels[template.holidayType]}</span>
+                  ${template.isActive ? '<span class="badge bg-success ms-1">Activo</span>' : '<span class="badge bg-secondary ms-1">Inactivo</span>'}
                 </h6>
                 <div class="row">
                   <div class="col-md-6">
@@ -293,14 +293,14 @@ export class ScheduleModule {
                     </p>
                     <p class="card-text small mb-1">
                       <i class="fas fa-clock me-1"></i>
-                      <strong>Cierre:</strong> ${closureLabels[template.closure_type]}
+                      <strong>Cierre:</strong> ${closureLabels[template.closureType]}
                     </p>
                   </div>
                   <div class="col-md-6">
                     ${template.description ? `<p class="card-text small mb-1"><i class="fas fa-info-circle me-1"></i>${template.description}</p>` : ''}
                     <p class="card-text small mb-0">
                       <i class="fas fa-sync me-1"></i>
-                      <strong>Recurrente:</strong> ${template.is_recurring ? 'Sí' : 'No'}
+                      <strong>Recurrente:</strong> ${template.isRecurring ? 'Sí' : 'No'}
                     </p>
                   </div>
                 </div>
@@ -393,7 +393,7 @@ export class ScheduleModule {
     if (closureTypeSelect) {
       closureTypeSelect.addEventListener('change', (e) => {
         const customHoursSection = document.getElementById('custom-hours-section');
-        if (e.target.value === 'custom_hours') {
+        if (e.target.value === 'customHours') {
           customHoursSection.classList.remove('d-none');
         } else {
           customHoursSection.classList.add('d-none');
@@ -420,7 +420,7 @@ export class ScheduleModule {
     // Exception type change handler
     document.getElementById('exception-type-select')?.addEventListener('change', (e) => {
       const endDateContainer = document.getElementById('end-date-container');
-      if (e.target.value === 'date_range') {
+      if (e.target.value === 'dateRange') {
         endDateContainer.style.display = 'block';
       } else {
         endDateContainer.style.display = 'none';
@@ -587,21 +587,21 @@ export class ScheduleModule {
       return;
     }
 
-    // Accept both camelCase and snake_case for day_of_week and other keys
+  
     function normalizeHours(obj) {
       if (!obj) return {};
-      // Accept both camelCase and snake_case keys
+      
       return {
-        day_of_week: obj.day_of_week || obj.dayOfWeek || '',
-        is_open: obj.is_open !== undefined ? obj.is_open : obj.isOpen,
-        open_time: obj.open_time || obj.openTime || '',
-        close_time: obj.close_time || obj.closeTime || '',
-        break_start: obj.break_start || obj.breakStart || '',
-        break_end: obj.break_end || obj.breakEnd || ''
+        dayOfWeek: obj.dayOfWeek || obj.dayOfWeek || '',
+        isOpen: obj.isOpen !== undefined ? obj.isOpen : obj.isOpen,
+        openTime: obj.openTime || obj.openTime || '',
+        closeTime: obj.closeTime || obj.closeTime || '',
+        breakStart: obj.breakStart || obj.breakStart || '',
+        breakEnd: obj.breakEnd || obj.breakEnd || ''
       };
     }
 
-    // Accept both 'monday' and 'Monday' for day_of_week
+    // Accept both 'monday' and 'Monday' for dayOfWeek
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -623,7 +623,7 @@ export class ScheduleModule {
     container.innerHTML = days.map((day, index) => {
       // Accept both 'monday' and 'Monday' for matching
       const hours = normalizedBusinessHours.find(bh =>
-        (bh.day_of_week && bh.day_of_week.toLowerCase() === day)
+        (bh.dayOfWeek && bh.dayOfWeek.toLowerCase() === day)
       ) || {};
       console.log(`Day ${day}:`, hours);
 
@@ -652,7 +652,7 @@ export class ScheduleModule {
         defaultBreakEnd = '';
       }
 
-      const isOpen = hours.is_open === 1 || hours.is_open === true;
+      const isOpen = hours.isOpen === 1 || hours.isOpen === true;
 
       return `
         <div class="business-hours-day ${!isOpen ? 'closed' : ''}" data-day="${day}">
@@ -681,25 +681,25 @@ export class ScheduleModule {
                   <div class="col-md-3">
                     <label class="form-label small text-muted">Hora de Apertura:</label>
                     <input type="time" class="form-control" 
-                           id="start-${day}" value="${hours.open_time || defaultOpenTime}"
+                           id="start-${day}" value="${hours.openTime || defaultOpenTime}"
                            ${!isOpen ? 'disabled' : ''}>
                   </div>
                   <div class="col-md-3">
                     <label class="form-label small text-muted">Hora de Cierre:</label>
                     <input type="time" class="form-control" 
-                           id="end-${day}" value="${hours.close_time || defaultCloseTime}"
+                           id="end-${day}" value="${hours.closeTime || defaultCloseTime}"
                            ${!isOpen ? 'disabled' : ''}>
                   </div>
                   <div class="col-md-3">
                     <label class="form-label small text-muted">Inicio Descanso:</label>
                     <input type="time" class="form-control" 
-                           id="break-start-${day}" value="${hours.break_start || defaultBreakStart || ''}"
+                           id="break-start-${day}" value="${hours.breakStart || defaultBreakStart || ''}"
                            ${!isOpen ? 'disabled' : ''}>
                   </div>
                   <div class="col-md-3">
                     <label class="form-label small text-muted">Fin Descanso:</label>
                     <input type="time" class="form-control" 
-                           id="break-end-${day}" value="${hours.break_end || defaultBreakEnd || ''}"
+                           id="break-end-${day}" value="${hours.breakEnd || defaultBreakEnd || ''}"
                            ${!isOpen ? 'disabled' : ''}>
                   </div>
                 </div>
@@ -744,11 +744,11 @@ export class ScheduleModule {
     }
     
     // Remove any existing event listeners to avoid duplicates
-    if (container._businessHoursChangeListener) {
-      container.removeEventListener('change', container._businessHoursChangeListener);
+    if (container.BusinessHoursChangeListener) {
+      container.removeEventListener('change', container.businessHoursChangeListener);
     }
-    if (container._businessHoursClickListener) {
-      container.removeEventListener('click', container._businessHoursClickListener);
+    if (container.BusinessHoursClickListener) {
+      container.removeEventListener('click', container.businessHoursClickListener);
     }
 
     // Create change listener for toggle switches
@@ -776,8 +776,8 @@ export class ScheduleModule {
     container.addEventListener('click', clickListener, true);
     
     // Store references for cleanup
-    container._businessHoursChangeListener = changeListener;
-    container._businessHoursClickListener = clickListener;
+    container.businessHoursChangeListener = changeListener;
+    container.businessHoursClickListener = clickListener;
     
     console.log('Business hours event listeners setup complete');
   }
@@ -839,7 +839,7 @@ export class ScheduleModule {
    */
   setupNotificationToggles() {
     // Email notifications toggle
-    const emailToggle = document.getElementById('email_notifications');
+    const emailToggle = document.getElementById('emailNotifications');
     const emailOptions = document.getElementById('email-options');
     
     if (emailToggle && emailOptions) {
@@ -847,15 +847,15 @@ export class ScheduleModule {
         emailOptions.style.display = emailToggle.checked ? 'block' : 'none';
         if (!emailToggle.checked) {
           // Uncheck all email sub-options when main toggle is off
-          document.getElementById('email_appointment_confirmation').checked = false;
-          document.getElementById('email_appointment_reminder').checked = false;
-          document.getElementById('email_appointment_changes').checked = false;
+          document.getElementById('emailAppointmentConfirmation').checked = false;
+          document.getElementById('emailAppointmentReminder').checked = false;
+          document.getElementById('emailAppointmentChanges').checked = false;
         }
       });
     }
     
     // SMS notifications toggle
-    const smsToggle = document.getElementById('sms_notifications');
+    const smsToggle = document.getElementById('smsNotifications');
     const smsOptions = document.getElementById('sms-options');
     
     if (smsToggle && smsOptions) {
@@ -863,9 +863,9 @@ export class ScheduleModule {
         smsOptions.style.display = smsToggle.checked ? 'block' : 'none';
         if (!smsToggle.checked) {
           // Uncheck all SMS sub-options when main toggle is off
-          document.getElementById('sms_appointment_confirmation').checked = false;
-          document.getElementById('sms_appointment_reminder').checked = false;
-          document.getElementById('sms_appointment_changes').checked = false;
+          document.getElementById('smsAppointmentConfirmation').checked = false;
+          document.getElementById('smsAppointmentReminder').checked = false;
+          document.getElementById('smsAppointmentChanges').checked = false;
         }
       });
     }
@@ -891,12 +891,12 @@ export class ScheduleModule {
       const data = await response.json();
       console.log('Business hours data loaded:', data);
 
-      // Accept both businessHours and business_hours from backend
+      // Accept both businessHours and businessHours from backend
       let hoursArr = null;
       if (data && Array.isArray(data.businessHours)) {
         hoursArr = data.businessHours;
-      } else if (data && Array.isArray(data.business_hours)) {
-        hoursArr = data.business_hours;
+      } else if (data && Array.isArray(data.businessHours)) {
+        hoursArr = data.businessGours;
       }
 
       if (hoursArr) {
@@ -922,30 +922,30 @@ export class ScheduleModule {
     console.log('saveScheduleException called');
     
     const formData = {
-      exception_type: document.getElementById('exception-type-select').value,
-      start_date: document.getElementById('schedule-exception-start-date').value,
-      end_date: document.getElementById('schedule-exception-end-date').value,
-      is_closed: document.getElementById('exception-is-closed').checked,
-      custom_open_time: document.getElementById('exception-open-time').value,
-      custom_close_time: document.getElementById('exception-close-time').value,
-      custom_break_start: document.getElementById('exception-break-start').value,
-      custom_break_end: document.getElementById('exception-break-end').value,
+      exceptionType: document.getElementById('exception-type-select').value,
+      startDate: document.getElementById('schedule-exception-start-date').value,
+      endDate: document.getElementById('schedule-exception-end-date').value,
+      isClosed: document.getElementById('exception-is-closed').checked,
+      customOpenTime: document.getElementById('exception-open-time').value,
+      customCloseTime: document.getElementById('exception-close-time').value,
+      customBreakStart: document.getElementById('exception-break-start').value,
+      customBreakEnd: document.getElementById('exception-break-end').value,
       reason: document.getElementById('exception-reason').value,
       description: document.getElementById('schedule-exception-description').value,
-      recurring_type: document.getElementById('exception-recurring') ? 
+      recurringType: document.getElementById('exception-recurring') ? 
         (document.getElementById('exception-recurring').checked ? 'yearly' : null) : null
     };
 
     console.log('Form data collected:', formData);
     console.log('Auth token:', localStorage.getItem('token'));
 
-    if (!formData.exception_type || !formData.start_date || !formData.reason) {
+    if (!formData.exceptionType || !formData.startDate || !formData.reason) {
       console.log('Validation failed - missing required fields');
       this.showError('Faltan campos obligatorios');
       return;
     }
 
-    if (formData.exception_type === 'date_range' && !formData.end_date) {
+    if (formData.exceptionType === 'dateRange' && !formData.endDate) {
       console.log('Validation failed - date range missing end date');
       this.showError('Para un rango de fechas debe especificar la fecha de fin');
       return;
@@ -1030,18 +1030,18 @@ export class ScheduleModule {
               <h6 class="card-title d-flex align-items-center">
                 <i class="fas fa-calendar-times me-2 text-warning"></i>
                 ${exception.reason}
-                <span class="badge bg-${exception.is_closed ? 'danger' : 'info'} ms-2">
-                  ${exception.is_closed ? 'Cerrado' : 'Horario especial'}
+                <span class="badge bg-${exception.isClosed ? 'danger' : 'info'} ms-2">
+                  ${exception.isClosed ? 'Cerrado' : 'Horario especial'}
                 </span>
-                ${exception.recurring_type === 'yearly' ? '<span class="badge bg-warning ms-2">Anual</span>' : ''}
+                ${exception.recurringType === 'yearly' ? '<span class="badge bg-warning ms-2">Anual</span>' : ''}
               </h6>
               <p class="card-text text-muted mb-2">${exception.description || 'Sin descripción adicional'}</p>
               <div class="d-flex gap-3 text-sm">
-                <span><i class="fas fa-calendar"></i> ${this.formatDateRange(exception.start_date, exception.end_date)}</span>
-                ${!exception.is_closed && exception.custom_open_time ? `
-                  <span><i class="fas fa-clock"></i> ${exception.custom_open_time} - ${exception.custom_close_time}</span>
+                <span><i class="fas fa-calendar"></i> ${this.formatDateRange(exception.startDate, exception.endDate)}</span>
+                ${!exception.isClosed && exception.customOpenTime ? `
+                  <span><i class="fas fa-clock"></i> ${exception.customOpenTime} - ${exception.customCloseTime}</span>
                 ` : ''}
-                <span class="badge bg-secondary">${exception.exception_type === 'single_day' ? 'Día específico' : 'Rango de fechas'}</span>
+                <span class="badge bg-secondary">${exception.exceptionType === 'singleDay' ? 'Día específico' : 'Rango de fechas'}</span>
               </div>
             </div>
             <div class="btn-group">
@@ -1071,12 +1071,12 @@ export class ScheduleModule {
         description: document.getElementById('holiday-description').value.trim(),
         month: parseInt(document.getElementById('holiday-month').value),
         day: parseInt(document.getElementById('holiday-day').value),
-        holiday_type: document.getElementById('holiday-type').value,
-        closure_type: document.getElementById('closure-type').value,
-        is_recurring: document.getElementById('is-recurring').checked ? 1 : 0,
-        is_active: document.getElementById('is-active').checked ? 1 : 0,
-        custom_open_time: document.getElementById('custom-open-time').value || null,
-        custom_close_time: document.getElementById('custom-close-time').value || null
+        holidayType: document.getElementById('holiday-type').value,
+        closureType: document.getElementById('closure-type').value,
+        isRecurring: document.getElementById('is-recurring').checked ? 1 : 0,
+        isActive: document.getElementById('is-active').checked ? 1 : 0,
+        customOpenTime: document.getElementById('custom-open-time').value || null,
+        customCloseTime: document.getElementById('custom-close-time').value || null
       };
 
       // Validation
@@ -1145,7 +1145,7 @@ export class ScheduleModule {
       if (!response.ok) throw new Error('Failed to load template data');
 
       const data = await response.json();
-      const template = data.holiday_templates.find(t => t.id === id);
+      const template = data.holidayTemplates.find(t => t.id === id);
 
       if (!template) {
         this.showError('Plantilla no encontrada');
@@ -1158,16 +1158,16 @@ export class ScheduleModule {
       document.getElementById('holiday-description').value = template.description || '';
       document.getElementById('holiday-month').value = template.month;
       document.getElementById('holiday-day').value = template.day;
-      document.getElementById('holiday-type').value = template.holiday_type;
-      document.getElementById('closure-type').value = template.closure_type;
-      document.getElementById('is-recurring').checked = template.is_recurring;
-      document.getElementById('is-active').checked = template.is_active;
-      document.getElementById('custom-open-time').value = template.custom_open_time || '';
-      document.getElementById('custom-close-time').value = template.custom_close_time || '';
+      document.getElementById('holiday-type').value = template.holidayType;
+      document.getElementById('closure-type').value = template.closureType;
+      document.getElementById('is-recurring').checked = template.isRecurring;
+      document.getElementById('is-active').checked = template.isActive;
+      document.getElementById('custom-open-time').value = template.customOpenTime || '';
+      document.getElementById('custom-close-time').value = template.customCloseTime || '';
 
       // Show/hide custom hours section
       const customHoursSection = document.getElementById('custom-hours-section');
-      if (template.closure_type === 'custom_hours') {
+      if (template.closureType === 'customHours') {
         customHoursSection.classList.remove('d-none');
       } else {
         customHoursSection.classList.add('d-none');

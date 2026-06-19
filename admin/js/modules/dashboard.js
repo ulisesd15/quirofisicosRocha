@@ -12,7 +12,7 @@ export class DashboardModule {
    * Retrieves the current authentication token from localStorage.
    */
   getAuthToken() {
-    return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+    return localStorage.getItem('token') || localStorage.getItem('userToken') || '';
   }
 
   /**
@@ -49,7 +49,7 @@ export class DashboardModule {
   async load() {
     try {
       this.showLoading();
-      const token = localStorage.getItem('token') || localStorage.getItem('user_token');
+      const token = localStorage.getItem('token') || localStorage.getItem('userToken');
       const response = await fetch('/api/admin/dashboard/stats', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -144,7 +144,7 @@ export class DashboardModule {
         <tr>
           <td>${formatDate(apt.date)}</td>
           <td>${formatTimeToAMPM(apt.time)}</td>
-          <td>${apt.full_name}</td>
+          <td>${apt.fullName}</td>
           <td><span class="badge ${statusClass} ${textColor}">${statusText}</span></td>
           <td>
             <button class="btn btn-sm btn-outline-primary btn-edit-appointment" data-appointment-id="${apt.id}" title="Editar">

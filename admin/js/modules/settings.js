@@ -18,7 +18,7 @@ export class SettingsModule {
    * Retrieves the current authentication token from localStorage.
    */
   getAuthToken() {
-    return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+    return localStorage.getItem('token') || localStorage.getItem('userToken') || '';
   }
   /**
    * Displays an error alert (currently uses alert()).
@@ -112,31 +112,31 @@ export class SettingsModule {
         <div class="row">
           <div class="col-md-6">
             <div class="mb-3">
-              <label for="clinic_name" class="form-label">Nombre de la Clínica</label>
-              <input type="text" class="form-control" id="clinic_name" name="clinic_name"
-                     value="${settingsMap.clinic_name || 'Quirofísicos Rocha'}">
+              <label for="clinicName" class="form-label">Nombre de la Clínica</label>
+              <input type="text" class="form-control" id="clinicName" name="clinicName"
+                     value="${settingsMap.clinicName || 'Quirofísicos Rocha'}">
             </div>
           </div>
           <div class="col-md-6">
             <div class="mb-3">
-              <label for="clinic_phone" class="form-label">Teléfono</label>
-              <input type="tel" class="form-control" id="clinic_phone" name="clinic_phone"
-                     value="${settingsMap.clinic_phone || ''}">
+              <label for="clinicPhone" class="form-label">Teléfono</label>
+              <input type="tel" class="form-control" id="clinicPhone" name="clinicPhone"
+                     value="${settingsMap.clinicPhone || ''}">
             </div>
           </div>
         </div>
         <div class="mb-3">
-          <label for="clinic_address" class="form-label">Dirección</label>
-          <textarea class="form-control" id="clinic_address" name="clinic_address" rows="3">${settingsMap.clinic_address || ''}</textarea>
+          <label for="clinicAddress" class="form-label">Dirección</label>
+          <textarea class="form-control" id="clinicAddress" name="clinicAddress" rows="3">${settingsMap.clinicAddress || ''}</textarea>
         </div>
         <div class="mb-3">
-          <label for="clinic_email" class="form-label">Email de Contacto</label>
-          <input type="email" class="form-control" id="clinic_email" name="clinic_email"
-                 value="${settingsMap.clinic_email || ''}">
+          <label for="clinicEmail" class="form-label">Email de Contacto</label>
+          <input type="email" class="form-control" id="clinicEmail" name="clinicEmail"
+                 value="${settingsMap.clinicEmail || ''}">
         </div>
         <div class="mb-3">
-          <label for="clinic_description" class="form-label">Descripción de la Clínica</label>
-          <textarea class="form-control" id="clinic_description" name="clinic_description" rows="2">${settingsMap.clinic_description || ''}</textarea>
+          <label for="clinicDescription" class="form-label">Descripción de la Clínica</label>
+          <textarea class="form-control" id="clinicDescription" name="clinicDescription" rows="2">${settingsMap.clinicDescription || ''}</textarea>
         </div>
       </div>
 
@@ -145,23 +145,23 @@ export class SettingsModule {
         <div class="row">
           <div class="col-md-6">
             <div class="mb-3">
-              <label for="appointment_duration" class="form-label">Duración de Cita (minutos)</label>
-              <input type="number" class="form-control" id="appointment_duration" name="appointment_duration"
-                     value="${settingsMap.appointment_duration || '60'}" min="15" max="180" step="15">
+              <label for="appointmentDuration" class="form-label">Duración de Cita (minutos)</label>
+              <input type="number" class="form-control" id="appointmentDuration" name="appointmentDuration"
+                     value="${settingsMap.appointmentDuration || '60'}" min="15" max="180" step="15">
             </div>
           </div>
           <div class="col-md-6">
             <div class="mb-3">
-              <label for="advance_booking_days" class="form-label">Días máximos de anticipación</label>
-              <input type="number" class="form-control" id="advance_booking_days" name="advance_booking_days"
-                     value="${settingsMap.advance_booking_days || '30'}" min="1" max="365">
+              <label for="advanceBookingDays" class="form-label">Días máximos de anticipación</label>
+              <input type="number" class="form-control" id="advanceBookingDays" name="advanceBookingDays"
+                     value="${settingsMap.advanceBookingDays || '30'}" min="1" max="365">
             </div>
           </div>
         </div>
         <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" id="auto_confirm_appointments" name="auto_confirm_appointments"
-                 ${settingsMap.auto_confirm_appointments === 'true' ? 'checked' : ''}>
-          <label class="form-check-label" for="auto_confirm_appointments">
+          <input class="form-check-input" type="checkbox" id="autoConfirmAppointments" name="autoConfirmAppointments"
+                 ${settingsMap.autoConfirmAppointments === 'true' ? 'checked' : ''}>
+          <label class="form-check-label" for="autoConfirmAppointments">
             Confirmar citas automáticamente
           </label>
         </div>
@@ -176,14 +176,14 @@ export class SettingsModule {
     form.onsubmit = async (e) => {
       e.preventDefault();
       const settingsToSave = [
-        { key: 'clinic_name', value: form.clinic_name.value },
-        { key: 'clinic_phone', value: form.clinic_phone.value },
-        { key: 'clinic_address', value: form.clinic_address.value },
-        { key: 'clinic_email', value: form.clinic_email.value },
-        { key: 'clinic_description', value: form.clinic_description.value },
-        { key: 'appointment_duration', value: form.appointment_duration.value },
-        { key: 'advance_booking_days', value: form.advance_booking_days.value },
-        { key: 'auto_confirm_appointments', value: form.auto_confirm_appointments.checked ? 'true' : 'false' }
+        { key: 'clinicName', value: form.clinicName.value },
+        { key: 'clinicPhone', value: form.clinicPhone.value },
+        { key: 'clinicAddress', value: form.clinicAddress.value },
+        { key: 'clinicEmail', value: form.clinicRmail.value },
+        { key: 'clinicDescription', value: form.clinicDescription.value },
+        { key: 'appointmentDuration', value: form.appointmentDuration.value },
+        { key: 'advanceBookingDays', value: form.advanceBookingDays.value },
+        { key: 'autoConfirmAppointments', value: form.autoConfirmAppointments.checked ? 'true' : 'false' }
       ];
       try {
         this.showLoading();

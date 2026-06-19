@@ -3,25 +3,25 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    // Add start_date column to announcements table
-    await queryInterface.addColumn('announcements', 'start_date', {
+    // Add startDate column to announcements table
+    await queryInterface.addColumn('announcements', 'startDate', {
       type: Sequelize.DATE,
       allowNull: false,
-      field: 'start_date', // Explicitly map to snake_case
+      field: 'startDate', // Explicitly map to snakeCase
       defaultValue: Sequelize.NOW,
     });
     
-    // Add end_date column to announcements table
-    await queryInterface.addColumn('announcements', 'end_date', {
+    // Add endDate column to announcements table
+    await queryInterface.addColumn('announcements', 'endDate', {
       type: Sequelize.DATE,
       allowNull: true,
-      field: 'end_date', // Explicitly map to snake_case
+      field: 'endDate', // Explicitly map to snakeCase
     });
   },
 
   async down(queryInterface, Sequelize) {
     // Remove the columns if migration is rolled back
-    await queryInterface.removeColumn('announcements', 'start_date');
-    await queryInterface.removeColumn('announcements', 'end_date');
+    await queryInterface.removeColumn('announcements', 'startDate');
+    await queryInterface.removeColumn('announcements', 'endDate');
   }
 };

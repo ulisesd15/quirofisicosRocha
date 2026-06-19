@@ -12,7 +12,7 @@ module.exports = {
       fullName: {
         type: Sequelize.STRING(100),
         allowNull: false,
-        field: 'full_name' // Explicitly map to snake_case
+        field: 'fullName' // Explicitly map to snakeCase
       },
       email: {
         type: Sequelize.STRING(100),
@@ -28,11 +28,11 @@ module.exports = {
       authProvider: {
         type: Sequelize.STRING(50),
         defaultValue: 'local',
-        field: 'auth_provider'
+        field: 'authProvider'
       },
       googleId: {
         type: Sequelize.STRING(255),
-        field: 'google_id'
+        field: 'googleId'
       },
       role: {
         type: Sequelize.ENUM('user', 'admin'),
@@ -42,12 +42,12 @@ module.exports = {
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE,
-        field: 'created_at'
+        field: 'createdAt'
       },
       updatedAt: {
         allowNull: false,
         type: Sequelize.DATE,
-        field: 'updated_at'
+        field: 'updatedAt'
       }
     });
   },

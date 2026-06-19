@@ -142,7 +142,7 @@ class AdminPanel {
    * without requiring a manual logout/login.
    */
   async verifyAdminAccess() {
-    const token = localStorage.getItem('user_token') || localStorage.getItem('token');
+    const token = localStorage.getItem('userToken') || localStorage.getItem('token');
     if (!token) return; // The inline script in adminOptions.html will handle this.
 
     try {
@@ -160,7 +160,7 @@ class AdminPanel {
         window.location.href = '/login.html';
       } else {
         // Role is confirmed, update localStorage just in case it was stale.
-        localStorage.setItem('user_role', user.role);
+        localStorage.setItem('userRole', user.role);
       }
     } catch (error) {
       console.error('Admin access verification failed:', error);
@@ -199,7 +199,7 @@ class AdminPanel {
     try {
       const response = await fetch('/api/admin/schedule/annual-closures', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('userToken') || localStorage.getItem('token')}`
         }
       });
       
@@ -243,8 +243,8 @@ class AdminPanel {
       date: date,
       reason: reason,
       description: description || '',
-      closure_type: 'full_day', // Always full day closure
-      is_recurring: isRecurring
+      closureType: 'fullDay', // Always full day closure
+      isRecurring: isRecurring
     };
     
     try {
@@ -252,7 +252,7 @@ class AdminPanel {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('userToken') || localStorage.getItem('token')}`
         },
         body: JSON.stringify(closureData)
       });
@@ -277,7 +277,7 @@ class AdminPanel {
    * Loads yearly closures (placeholder for future backend support).
    */
   async loadYearlyClosures(context = 'main') {
-    // This function would load existing yearly closures from schedule_exceptions
+    // This function would load existing yearly closures from scheduleExceptions
     // For now, we'll show a placeholder until the backend is enhanced
     const containerId = context === 'schedule' ? 'yearly-closures-list-schedule' : 'yearly-closures-list';
     const container = document.getElementById(containerId);
@@ -312,12 +312,12 @@ class AdminPanel {
       date: date,
       reason: reason,
       description: description || '',
-      closure_type: closureType,
-      is_recurring: isRecurring
+      closureType: closureType,
+      isRecurring: isRecurring
     };
     
     // Add custom hours if applicable
-    if (closureType === 'custom_hours') {
+    if (closureType === 'customGours') {
       const openTime = document.getElementById(`custom-open${suffix === '' ? '-yearly' : suffix}`)?.value;
       const closeTime = document.getElementById(`custom-close${suffix === '' ? '-yearly' : suffix}`)?.value;
       
@@ -326,8 +326,8 @@ class AdminPanel {
         return;
       }
       
-      closureData.custom_open_time = openTime;
-      closureData.custom_close_time = closeTime;
+      closureData.customOpenTime = openTime;
+      closureData.customCloseTime = closeTime;
     }
     
     try {
@@ -335,7 +335,7 @@ class AdminPanel {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('userToken') || localStorage.getItem('token')}`
         },
         body: JSON.stringify(closureData)
       });
@@ -384,8 +384,8 @@ class AdminPanel {
           'Authorization': `Bearer ${this.getAuthToken()}`
         },
         body: JSON.stringify({
-          effective_date: effectiveDate,
-          schedule_data: scheduleData
+          effectiveDate: effectiveDate,
+          scheduleData: scheduleData
         })
       });
 
@@ -477,30 +477,30 @@ class AdminPanel {
    */
   validateScheduleData(scheduleData) {
     // Check if at least one day is open
-    const hasOpenDays = scheduleData.some(day => day.is_open);
+    const hasOpenDays = scheduleData.some(day => day.isOpen);
     if (!hasOpenDays) {
       return false;
     }
 
     // Validate time format for open days
     for (const day of scheduleData) {
-      if (day.is_open) {
-        if (!day.open_time || !day.close_time) {
+      if (day.isOpen) {
+        if (!day.openTime || !day.closeTime) {
           return false;
         }
         
         // Check if open time is before close time
-        if (day.open_time >= day.close_time) {
+        if (day.openTime >= day.closeTime) {
           return false;
         }
 
         // Validate break times if provided
-        if (day.break_start && day.break_end) {
-          if (day.break_start >= day.break_end) {
+        if (day.breakStart && day.breakEnd) {
+          if (day.breakStart >= day.breakEnd) {
             return false;
           }
           // Break should be within business hours
-          if (day.break_start < day.open_time || day.break_end > day.close_time) {
+          if (day.breakStart < day.openTime || day.breakEnd > day.closeTime) {
             return false;
           }
         }
@@ -614,7 +614,7 @@ class AdminPanel {
               <h6>${this.formatDate(closure.date)} - ${closure.reason}</h6>
               <p class="text-muted">${closure.description || 'Sin descripción'}</p>
               <small class="badge bg-danger">Cerrado todo el día</small>
-              ${closure.is_recurring ? '<br><small class="badge bg-info">Recurrente</small>' : ''}
+              ${closure.isRecurring ? '<br><small class="badge bg-info">Recurrente</small>' : ''}
             </div>
             <div class="col-md-4 text-end">
               <button class="btn btn-outline-primary btn-sm me-2" data-action="edit-annual-closure" data-closure-id="${closure.id}">
@@ -887,7 +887,7 @@ class AdminPanel {
     }
     
     // Add event listener for the send reminders button
-    const sendRemindersBtn = document.getElementById('send_reminders_btn');
+    const sendRemindersBtn = document.getElementById('sendRemindersBtn');
     if (sendRemindersBtn && !sendRemindersBtn.hasAttribute('data-listener-added')) {
       sendRemindersBtn.addEventListener('click', () => {
         this.sendAppointmentReminders();
@@ -934,7 +934,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      localStorage.removeItem('user_token');
+      localStorage.removeItem('userToken');
       localStorage.removeItem('token');
       window.location.href = '/admin/adminOptions.html';
     });
@@ -942,7 +942,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Set admin name in navbar
   try {
     const adminNameSpan = document.getElementById('admin-name');
-    const token = localStorage.getItem('user_token') || localStorage.getItem('token');
+    const token = localStorage.getItem('userToken') || localStorage.getItem('token');
     if (adminNameSpan && token) {
       const payload = JSON.parse(atob(token.split('.')[1]));
       adminNameSpan.textContent = payload.email || payload.name || 'Administrador';

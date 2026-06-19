@@ -43,7 +43,7 @@ export class UsersModule {
       const row = document.createElement('tr');
       row.innerHTML = `
         <td>${user.id}</td>
-        <td>${user.full_name}</td>
+        <td>${user.fullName}</td>
         <td>${user.email}</td>
         <td>${user.phone || 'N/A'}</td>
         <td>
@@ -89,14 +89,14 @@ export class UsersModule {
    * Retrieves the current authentication token from localStorage.
    */
   getAuthToken() {
-    return localStorage.getItem('user_token') || localStorage.getItem('token') || '';
+    return localStorage.getItem('userToken') || localStorage.getItem('token') || '';
   }
 
   /**
    * Retrieves the current user's role from localStorage.
    */
   getUserRole() {
-    return localStorage.getItem('user_role') || '';
+    return localStorage.getItem('userRole') || '';
   }
 
   /**
@@ -192,7 +192,7 @@ export class UsersModule {
     try {
       const id = document.getElementById('edit-user-id').value;
       const data = {
-        full_name: document.getElementById('edit-user-name').value,
+        fullName: document.getElementById('edit-user-name').value,
         email: document.getElementById('edit-user-email').value,
         phone: document.getElementById('edit-user-phone').value,
         role: document.getElementById('edit-user-role').value
@@ -234,7 +234,7 @@ export class UsersModule {
       const data = await response.json();
       const user = data.user;
       document.getElementById('edit-user-id').value = user.id;
-      document.getElementById('edit-user-name').value = user.full_name;
+      document.getElementById('edit-user-name').value = user.fullName;
       document.getElementById('edit-user-email').value = user.email;
       document.getElementById('edit-user-phone').value = user.phone || '';
       document.getElementById('edit-user-role').value = user.role || 'user';
@@ -307,7 +307,7 @@ export class UsersModule {
       const data = await response.json();
       console.log('Users API response:', data);
       this.displayUsers(data.users);
-      this.updateUsersCount(data.pagination.total_records);
+      this.updateUsersCount(data.pagination.totalRecords);
     } catch (error) {
       console.error('Error loading users:', error);
       this.showError('Error cargando los usuarios');
@@ -355,11 +355,11 @@ export class UsersModule {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${user.id}</td>
-            <td>${user.full_name}</td>
+            <td>${user.fullName}</td>
             <td>${user.email}</td>
             <td>${user.phone || 'N/A'}</td>
             <td><span class="badge bg-secondary">${user.role}</span></td>
-            <td>${new Date(user.created_at).toLocaleDateString()}</td>
+            <td>${new Date(user.createdAt).toLocaleDateString()}</td>
             <td>
                 <button class="btn btn-sm btn-outline-secondary" onclick="window.usersModule.editUser(${user.id})"><i class="fas fa-edit"></i></button>
             </td>

@@ -29,7 +29,7 @@ export class ServerStatusModule {
       const section = document.getElementById('server-status-section');
       if (!section || section.classList.contains('d-none')) return;
 
-      const token = localStorage.getItem('token') || localStorage.getItem('user_token');
+      const token = localStorage.getItem('token') || localStorage.getItem('userToken');
       const response = await fetch('http://localhost:3001/api/admin/server/status', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -54,10 +54,10 @@ export class ServerStatusModule {
     container.innerHTML = `
       <div class="row g-3">
         <div class="col-md-3">
-          <div class="card text-white bg-${status.is_healthy ? 'success' : 'danger'} mb-3">
+          <div class="card text-white bg-${status.isHealthy ? 'success' : 'danger'} mb-3">
             <div class="card-body">
               <h5 class="card-title">Estado</h5>
-              <p class="card-text">${status.is_healthy ? 'Online' : 'Offline'}</p>
+              <p class="card-text">${status.isHealthy ? 'Online' : 'Offline'}</p>
             </div>
           </div>
         </div>
@@ -73,7 +73,7 @@ export class ServerStatusModule {
           <div class="card mb-3">
             <div class="card-body">
               <h5 class="card-title">CPU</h5>
-              <p class="card-text">${status.cpu_usage !== undefined ? status.cpu_usage + '%' : 'N/A'}</p>
+              <p class="card-text">${status.cpuUsage !== undefined ? status.cpuUsage + '%' : 'N/A'}</p>
             </div>
           </div>
         </div>
@@ -81,7 +81,7 @@ export class ServerStatusModule {
           <div class="card mb-3">
             <div class="card-body">
               <h5 class="card-title">Memoria</h5>
-              <p class="card-text">${status.memory_usage !== undefined ? status.memory_usage + '%' : 'N/A'}</p>
+              <p class="card-text">${status.memoryUsage !== undefined ? status.memorySsage + '%' : 'N/A'}</p>
             </div>
           </div>
         </div>

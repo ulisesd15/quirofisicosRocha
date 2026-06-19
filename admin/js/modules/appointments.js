@@ -58,8 +58,8 @@ export class AppointmentsModule {
       tbody.innerHTML = appointments.map(apt => `
         <tr>
           <td>${apt.id}</td>
-          <td>${this.formatDate(apt.appointment_date)}</td>
-          <td>${this.formatTime(apt.appointment_time)}</td>
+          <td>${this.formatDate(apt.appointmentDate)}</td>
+          <td>${this.formatTime(apt.appointmentTime)}</td>
           <td>${apt.name}</td>
           <td>${apt.email || ''}</td>
           <td>${apt.phone || ''}</td>
@@ -116,7 +116,7 @@ export class AppointmentsModule {
    * Retrieves the current authentication token from localStorage.
    */
   getAuthToken() {
-    return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+    return localStorage.getItem('token') || localStorage.getItem('userToken') || '';
   }
 
   /**
@@ -196,8 +196,8 @@ export class AppointmentsModule {
     tbody.innerHTML = appointments.map(apt => `
       <tr>
         <td>${apt.id}</td>
-        <td>${this.formatDate(apt.appointment_date)}</td>
-        <td>${this.formatTime(apt.appointment_time)}</td>
+        <td>${this.formatDate(apt.appointmentDate)}</td>
+        <td>${this.formatTime(apt.appointmentTime)}</td>
         <td>${apt.name}</td>
         <td>
           ${apt.email ? `<div>${apt.email}</div>` : ''}
@@ -330,11 +330,11 @@ export class AppointmentsModule {
 
       // Populate modal
       document.getElementById('edit-appointment-id').value = appointment.id;
-      document.getElementById('edit-appointment-name').textContent = appointment.full_name || appointment.name || 'No disponible';
+      document.getElementById('edit-appointment-name').textContent = appointment.fullName || appointment.name || 'No disponible';
       document.getElementById('edit-appointment-email').textContent = appointment.email || 'No disponible';
       document.getElementById('edit-appointment-phone').textContent = appointment.phone || 'No disponible';
-      document.getElementById('edit-appointment-date').value = (appointment.date || appointment.appointment_date).split('T')[0]; // Format to YYYY-MM-DD
-      document.getElementById('edit-appointment-time').value = appointment.time || appointment.appointment_time;
+      document.getElementById('edit-appointment-date').value = (appointment.date || appointment.appointmentDate).split('T')[0]; // Format to YYYY-MM-DD
+      document.getElementById('edit-appointment-time').value = appointment.time || appointment.appointmentTime;
       document.getElementById('edit-appointment-status').value = appointment.status;
       document.getElementById('edit-appointment-note').value = appointment.note || '';
 
@@ -388,7 +388,7 @@ export class AppointmentsModule {
     try {
       const response = await fetch('/api/admin/appointments/pending', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('userToken') || localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         }
       });
@@ -415,15 +415,15 @@ export class AppointmentsModule {
       appointments.forEach(appointment => {
         const appointmentDiv = document.createElement('div');
         appointmentDiv.className = 'appointment-item';
-        // Defensive: handle both user_name and name, service and type, etc.
-        const userName = appointment.user_name || appointment.name || 'Sin nombre';
-        const email = appointment.email || appointment.user_email || '';
-        const phone = appointment.phone || appointment.user_phone || 'No especificado';
+        // Defensive: handle both userName and name, service and type, etc.
+        const userName = appointment.userName || appointment.name || 'Sin nombre';
+        const email = appointment.email || appointment.userEmail || '';
+        const phone = appointment.phone || appointment.userPhone || 'No especificado';
         const service = appointment.service || appointment.type || 'Sin servicio';
         const notes = appointment.notes || appointment.note || 'Sin notas';
-        const appointmentDate = appointment.appointment_date || appointment.date || '';
-        const appointmentTime = appointment.appointment_time || appointment.time || '';
-        const createdAt = appointment.created_at || appointment.created || '';
+        const appointmentDate = appointment.appointmentDate || appointment.date || '';
+        const appointmentTime = appointment.appointmentTime || appointment.time || '';
+        const createdAt = appointment.createdAt || appointment.created || '';
         appointmentDiv.innerHTML = `
           <div class="appointment-details">
             <h4>Cita #${appointment.id || ''}</h4>
@@ -465,7 +465,7 @@ export class AppointmentsModule {
         const response = await fetch(`/api/admin/appointments/${appointmentId}/approve`, {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${localStorage.getItem('userToken') || localStorage.getItem('token')}`,
             'Content-Type': 'application/json'
         }
         });
@@ -504,7 +504,7 @@ export class AppointmentsModule {
     const response = await fetch('/api/admin/appointments/send-reminders', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('user_token') || localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('userToken') || localStorage.getItem('token')}`,
         'Content-Type': 'application/json'
       }
     });

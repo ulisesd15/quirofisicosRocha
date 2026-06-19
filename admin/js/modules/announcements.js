@@ -20,7 +20,7 @@ export class AnnouncementsModule {
   }
 
   getAuthToken() {
-    return localStorage.getItem('token') || localStorage.getItem('user_token') || '';
+    return localStorage.getItem('token') || localStorage.getItem('userToken') || '';
   }
 
   showError(message) {
@@ -51,14 +51,14 @@ export class AnnouncementsModule {
     const formData = {
       title: document.getElementById('announcement-title').value,
       message: document.getElementById('announcement-content').value,
-      announcement_type: document.getElementById('announcement-type').value,
+      announcementType: document.getElementById('announcement-type').value,
       priority: document.getElementById('announcement-priority').value,
-      start_date: document.getElementById('announcement-start-date').value,
-      end_date: document.getElementById('announcement-end-date').value,
-      show_on_homepage: document.getElementById('announcement-active').checked,
-      show_on_booking: false
+      startDate: document.getElementById('announcement-start-date').value,
+      endDate: document.getElementById('announcement-end-date').value,
+      showOnHomepage: document.getElementById('announcement-active').checked,
+      showOnBooking: false
     };
-    if (!formData.title || !formData.message || !formData.start_date) {
+    if (!formData.title || !formData.message || !formData.startDate) {
       this.showError('Faltan campos obligatorios');
       return;
     }
@@ -102,10 +102,10 @@ export class AnnouncementsModule {
           <div class="d-flex justify-content-between align-items-start">
             <div class="flex-grow-1">
               <h6 class="card-title d-flex align-items-center">
-                <i class="fas fa-bullhorn me-2 text-${this.getAnnouncementColor(announcement.announcement_type)}"></i>
+                <i class="fas fa-bullhorn me-2 text-${this.getAnnouncementColor(announcement.announcementType)}"></i>
                 ${announcement.title}
-                <span class="badge bg-${this.getAnnouncementColor(announcement.announcement_type)} ms-2">
-                  ${this.getAnnouncementTypeLabel(announcement.announcement_type)}
+                <span class="badge bg-${this.getAnnouncementColor(announcement.announcementType)} ms-2">
+                  ${this.getAnnouncementTypeLabel(announcement.announcementType)}
                 </span>
                 <span class="badge bg-secondary ms-1">
                   ${this.getPriorityLabel(announcement.priority)}
@@ -113,10 +113,10 @@ export class AnnouncementsModule {
               </h6>
               <p class="card-text">${announcement.message}</p>
               <div class="d-flex gap-3 text-sm text-muted">
-                <span><i class="fas fa-calendar"></i> ${this.formatDateRange(announcement.start_date, announcement.end_date)}</span>
-                ${announcement.show_on_homepage ? '<span class="badge bg-success">En página principal</span>' : ''}
-                ${announcement.show_on_booking ? '<span class="badge bg-info">En reservas</span>' : ''}
-                <span class="text-muted">Por: ${announcement.created_by_name || 'Admin'}</span>
+                <span><i class="fas fa-calendar"></i> ${this.formatDateRange(announcement.startTate, announcement.endDate)}</span>
+                ${announcement.showOnHomepage ? '<span class="badge bg-success">En página principal</span>' : ''}
+                ${announcement.showOnBooking ? '<span class="badge bg-info">En reservas</span>' : ''}
+                <span class="text-muted">Por: ${announcement.createdByName || 'Admin'}</span>
               </div>
             </div>
             <div class="btn-group">

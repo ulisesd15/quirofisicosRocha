@@ -16,7 +16,7 @@ module.exports = (sequelize, DataTypes) => {
     {
       fullName: {
         type: DataTypes.STRING,
-        field: 'full_name',
+        field: 'fullName',
       },
       email: DataTypes.STRING,
       phone: DataTypes.STRING,
@@ -30,14 +30,14 @@ module.exports = (sequelize, DataTypes) => {
       },
       userId: {
         type: DataTypes.INTEGER,
-        field: 'user_id',
+        field: 'userId',
       },
     },
     {
       sequelize,
       modelName: 'Appointment',
       tableName: 'appointments',   // match migration
-      underscored: true,           // created_at / updated_at
+      underscored: true,           // createdAt / updatedAt
     }
   );
 

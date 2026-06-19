@@ -17,7 +17,7 @@ module.exports = (sequelize, DataTypes) => {
       fullName: {
         type: DataTypes.STRING(100),
         allowNull: false,
-        field: 'full_name',         // map to DB column
+        field: 'fullName',         // map to DB column
       },
       email: {
         type: DataTypes.STRING(100),
@@ -36,11 +36,11 @@ module.exports = (sequelize, DataTypes) => {
       authProvider: {
         type: DataTypes.STRING(50),
         defaultValue: 'local',
-        field: 'auth_provider',     // map to DB column
+        field: 'authProvider',     // map to DB column
       },
       googleId: {
         type: DataTypes.STRING(255),
-        field: 'google_id',         // map to DB column
+        field: 'googleId',         // map to DB column
       },
       role: {
         type: DataTypes.ENUM('user', 'admin'),
@@ -57,7 +57,7 @@ module.exports = (sequelize, DataTypes) => {
       sequelize,
       modelName: 'User',
       tableName: 'users',           // match migration
-      underscored: true,            // created_at / updated_at
+      underscored: true,            // createdAt / updatedAt
     }
   );
 

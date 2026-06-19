@@ -28,7 +28,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     try {
         const user = await User.findByPk(userId, {
-            attributes: ['id', 'full_name', 'email', 'phone', 'role', 'auth_provider', 'is_verified', 'created_at']
+            attributes: ['id', 'fullName', 'email', 'phone', 'role', 'authProvider', 'isVerified', 'createdAt']
         });
         if (!user) return res.status(404).json({ error: 'User not found' });
         res.json(user);
@@ -57,7 +57,7 @@ router.get('/google/callback',
     console.log('Query params:', req.query);
     passport.authenticate('google', { 
       session: false, 
-      failureRedirect: '/login.html?error=oauth_failed' 
+      failureRedirect: '/login.html?error=oauthFailed' 
     })(req, res, next);
   },
   (req, res) => {
@@ -68,7 +68,7 @@ router.get('/google/callback',
   // Error handler
   (err, req, res, next) => {
     console.error('❌ Google OAuth error:', err);
-    res.redirect('/login.html?error=oauth_failed');
+    res.redirect('/login.html?error=oauthFailed');
   }
 );
 
@@ -102,7 +102,7 @@ router.post('/login', async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        full_name: user.full_name,
+        fullName: user.fullName,
         role: user.role || 'user'
       },
       token: token
@@ -117,19 +117,19 @@ router.post('/login', async (req, res) => {
  * Registers a new user with email, phone, and password, returns JWT on success.
  */
 router.post('/auth/register', async (req, res) => {
-  const { full_name, phone, email, password } = req.body;
-  if (!full_name || !phone || !email || !password) {
+  const { fullName, phone, email, password } = req.body;
+  if (!fullName || !phone || !email || !password) {
     return res.status(400).json({ success: false, message: 'Faltan campos requeridos' });
   }
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await User.create({
-      full_name,
+      fullName,
       email,
       phone,
       password: hashedPassword,
       role: 'user',
-      auth_provider: 'local'
+      authProvider: 'local'
     });
 
     const token = jwt.sign({ id: newUser.id, email, role: 'user' }, JWT_SECRET, { expiresIn: '2h' });
@@ -139,7 +139,7 @@ router.post('/auth/register', async (req, res) => {
       user: {
         id: newUser.id,
         email: email,
-        full_name: full_name,
+        fullName: fullName,
         role: 'user'
       },
       token: token
@@ -166,22 +166,18 @@ router.put('/auth/change-password', authenticateToken, async (req, res) => {
     }
 
     try {
-        // 1. Get the user's current password hash and auth provider
         const user = await User.findByPk(userId);
         if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
 
-        // 2. Disallow password change for non-local users (e.g., Google)
-        if (user.auth_provider !== 'local') {
+        if (user.authProvider !== 'local') {
             return res.status(400).json({ error: 'No se puede cambiar la contraseña para cuentas de Google.' });
         }
 
-        // 3. Compare the current password
         const isMatch = await bcrypt.compare(currentPassword, user.password);
         if (!isMatch) {
             return res.status(401).json({ error: 'La contraseña actual es incorrecta.' });
         }
 
-        // 4. Hash the new password and update the database
         const newHashedPassword = await bcrypt.hash(newPassword, 10);
         await user.update({ password: newHashedPassword });
         res.json({ message: 'Contraseña actualizada correctamente.' });

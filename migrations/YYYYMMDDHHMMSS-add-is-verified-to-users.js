@@ -3,7 +3,7 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.addColumn('users', 'is_verified', {
+    await queryInterface.addColumn('users', 'isVerified', {
       type: Sequelize.BOOLEAN,
       allowNull: false,
       defaultValue: false,
@@ -12,6 +12,6 @@ module.exports = {
   },
 
   async down(queryInterface, Sequelize) {
-    await queryInterface.removeColumn('users', 'is_verified');
+    await queryInterface.removeColumn('users', 'isVerified');
   }
 };

@@ -1,6 +1,6 @@
 // middleware/requireAdmin.js
 const jwt = require('jsonwebtoken');
-const SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
+const SECRET = process.env.JWT_SECRET || 'yourJwtSecret';
 
 module.exports = function requireAdmin(req, res, next) {
   // Debug: Log incoming headers and token

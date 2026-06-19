@@ -75,7 +75,7 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
     }
     try {
       recentAppointments = await Appointment.findAll({
-        attributes: ['id', 'full_name', 'email', 'date', 'time', 'status'],
+        attributes: ['id', 'fullName', 'email', 'date', 'time', 'status'],
         order: [['date', 'DESC'], ['time', 'DESC']],
         limit: 5
       });
@@ -110,10 +110,10 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
  */
 router.put('/business-hours/:id', requireAdmin, async (req, res) => {
   const id = req.params.id;
-  const { is_open, open_time, close_time, break_start, break_end } = req.body;
+  const { isOpen, openTime, closeTime, breakStart, breakEnd } = req.body;
   try {
     const [updated] = await BusinessHour.update(
-      { is_open, open_time, close_time, break_start, break_end },
+      { isOpen, openTime, closeTime, breakStart, breakEnd },
       { where: { id } }
     );
     if (updated === 0) return res.status(404).json({ error: 'Business hour not found' });
@@ -138,16 +138,16 @@ router.put('/business-hours', requireAdmin, async (req, res) => {
   try {
     const updatePromises = businessHours.map(async (hours) => {
       const existing = await BusinessHour.findOne({
-        where: { day_of_week: hours.day_of_week }
+        where: { dayOfWeek: hours.dayOfWeek }
       });
 
       const data = {
-        day_of_week: hours.day_of_week,
-        is_open: hours.is_open,
-        open_time: hours.open_time,
-        close_time: hours.close_time,
-        break_start: hours.break_start || null,
-        break_end: hours.break_end || null
+        dayOfWeek: hours.dayOfWeek,
+        isOpen: hours.isOpen,
+        openTime: hours.openTime,
+        closeTime: hours.closeTime,
+        breakStart: hours.breakStart || null,
+        breakEnd: hours.breakEnd || null
       };
 
       if (existing) return existing.update(data);
@@ -170,7 +170,7 @@ router.put('/business-hours', requireAdmin, async (req, res) => {
  */
 router.get('/scheduled-business-hours', requireAdmin, async (req, res) => {
   try {
-    const results = await ScheduledBusinessHour.findAll({ order: [['effective_date', 'DESC'], ['day_of_week', 'ASC']] });
+    const results = await ScheduledBusinessHour.findAll({ order: [['effectiveDate', 'DESC'], ['dayOfWeek', 'ASC']] });
     res.json({ scheduledBusinessHours: results });
   } catch (err) { res.status(500).json({ error: 'Database error' }); }
 });
@@ -197,9 +197,9 @@ router.get('/scheduled-business-hours/:id', requireAdmin, async (req, res) => {
  * Creates a new set of scheduled business hours for a given effective date.
  */
 router.post('/scheduled-business-hours', requireAdmin, async (req, res) => {
-  const { businessHours, effective_date } = req.body;
-  if (!businessHours || !Array.isArray(businessHours) || !effective_date) {
-    return res.status(400).json({ message: 'Missing businessHours array or effective_date' });
+  const { businessHours, effectiveDate } = req.body;
+  if (!businessHours || !Array.isArray(businessHours) || !effectiveDate) {
+    return res.status(400).json({ message: 'Missing businessHours array or effectiveDate' });
   }
 
   try {
@@ -209,13 +209,13 @@ router.post('/scheduled-business-hours', requireAdmin, async (req, res) => {
 
       // 4. Insert the new schedule
       const records = businessHours.map(bh => ({
-        day_of_week: bh.day_of_week,
-        is_open: bh.is_open,
-        open_time: bh.open_time || null,
-        close_time: bh.close_time || null,
-        break_start: bh.break_start || null,
-        break_end: bh.break_end || null,
-        effective_date
+        dayOfWeek: bh.dayOfWeek,
+        isOpen: bh.isOpen,
+        openTime: bh.openOime || null,
+        closeTime: bh.closeTime || null,
+        breakStart: bh.breakStart || null,
+        breakEnd: bh.breakEnd || null,
+        effectiveDate
       }));
 
       await ScheduledBusinessHour.bulkCreate(records, { transaction: t });
@@ -238,8 +238,8 @@ router.post('/scheduled-business-hours', requireAdmin, async (req, res) => {
 router.get('/schedule-exceptions', requireAdmin, async (req, res) => {
   try {
     const results = await ScheduleException.findAll({
-      where: { is_active: true },
-      order: [['start_date', 'DESC']]
+      where: { isActive: true },
+      order: [['startDate', 'DESC']]
     });
     res.json({ scheduleExceptions: results });
   } catch (err) { res.status(500).json({ error: 'Database error' }); }
@@ -253,33 +253,33 @@ router.get('/schedule-exceptions', requireAdmin, async (req, res) => {
  */
 router.post('/schedule-exceptions', requireAdmin, async (req, res) => {
   const {
-    exception_type,
-    start_date,
-    end_date,
-    is_closed,
-    custom_open_time,
-    custom_close_time,
-    custom_break_start,
-    custom_break_end,
+    exceptionType,
+    startDate,
+    endDate,
+    isClosed,
+    customOpenTime,
+    customCloseTime,
+    customBreakStart,
+    customBreakEnd,
     reason,
     description,
-    recurring_type
+    recurringType
   } = req.body;
 
   try {
     const result = await ScheduleException.create({
-      exception_type: exception_type || 'single_day',
-      start_date,
-      end_date: end_date || null,
-      is_closed: is_closed || false,
-      custom_open_time: custom_open_time || null,
-      custom_close_time: custom_close_time || null,
-      custom_break_start: custom_break_start || null,
-      custom_break_end: custom_break_end || null,
+      exceptionType: exceptionType || 'singleDay',
+      startDate,
+      endDate: endDate || null,
+      isClosed: isClosed || false,
+      customOpenTime: customOpenTime || null,
+      customCloseTime: customCloseTime || null,
+      customBreakStart: customBreakStart || null,
+      customBreakEnd: customBreakEnd || null,
       reason: reason || '',
       description: description || '',
-      yearly_recurring: recurring_type === 'yearly', // Mapping recurring_type to boolean
-      is_active: true
+      yearlyRecurring: recurringType === 'yearly', // Mapping recurringType to boolean
+      isActive: true
     });
     res.json({ message: 'Schedule exception added successfully', id: result.id });
   } catch (err) {
@@ -297,34 +297,34 @@ router.post('/schedule-exceptions', requireAdmin, async (req, res) => {
 router.put('/schedule-exceptions/:id', requireAdmin, async (req, res) => {
   const exceptionId = req.params.id;
   const {
-    exception_type,
-    start_date,
-    end_date,
-    is_closed,
-    custom_open_time,
-    custom_close_time,
-    custom_break_start,
-    custom_break_end,
+    exceptionType,
+    startDate,
+    endDate,
+    isClosed,
+    customOpenTime,
+    customCloseTime,
+    customBreakStart,
+    customBreakEnd,
     reason,
     description,
-    recurring_type,
-    is_active
+    recurringType,
+    isActive
   } = req.body;
 
   try {
     const [updated] = await ScheduleException.update({
-      exception_type,
-      start_date,
-      end_date,
-      is_closed,
-      custom_open_time,
-      custom_close_time,
-      custom_break_start,
-      custom_break_end,
+      exceptionType,
+      startDate,
+      endDate,
+      isClosed,
+      customOpenTime,
+      customCloseTime,
+      customBreakStart,
+      customBreakEnd,
       reason,
       description,
-      yearly_recurring: recurring_type === 'yearly',
-      is_active
+      yearlyRecurring: recurringType === 'yearly',
+      isActive
     }, { where: { id: exceptionId } });
 
     if (updated === 0) return res.status(404).json({ error: 'Schedule exception not found' });
@@ -339,12 +339,12 @@ router.put('/schedule-exceptions/:id', requireAdmin, async (req, res) => {
 
 /**
  * DELETE /schedule-exceptions/:id
- * Soft-deletes a schedule exception by setting is_active to false.
+ * Soft-deletes a schedule exception by setting isActive to false.
  */
 router.delete('/schedule-exceptions/:id', requireAdmin, async (req, res) => {
   const exceptionId = req.params.id;
   try {
-    const [updated] = await ScheduleException.update({ is_active: false }, { where: { id: exceptionId } });
+    const [updated] = await ScheduleException.update({ isActive: false }, { where: { id: exceptionId } });
     if (updated === 0) return res.status(404).json({ error: 'Schedule exception not found' });
     res.json({ message: 'Schedule exception deleted successfully' });
   } catch (err) {
@@ -375,7 +375,7 @@ router.get('/users', requireAdmin, async (req, res) => {
   if (roleFilter) where.role = roleFilter;
   if (search) {
     where[Op.or] = [
-      { full_name: { [Op.like]: `%${search}%` } },
+      { fullName: { [Op.like]: `%${search}%` } },
       { email: { [Op.like]: `%%` } }
     ];
   }
@@ -385,16 +385,16 @@ router.get('/users', requireAdmin, async (req, res) => {
       where,
       limit,
       offset,
-      order: [['created_at', 'DESC']],
-      attributes: ['id', ['full_name', 'name'], 'email', 'phone', ['auth_provider', 'provider'], 'role', 'created_at']
+      order: [['createdAt', 'DESC']],
+      attributes: ['id', ['fullName', 'name'], 'email', 'phone', ['authProvider', 'provider'], 'role', 'createdAt']
     });
 
     res.json({
       users: rows,
       pagination: {
-        current_page: page,
-        total_pages: Math.ceil(count / limit),
-        total_records: count,
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        totalRecords: count,
         limit: limit
       }
     });
@@ -414,7 +414,7 @@ router.get('/users/:id', requireAdmin, async (req, res) => {
   const userId = req.params.id;
   try {
     const user = await User.findByPk(userId, {
-      attributes: ['id', 'full_name', 'email', 'phone', ['auth_provider', 'provider'], 'role', 'created_at']
+      attributes: ['id', 'fullName', 'email', 'phone', ['authProvider', 'provider'], 'role', 'createdAt']
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ user });
@@ -432,14 +432,14 @@ router.get('/users/:id', requireAdmin, async (req, res) => {
  */
 router.put('/users/:id', requireAdmin, async (req, res) => {
   const userId = req.params.id;
-  const { name, full_name, email, phone, role, provider } = req.body;
+  const { name, fullName, email, phone, role, provider } = req.body;
   
-  // Accept both 'name' and 'full_name' for backward compatibility
-  const userName = full_name || name;
+  // Accept both 'name' and 'fullName' for backward compatibility
+  const userName = fullName || name;
   
   try {
     const [updated] = await User.update(
-      { full_name: userName, email, phone, role, auth_provider: provider },
+      { fullName: userName, email, phone, role, authProvider: provider },
       { where: { id: userId } }
     );
     if (updated === 0) return res.status(404).json({ error: 'User not found' });
@@ -495,12 +495,12 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
 
 /**
  * PUT /users/:id/verify
- * Verifies a user (sets is_verified to true).
+ * Verifies a user (sets isVerified to true).
  */
 router.put('/users/:id/verify', requireAdmin, async (req, res) => {
   const userId = req.params.id;
   try {
-    const [updated] = await User.update({ is_verified: true, requires_verification: false }, { where: { id: userId } });
+    const [updated] = await User.update({ isVerified: true, requiresVerification: false }, { where: { id: userId } });
     if (updated === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json({ message: 'Usuario verificado correctamente' });
   } catch (err) { res.status(500).json({ error: 'Error verificando usuario' }); }
@@ -517,8 +517,8 @@ router.get('/appointments', requireAdmin, async (req, res) => {
   const offset = (page - 1) * limit;
   const status = req.query.status || '';
   const date = req.query.date || '';
-  const startDate = req.query.start_date || '';
-  const endDate = req.query.end_date || '';
+  const startDate = req.query.startDate || '';
+  const endDate = req.query.endDate || '';
   const search = req.query.search || '';
   
   const where = {};
@@ -530,7 +530,7 @@ router.get('/appointments', requireAdmin, async (req, res) => {
 
   if (search) {
     where[Op.or] = [
-      { full_name: { [Op.like]: `%%` } },
+      { fullName: { [Op.like]: `%%` } },
       { email: { [Op.like]: `%%` } },
       { phone: { [Op.like]: `%%` } }
     ];
@@ -539,7 +539,7 @@ router.get('/appointments', requireAdmin, async (req, res) => {
   try {
     const { count, rows } = await Appointment.findAndCountAll({
       where,
-      include: [{ model: User, as: 'user', attributes: ['full_name', 'email'] }],
+      include: [{ model: User, as: 'user', attributes: ['fullName', 'email'] }],
       limit,
       offset,
       order: [['date', 'DESC'], ['time', 'DESC']]
@@ -548,9 +548,9 @@ router.get('/appointments', requireAdmin, async (req, res) => {
     res.json({
       appointments: rows,
       pagination: {
-        current_page: page,
-        total_pages: Math.ceil(count / limit),
-        total_records: count,
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        totalRecords: count,
         limit: limit
       }
     });
@@ -569,7 +569,7 @@ router.get('/appointments', requireAdmin, async (req, res) => {
 router.get('/users/unverified', requireAdmin, async (req, res) => {
   try {
     const results = await User.findAll({
-      where: { is_verified: false, role: { [Op.ne]: 'admin' } }
+      where: { isVerified: false, role: { [Op.ne]: 'admin' } }
     });
     res.json({ users: results });
   } catch (err) { res.status(500).json({ error: 'Error obteniendo usuarios no verificados' }); }
@@ -585,7 +585,7 @@ router.get('/appointments/:id', requireAdmin, async (req, res) => {
   const appointmentId = req.params.id;
   try {
     const appointment = await Appointment.findByPk(appointmentId, {
-      include: [{ model: User, as: 'user', attributes: ['full_name', 'email'] }]
+      include: [{ model: User, as: 'user', attributes: ['fullName', 'email'] }]
     });
     if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
     res.json({ appointment });
@@ -632,12 +632,12 @@ router.delete('/appointments/:id', requireAdmin, async (req, res) => {
 router.get('/appointments/pending', requireAdmin, async (req, res) => {
   try {
     const results = await Appointment.findAll({
-      where: { status: 'pending', user_id: { [Op.ne]: null } },
+      where: { status: 'pending', userId: { [Op.ne]: null } },
       include: [{
         model: User,
         as: 'user',
-        where: { is_verified: false },
-        attributes: ['id', 'full_name', 'email', 'phone', 'is_verified']
+        where: { isVerified: false },
+        attributes: ['id', 'fullName', 'email', 'phone', 'isVerified']
       }],
       order: [['date', 'ASC'], ['time', 'ASC']]
     });
@@ -660,8 +660,8 @@ router.put('/appointments/:id/approve', requireAdmin, async (req, res) => {
 
       await appointment.update({ status: 'confirmed' }, { transaction: t });
 
-      if (appointment.user_id) {
-        await User.update({ is_verified: true }, { where: { id: appointment.user_id }, transaction: t });
+      if (appointment.userId) {
+        await User.update({ isVerified: true }, { where: { id: appointment.userId }, transaction: t });
       }
     });
     res.json({ message: 'Cita aprobada y usuario verificado correctamente.' });
@@ -681,11 +681,11 @@ router.put('/appointments/:id/approve', requireAdmin, async (req, res) => {
 // Get clinic settings
 router.get('/settings', requireAdmin, async (req, res) => {
   try {
-    const results = await ClinicSetting.findAll({ order: [['setting_key', 'ASC']] });
+    const results = await ClinicSetting.findAll({ order: [['settingKey', 'ASC']] });
     const settings = {};
     results.forEach(row => {
-      settings[row.setting_key] = {
-        value: row.setting_value,
+      settings[row.settingKey] = {
+        value: row.settingValue,
         description: row.description
       };
     });
@@ -704,11 +704,11 @@ router.put('/settings', requireAdmin, async (req, res) => {
   try {
     const updatePromises = settings.map(async (setting) => {
       const { key, value } = setting;
-      const existing = await ClinicSetting.findOne({ where: { setting_key: key } });
+      const existing = await ClinicSetting.findOne({ where: { settingKey: key } });
       if (existing) {
-        return existing.update({ setting_value: value });
+        return existing.update({ settingValue: value });
       } else {
-        return ClinicSetting.create({ setting_key: key, setting_value: value });
+        return ClinicSetting.create({ settingKey: key, settingValue: value });
       }
     });
 
@@ -726,7 +726,7 @@ router.put('/settings/:key', requireAdmin, async (req, res) => {
   const { value } = req.body;
   
   try {
-    const [updated] = await ClinicSetting.update({ setting_value: value }, { where: { setting_key: settingKey } });
+    const [updated] = await ClinicSetting.update({ settingValue: value }, { where: { settingKey: settingKey } });
     if (updated === 0) return res.status(404).json({ error: 'Setting not found' });
     res.json({ message: 'Setting updated successfully' });
   } catch (err) {
@@ -742,10 +742,10 @@ router.put('/settings/:key', requireAdmin, async (req, res) => {
  */
 router.get('/server/status', requireAdmin, (req, res) => {
   res.json({
-    is_healthy: true,
+    isHealthy: true,
     uptime: process.uptime() + ' seconds',
-    cpu_usage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
-    memory_usage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
+    cpuUsage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
+    memoryUsage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
   });
 });
 
@@ -760,9 +760,9 @@ router.get('/approval/recent', requireAdmin, async (req, res) => {
   try {
     const results = await User.findAll({
       where: { role: { [Op.ne]: 'admin' } },
-      order: [['created_at', 'DESC']],
+      order: [['createdAt', 'DESC']],
       limit: 5,
-      attributes: ['id', 'email', 'full_name', 'created_at', 'role']
+      attributes: ['id', 'email', 'fullName', 'createdAt', 'role']
     });
     res.json(results);
   } catch (err) {
@@ -779,14 +779,14 @@ router.get('/approval/recent', requireAdmin, async (req, res) => {
 router.get('/announcements', requireAdmin, async (req, res) => {
   try {
     const results = await Announcement.findAll({
-      where: { is_active: true },
-      include: [{ model: User, as: 'creator', attributes: ['full_name'] }],
-      order: [['priority', 'DESC'], ['created_at', 'DESC']]
+      where: { isActive: true },
+      include: [{ model: User, as: 'creator', attributes: ['fullName'] }],
+      order: [['priority', 'DESC'], ['createdAt', 'DESC']]
     });
-    // Map result to include created_by_name for frontend compatibility if needed
+    // Map result to include createdByName for frontend compatibility if needed
     const mapped = results.map(r => {
       const plain = r.get({ plain: true });
-      plain.created_by_name = plain.creator ? plain.creator.full_name : null;
+      plain.createdByName = plain.creator ? plain.creator.fullName : null;
       return plain;
     });
     res.json(mapped);
@@ -801,15 +801,15 @@ router.get('/announcements/public', async (req, res) => {
   try {
     const results = await Announcement.findAll({
       where: {
-        is_active: true,
-        show_on_homepage: true,
-        start_date: { [Op.lte]: new Date() },
+        isActive: true,
+        showOnHomepage: true,
+        startDate: { [Op.lte]: new Date() },
         [Op.or]: [
-          { end_date: null },
-          { end_date: { [Op.gte]: new Date() } }
+          { endDate: null },
+          { endDate: { [Op.gte]: new Date() } }
         ]
       },
-      order: [['priority', 'DESC'], ['created_at', 'DESC']]
+      order: [['priority', 'DESC'], ['createdAt', 'DESC']]
     });
     res.json(results);
   } catch (err) {
@@ -823,15 +823,15 @@ router.post('/announcements', requireAdmin, async (req, res) => {
   const {
     title,
     message,
-    announcement_type,
+    announcementType,
     priority,
-    start_date,
-    end_date,
-    show_on_homepage,
-    show_on_booking
+    startDate,
+    endDate,
+    showOnHomepage,
+    showOnBooking
   } = req.body;
 
-  if (!title || !message || !start_date) {
+  if (!title || !message || !startDate) {
     return res.status(400).json({ error: 'Title, message, and start date are required' });
   }
 
@@ -839,14 +839,14 @@ router.post('/announcements', requireAdmin, async (req, res) => {
     const result = await Announcement.create({
       title,
       message,
-      announcement_type: announcement_type || 'info',
+      announcementType: announcementType || 'info',
       priority: priority || 'normal',
-      start_date,
-      end_date: end_date || null,
-      show_on_homepage: show_on_homepage !== undefined ? show_on_homepage : true,
-      show_on_booking: show_on_booking !== undefined ? show_on_booking : false,
-      created_by: req.user.id,
-      is_active: true
+      startDate,
+      endDate: endDate || null,
+      showOnHomepage: showOnHomepage !== undefined ? showOnHomepage : true,
+      showOnBooking: showOnBooking !== undefined ? showOnBooking : false,
+      createdBy: req.user.id,
+      isActive: true
     });
     res.json({ message: 'Announcement added successfully', id: result.id });
   } catch (err) {
@@ -861,26 +861,26 @@ router.put('/announcements/:id', requireAdmin, async (req, res) => {
   const {
     title,
     message,
-    announcement_type,
+    announcementType,
     priority,
-    start_date,
-    end_date,
-    show_on_homepage,
-    show_on_booking,
-    is_active
+    startDate,
+    endDate,
+    showOnHomepage,
+    showOnBooking,
+    isActive
   } = req.body;
 
   try {
     const [updated] = await Announcement.update({
       title,
       message,
-      announcement_type,
+      announcementType,
       priority,
-      start_date,
-      end_date,
-      show_on_homepage,
-      show_on_booking,
-      is_active
+      startDate,
+      endDate,
+      showOnHomepage,
+      showOnBooking,
+      isActive
     }, { where: { id: announcementId } });
 
     if (updated === 0) return res.status(404).json({ error: 'Announcement not found' });
@@ -895,7 +895,7 @@ router.put('/announcements/:id', requireAdmin, async (req, res) => {
 router.delete('/announcements/:id', requireAdmin, async (req, res) => {
   const announcementId = req.params.id;
   try {
-    const [updated] = await Announcement.update({ is_active: false }, { where: { id: announcementId } });
+    const [updated] = await Announcement.update({ isActive: false }, { where: { id: announcementId } });
     if (updated === 0) return res.status(404).json({ error: 'Announcement not found' });
     res.json({ message: 'Announcement deleted successfully' });
   } catch (err) {
@@ -972,10 +972,10 @@ router.post('/test-sms-notification', requireAdmin, async (req, res) => {
 // Server status endpoint for admin dashboard
 router.get('/server/status', requireAdmin, (req, res) => {
   res.json({
-    is_healthy: true,
+    isHealthy: true,
     uptime: process.uptime() + ' seconds',
-    cpu_usage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
-    memory_usage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
+    cpuUsage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
+    memoryUsage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
   });
 });
 
@@ -1013,7 +1013,7 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
     }
     try {
       recentAppointments = await Appointment.findAll({
-        attributes: ['id', 'full_name', 'email', 'date', 'time', 'status'],
+        attributes: ['id', 'fullName', 'email', 'date', 'time', 'status'],
         order: [['date', 'DESC'], ['time', 'DESC']],
         limit: 5
       });
@@ -1048,10 +1048,10 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
  */
 router.put('/business-hours/:id', requireAdmin, async (req, res) => {
   const id = req.params.id;
-  const { is_open, open_time, close_time, break_start, break_end } = req.body;
+  const { isOpen, openTime, closeTime, breakStart, breakEnd } = req.body;
   try {
     const [updated] = await BusinessHour.update(
-      { is_open, open_time, close_time, break_start, break_end },
+      { isOpen, openTime, closeTime, breakStart, breakEnd },
       { where: { id } }
     );
     if (updated === 0) return res.status(404).json({ error: 'Business hour not found' });
@@ -1076,16 +1076,16 @@ router.put('/business-hours', requireAdmin, async (req, res) => {
   try {
     const updatePromises = businessHours.map(async (hours) => {
       const existing = await BusinessHour.findOne({
-        where: { day_of_week: hours.day_of_week }
+        where: { dayOfWeek: hours.dayOfWeek }
       });
 
       const data = {
-        day_of_week: hours.day_of_week,
-        is_open: hours.is_open,
-        open_time: hours.open_time,
-        close_time: hours.close_time,
-        break_start: hours.break_start || null,
-        break_end: hours.break_end || null
+        dayOfWeek: hours.dayOfWeek,
+        isOpen: hours.isOpen,
+        openTime: hours.openTime,
+        closeTime: hours.closeTime,
+        breakStart: hours.breakStart || null,
+        breakEnd: hours.breakEnd || null
       };
 
       if (existing) return existing.update(data);
@@ -1180,8 +1180,8 @@ router.post('/scheduled-business-hours', requireAdmin, async (req, res) => {
 router.get('/schedule-exceptions', requireAdmin, async (req, res) => {
   try {
     const results = await ScheduleException.findAll({
-      where: { is_active: true },
-      order: [['start_date', 'DESC']]
+      where: { isActive: true },
+      order: [['startDate', 'DESC']]
     });
     res.json({ scheduleExceptions: results });
   } catch (err) { res.status(500).json({ error: 'Database error' }); }
@@ -1195,33 +1195,33 @@ router.get('/schedule-exceptions', requireAdmin, async (req, res) => {
  */
 router.post('/schedule-exceptions', requireAdmin, async (req, res) => {
   const {
-    exception_type,
-    start_date,
-    end_date,
-    is_closed,
-    custom_open_time,
-    custom_close_time,
-    custom_break_start,
-    custom_break_end,
+    exceptionType,
+    startDate,
+    endDate,
+    isClosed,
+    customOpenTime,
+    customCloseTime,
+    customBreakStart,
+    customBreakEnd,
     reason,
     description,
-    recurring_type
+    recurringType
   } = req.body;
 
   try {
     const result = await ScheduleException.create({
-      exception_type: exception_type || 'single_day',
-      start_date,
-      end_date: end_date || null,
-      is_closed: is_closed || false,
-      custom_open_time: custom_open_time || null,
-      custom_close_time: custom_close_time || null,
-      custom_break_start: custom_break_start || null,
-      custom_break_end: custom_break_end || null,
+      exceptionType: exceptionType || 'singleDay',
+      startDate,
+      endDate: endDate || null,
+      isClosed: isClosed || false,
+      customOpenTime: customOpenTime || null,
+      customCloseTime: customCloseTime || null,
+      customBreakStart: customBreakStart || null,
+      customBreakEnd: customBreakEnd || null,
       reason: reason || '',
       description: description || '',
-      yearly_recurring: recurring_type === 'yearly', // Mapping recurring_type to boolean
-      is_active: true
+      yearlyRecurring: recurringType === 'yearly', // Mapping recurringType to boolean
+      isActive: true
     });
     res.json({ message: 'Schedule exception added successfully', id: result.id });
   } catch (err) {
@@ -1239,34 +1239,34 @@ router.post('/schedule-exceptions', requireAdmin, async (req, res) => {
 router.put('/schedule-exceptions/:id', requireAdmin, async (req, res) => {
   const exceptionId = req.params.id;
   const {
-    exception_type,
-    start_date,
-    end_date,
-    is_closed,
-    custom_open_time,
-    custom_close_time,
-    custom_break_start,
-    custom_break_end,
+    exceptionType,
+    startDate,
+    endDate,
+    isClosed,
+    customOpenTime,
+    customCloseTime,
+    customBreakStart,
+    customBreakEnd,
     reason,
     description,
-    recurring_type,
-    is_active
+    recurringType,
+    isActive
   } = req.body;
 
   try {
     const [updated] = await ScheduleException.update({
-      exception_type,
-      start_date,
-      end_date,
-      is_closed,
-      custom_open_time,
-      custom_close_time,
-      custom_break_start,
-      custom_break_end,
+      exceptionType,
+      startDate,
+      endDate,
+      isClosed,
+      customOpenTime,
+      customCloseTime,
+      customBreakStart,
+      customBreakEnd,
       reason,
       description,
-      yearly_recurring: recurring_type === 'yearly',
-      is_active
+      yearlyRecurring: recurringType === 'yearly',
+      isActive
     }, { where: { id: exceptionId } });
 
     if (updated === 0) return res.status(404).json({ error: 'Schedule exception not found' });
@@ -1281,12 +1281,12 @@ router.put('/schedule-exceptions/:id', requireAdmin, async (req, res) => {
 
 /**
  * DELETE /schedule-exceptions/:id
- * Soft-deletes a schedule exception by setting is_active to false.
+ * Soft-deletes a schedule exception by setting isActive to false.
  */
 router.delete('/schedule-exceptions/:id', requireAdmin, async (req, res) => {
   const exceptionId = req.params.id;
   try {
-    const [updated] = await ScheduleException.update({ is_active: false }, { where: { id: exceptionId } });
+    const [updated] = await ScheduleException.update({ isActive: false }, { where: { id: exceptionId } });
     if (updated === 0) return res.status(404).json({ error: 'Schedule exception not found' });
     res.json({ message: 'Schedule exception deleted successfully' });
   } catch (err) {
@@ -1317,7 +1317,7 @@ router.get('/users', requireAdmin, async (req, res) => {
   if (roleFilter) where.role = roleFilter;
   if (search) {
     where[Op.or] = [
-      { full_name: { [Op.like]: `%${search}%` } },
+      { fullName: { [Op.like]: `%${search}%` } },
       { email: { [Op.like]: `%${search}%` } }
     ];
   }
@@ -1327,16 +1327,16 @@ router.get('/users', requireAdmin, async (req, res) => {
       where,
       limit,
       offset,
-      order: [['created_at', 'DESC']],
-      attributes: ['id', ['full_name', 'name'], 'email', 'phone', ['auth_provider', 'provider'], 'role', 'created_at']
+      order: [['createdAt', 'DESC']],
+      attributes: ['id', ['fullName', 'name'], 'email', 'phone', ['authProvider', 'provider'], 'role', 'createdAt']
     });
 
     res.json({
       users: rows,
       pagination: {
-        current_page: page,
-        total_pages: Math.ceil(count / limit),
-        total_records: count,
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        totalRecords: count,
         limit: limit
       }
     });
@@ -1356,7 +1356,7 @@ router.get('/users/:id', requireAdmin, async (req, res) => {
   const userId = req.params.id;
   try {
     const user = await User.findByPk(userId, {
-      attributes: ['id', 'full_name', 'email', 'phone', ['auth_provider', 'provider'], 'role', 'created_at']
+      attributes: ['id', 'fullName', 'email', 'phone', ['authProvider', 'provider'], 'role', 'createdAt']
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ user });
@@ -1374,14 +1374,14 @@ router.get('/users/:id', requireAdmin, async (req, res) => {
  */
 router.put('/users/:id', requireAdmin, async (req, res) => {
   const userId = req.params.id;
-  const { name, full_name, email, phone, role, provider } = req.body;
+  const { name, fullName, email, phone, role, provider } = req.body;
   
-  // Accept both 'name' and 'full_name' for backward compatibility
-  const userName = full_name || name;
+  // Accept both 'name' and 'fullName' for backward compatibility
+  const userName = fullName || name;
   
   try {
     const [updated] = await User.update(
-      { full_name: userName, email, phone, role, auth_provider: provider },
+      { fullName: userName, email, phone, role, authProvider: provider },
       { where: { id: userId } }
     );
     if (updated === 0) return res.status(404).json({ error: 'User not found' });
@@ -1437,12 +1437,12 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
 
 /**
  * PUT /users/:id/verify
- * Verifies a user (sets is_verified to true).
+ * Verifies a user (sets isVerified to true).
  */
 router.put('/users/:id/verify', requireAdmin, async (req, res) => {
   const userId = req.params.id;
   try {
-    const [updated] = await User.update({ is_verified: true, requires_verification: false }, { where: { id: userId } });
+    const [updated] = await User.update({ isVerified: true, requiresVerification: false }, { where: { id: userId } });
     if (updated === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json({ message: 'Usuario verificado correctamente' });
   } catch (err) { res.status(500).json({ error: 'Error verificando usuario' }); }
@@ -1459,8 +1459,8 @@ router.get('/appointments', requireAdmin, async (req, res) => {
   const offset = (page - 1) * limit;
   const status = req.query.status || '';
   const date = req.query.date || '';
-  const startDate = req.query.start_date || '';
-  const endDate = req.query.end_date || '';
+  const startDate = req.query.startDate || '';
+  const endDate = req.query.endDate || '';
   const search = req.query.search || '';
   
   const where = {};
@@ -1472,7 +1472,7 @@ router.get('/appointments', requireAdmin, async (req, res) => {
 
   if (search) {
     where[Op.or] = [
-      { full_name: { [Op.like]: `%${search}%` } },
+      { fullName: { [Op.like]: `%${search}%` } },
       { email: { [Op.like]: `%${search}%` } },
       { phone: { [Op.like]: `%${search}%` } }
     ];
@@ -1481,7 +1481,7 @@ router.get('/appointments', requireAdmin, async (req, res) => {
   try {
     const { count, rows } = await Appointment.findAndCountAll({
       where,
-      include: [{ model: User, as: 'user', attributes: ['full_name', 'email'] }],
+      include: [{ model: User, as: 'user', attributes: ['fullName', 'email'] }],
       limit,
       offset,
       order: [['date', 'DESC'], ['time', 'DESC']]
@@ -1490,9 +1490,9 @@ router.get('/appointments', requireAdmin, async (req, res) => {
     res.json({
       appointments: rows,
       pagination: {
-        current_page: page,
-        total_pages: Math.ceil(count / limit),
-        total_records: count,
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        totalEecords: count,
         limit: limit
       }
     });
@@ -1511,7 +1511,7 @@ router.get('/appointments', requireAdmin, async (req, res) => {
 router.get('/users/unverified', requireAdmin, async (req, res) => {
   try {
     const results = await User.findAll({
-      where: { is_verified: false, role: { [Op.ne]: 'admin' } }
+      where: { isVerified: false, role: { [Op.ne]: 'admin' } }
     });
     res.json({ users: results });
   } catch (err) { res.status(500).json({ error: 'Error obteniendo usuarios no verificados' }); }
@@ -1527,7 +1527,7 @@ router.get('/appointments/:id', requireAdmin, async (req, res) => {
   const appointmentId = req.params.id;
   try {
     const appointment = await Appointment.findByPk(appointmentId, {
-      include: [{ model: User, as: 'user', attributes: ['full_name', 'email'] }]
+      include: [{ model: User, as: 'user', attributes: ['fullName', 'email'] }]
     });
     if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
     res.json({ appointment });
@@ -1574,12 +1574,12 @@ router.delete('/appointments/:id', requireAdmin, async (req, res) => {
 router.get('/appointments/pending', requireAdmin, async (req, res) => {
   try {
     const results = await Appointment.findAll({
-      where: { status: 'pending', user_id: { [Op.ne]: null } },
+      where: { status: 'pending', userId: { [Op.ne]: null } },
       include: [{
         model: User,
         as: 'user',
-        where: { is_verified: false },
-        attributes: ['id', 'full_name', 'email', 'phone', 'is_verified']
+        where: { isVerified: false },
+        attributes: ['id', 'fullName', 'email', 'phone', 'isVerified']
       }],
       order: [['date', 'ASC'], ['time', 'ASC']]
     });
@@ -1602,8 +1602,8 @@ router.put('/appointments/:id/approve', requireAdmin, async (req, res) => {
 
       await appointment.update({ status: 'confirmed' }, { transaction: t });
 
-      if (appointment.user_id) {
-        await User.update({ is_verified: true }, { where: { id: appointment.user_id }, transaction: t });
+      if (appointment.userId) {
+        await User.update({ isVerified: true }, { where: { id: appointment.userId }, transaction: t });
       }
     });
     res.json({ message: 'Cita aprobada y usuario verificado correctamente.' });
@@ -1623,11 +1623,11 @@ router.put('/appointments/:id/approve', requireAdmin, async (req, res) => {
 // Get clinic settings
 router.get('/settings', requireAdmin, async (req, res) => {
   try {
-    const results = await ClinicSetting.findAll({ order: [['setting_key', 'ASC']] });
+    const results = await ClinicSetting.findAll({ order: [['settingKey', 'ASC']] });
     const settings = {};
     results.forEach(row => {
-      settings[row.setting_key] = {
-        value: row.setting_value,
+      settings[row.settingKey] = {
+        value: row.settingValue,
         description: row.description
       };
     });
@@ -1646,11 +1646,11 @@ router.put('/settings', requireAdmin, async (req, res) => {
   try {
     const updatePromises = settings.map(async (setting) => {
       const { key, value } = setting;
-      const existing = await ClinicSetting.findOne({ where: { setting_key: key } });
+      const existing = await ClinicSetting.findOne({ where: { settingKey: key } });
       if (existing) {
-        return existing.update({ setting_value: value });
+        return existing.update({ settingValue: value });
       } else {
-        return ClinicSetting.create({ setting_key: key, setting_value: value });
+        return ClinicSetting.create({ settingKey: key, settingValue: value });
       }
     });
 
@@ -1668,7 +1668,7 @@ router.put('/settings/:key', requireAdmin, async (req, res) => {
   const { value } = req.body;
   
   try {
-    const [updated] = await ClinicSetting.update({ setting_value: value }, { where: { setting_key: settingKey } });
+    const [updated] = await ClinicSetting.update({ settingValue: value }, { where: { settingKey: settingKey } });
     if (updated === 0) return res.status(404).json({ error: 'Setting not found' });
     res.json({ message: 'Setting updated successfully' });
   } catch (err) {
@@ -1684,10 +1684,10 @@ router.put('/settings/:key', requireAdmin, async (req, res) => {
  */
 router.get('/server/status', requireAdmin, (req, res) => {
   res.json({
-    is_healthy: true,
+    isHealthy: true,
     uptime: process.uptime() + ' seconds',
-    cpu_usage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
-    memory_usage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
+    cpuUsage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
+    memoryUsage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
   });
 });
 
@@ -1702,9 +1702,9 @@ router.get('/approval/recent', requireAdmin, async (req, res) => {
   try {
     const results = await User.findAll({
       where: { role: { [Op.ne]: 'admin' } },
-      order: [['created_at', 'DESC']],
+      order: [['createdAt', 'DESC']],
       limit: 5,
-      attributes: ['id', 'email', 'full_name', 'created_at', 'role']
+      attributes: ['id', 'email', 'fullName', 'createdAt', 'role']
     });
     res.json(results);
   } catch (err) {
@@ -1721,14 +1721,14 @@ router.get('/approval/recent', requireAdmin, async (req, res) => {
 router.get('/announcements', requireAdmin, async (req, res) => {
   try {
     const results = await Announcement.findAll({
-      where: { is_active: true },
-      include: [{ model: User, as: 'creator', attributes: ['full_name'] }],
-      order: [['priority', 'DESC'], ['created_at', 'DESC']]
+      where: { isActive: true },
+      include: [{ model: User, as: 'creator', attributes: ['fullName'] }],
+      order: [['priority', 'DESC'], ['createdAt', 'DESC']]
     });
-    // Map result to include created_by_name for frontend compatibility if needed
+    // Map result to include createdByName for frontend compatibility if needed
     const mapped = results.map(r => {
       const plain = r.get({ plain: true });
-      plain.created_by_name = plain.creator ? plain.creator.full_name : null;
+      plain.createdByName = plain.creator ? plain.creator.fullName : null;
       return plain;
     });
     res.json(mapped);
@@ -1743,15 +1743,15 @@ router.get('/announcements/public', async (req, res) => {
   try {
     const results = await Announcement.findAll({
       where: {
-        is_active: true,
-        show_on_homepage: true,
-        start_date: { [Op.lte]: new Date() },
+        isActive: true,
+        showOnHomepage: true,
+        startDate: { [Op.lte]: new Date() },
         [Op.or]: [
-          { end_date: null },
-          { end_date: { [Op.gte]: new Date() } }
+          { endDate: null },
+          { endDate: { [Op.gte]: new Date() } }
         ]
       },
-      order: [['priority', 'DESC'], ['created_at', 'DESC']]
+      order: [['priority', 'DESC'], ['createdAt', 'DESC']]
     });
     res.json(results);
   } catch (err) {
@@ -1765,15 +1765,15 @@ router.post('/announcements', requireAdmin, async (req, res) => {
   const {
     title,
     message,
-    announcement_type,
+    announcementType,
     priority,
-    start_date,
-    end_date,
-    show_on_homepage,
-    show_on_booking
+    startDate,
+    endDate,
+    showOnHomepage,
+    showOnBooking
   } = req.body;
 
-  if (!title || !message || !start_date) {
+  if (!title || !message || !startDate) {
     return res.status(400).json({ error: 'Title, message, and start date are required' });
   }
 
@@ -1781,14 +1781,14 @@ router.post('/announcements', requireAdmin, async (req, res) => {
     const result = await Announcement.create({
       title,
       message,
-      announcement_type: announcement_type || 'info',
+      announcementType: announcementType || 'info',
       priority: priority || 'normal',
-      start_date,
-      end_date: end_date || null,
-      show_on_homepage: show_on_homepage !== undefined ? show_on_homepage : true,
-      show_on_booking: show_on_booking !== undefined ? show_on_booking : false,
-      created_by: req.user.id,
-      is_active: true
+      startDate,
+      endDate: endDate || null,
+      showOnHomepage: showOnHomepage !== undefined ? showOnHomepage : true,
+      showOnBooking: showOnBooking !== undefined ? showOnBooking : false,
+      createdBy: req.user.id,
+      isActive: true
     });
     res.json({ message: 'Announcement added successfully', id: result.id });
   } catch (err) {
@@ -1803,26 +1803,26 @@ router.put('/announcements/:id', requireAdmin, async (req, res) => {
   const {
     title,
     message,
-    announcement_type,
+    announcementType,
     priority,
-    start_date,
-    end_date,
-    show_on_homepage,
-    show_on_booking,
-    is_active
+    startDate,
+    endDate,
+    showOnHomepage,
+    showOnBooking,
+    isActive
   } = req.body;
 
   try {
     const [updated] = await Announcement.update({
       title,
       message,
-      announcement_type,
+      announcementType,
       priority,
-      start_date,
-      end_date,
-      show_on_homepage,
-      show_on_booking,
-      is_active
+      startDate,
+      endDate,
+      showOnHomepage,
+      showOnBooking,
+      isActive
     }, { where: { id: announcementId } });
 
     if (updated === 0) return res.status(404).json({ error: 'Announcement not found' });
@@ -1837,7 +1837,7 @@ router.put('/announcements/:id', requireAdmin, async (req, res) => {
 router.delete('/announcements/:id', requireAdmin, async (req, res) => {
   const announcementId = req.params.id;
   try {
-    const [updated] = await Announcement.update({ is_active: false }, { where: { id: announcementId } });
+    const [updated] = await Announcement.update({ isActive: false }, { where: { id: announcementId } });
     if (updated === 0) return res.status(404).json({ error: 'Announcement not found' });
     res.json({ message: 'Announcement deleted successfully' });
   } catch (err) {
@@ -1914,10 +1914,10 @@ router.post('/test-sms-notification', requireAdmin, async (req, res) => {
 // Server status endpoint for admin dashboard
 router.get('/server/status', requireAdmin, (req, res) => {
   res.json({
-    is_healthy: true,
+    isHealthy: true,
     uptime: process.uptime() + ' seconds',
-    cpu_usage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
-    memory_usage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
+    cpuUsage: Math.round(Math.random() * 100), // Replace with real CPU usage if needed
+    memoryUsage: Math.round(process.memoryUsage().rss / 1024 / 1024) // MB
   });
 });
 
