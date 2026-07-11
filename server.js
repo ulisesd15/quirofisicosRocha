@@ -10,12 +10,12 @@ const cron = require('node-cron');
 require('dotenv').config();
 
 // Load passport strategy AFTER env variables are loaded
-require('./config/passport');
+// require('./config/passport');
 
-const { sequelize } = require('./models');
-const routes = require('./routes/apiRoutes');
-const authRoutes = require('./routes/authRoutes');
-const adminRoutes = require('./routes/adminRoutes');
+const { sequelize } = require('./backend/models');
+const routes = require('./backend/routes/apiRoutes');
+const authRoutes = require('./backend/routes/authRoutes');
+const adminRoutes = require('./backend/routes/adminRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
