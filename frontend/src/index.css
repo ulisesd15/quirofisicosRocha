@@ -1,0 +1,391 @@
+/*
+  index.css — modernized design system for the React frontend.
+  Replaces frontendNew/public/css/{style,navigation}.css. Keeps the same
+  Bootstrap-grid-driven layout and Spanish content, but refines the palette,
+  type scale, spacing and motion so the site feels less "template-y".
+*/
+
+:root {
+  /* Color: deepened/desaturated version of the old #2c5aa0 blue for a calmer,
+     more clinical feel, paired with a warmer teal-green accent. */
+  --color-primary: #245a8d;
+  --color-primary-dark: #163a5e;
+  --color-primary-light: #eaf2fb;
+  --color-accent: #1f9d75;
+  --color-accent-dark: #167a5b;
+  --color-warning: #e0a327;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f6f8fa;
+  --color-text: #1f2933;
+  --color-text-muted: #5b6572;
+  --color-border: #e3e8ee;
+
+  --font-display: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+  --font-body: 'Inter', 'Segoe UI', sans-serif;
+
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+
+  --shadow-sm: 0 2px 8px rgba(22, 58, 94, 0.06);
+  --shadow-md: 0 8px 24px rgba(22, 58, 94, 0.10);
+  --shadow-lg: 0 20px 48px rgba(22, 58, 94, 0.16);
+
+  --transition-base: 220ms ease;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--color-text);
+  line-height: 1.65;
+  background-color: var(--color-surface);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  color: var(--color-primary-dark);
+  letter-spacing: -0.01em;
+}
+
+a {
+  color: var(--color-primary);
+}
+
+/* ---------- Navbar ---------- */
+.custom-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+}
+
+.brand-logo {
+  background: var(--color-primary) !important;
+}
+
+.brand-title {
+  color: var(--color-primary-dark);
+  font-family: var(--font-display);
+}
+
+.main-nav-link {
+  color: var(--color-text) !important;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.75rem !important;
+  transition: color var(--transition-base), background-color var(--transition-base);
+}
+
+.main-nav-link:hover,
+.main-nav-link.active {
+  color: var(--color-primary) !important;
+  background-color: var(--color-primary-light);
+}
+
+.text-primary {
+  color: var(--color-primary) !important;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  border-radius: 999px;
+  padding: 0.7rem 1.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: transform var(--transition-base), box-shadow var(--transition-base), background-color var(--transition-base);
+  border-width: 2px;
+}
+
+.btn-success {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-success:hover {
+  background: var(--color-accent-dark);
+  border-color: var(--color-accent-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  transform: translateY(-2px);
+}
+
+.btn-warning {
+  background: var(--color-warning);
+  border-color: var(--color-warning);
+  color: #2a2a2a;
+}
+
+.btn-outline-light {
+  border-color: rgba(255, 255, 255, 0.7);
+  color: #fff;
+}
+
+.btn-outline-light:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+/* ---------- Hero ---------- */
+.hero {
+  background: linear-gradient(135deg, rgba(22, 58, 94, 0.92), rgba(36, 90, 141, 0.85)),
+    url('https://images.unsplash.com/photo-1559757175-0eb30cd8c063?ixlib=rb-4.0.3&auto=format&fit=crop&w=1400&q=80');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  min-height: 92vh;
+  display: flex;
+  align-items: center;
+  color: white;
+  position: relative;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.hero .container {
+  position: relative;
+  z-index: 2;
+}
+
+.hero h1 {
+  color: #fff;
+  font-size: clamp(2.25rem, 4vw, 3.5rem);
+  font-weight: 800;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  margin-bottom: 1rem;
+}
+
+.hero .lead {
+  font-size: clamp(1.05rem, 1.5vw, 1.35rem);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+  margin-bottom: 2rem;
+  opacity: 0.95;
+}
+
+.section-subtitle {
+  color: var(--color-accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ---------- Announcements ---------- */
+.announcements-container {
+  max-width: 900px;
+  margin: 1.5rem auto 0;
+  padding: 0 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.announcement-banner {
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  box-shadow: var(--shadow-sm);
+  border-left: 4px solid var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.announcement-banner.warning {
+  border-left-color: var(--color-warning);
+  background: #fdf3e0;
+}
+
+.announcement-banner.success {
+  border-left-color: var(--color-accent);
+  background: #e9f8f1;
+}
+
+.announcement-banner.danger {
+  border-left-color: #d9483a;
+  background: #fbe9e7;
+}
+
+.announcement-content {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.announcement-title {
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+
+.announcement-message {
+  color: var(--color-text-muted);
+}
+
+.announcement-dates {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+}
+
+.announcement-close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+/* ---------- Services ---------- */
+.services-section {
+  padding: 6rem 0;
+  background: var(--color-surface-muted);
+}
+
+.service-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 1.75rem;
+  height: 100%;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.service-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-md);
+}
+
+.service-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1.25rem;
+  border-radius: 50%;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+/* ---------- About ---------- */
+.about-section {
+  padding: 6rem 0;
+}
+
+.about-image {
+  border-radius: var(--radius-lg);
+  min-height: 360px;
+  background: linear-gradient(160deg, var(--color-primary-light), #dcecff),
+    url('https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=900&q=80');
+  background-size: cover;
+  background-position: center;
+  box-shadow: var(--shadow-md);
+}
+
+.medical-icon {
+  color: var(--color-accent);
+  margin-right: 0.6rem;
+  font-size: 1.1rem;
+}
+
+/* ---------- Location ---------- */
+.location-section {
+  padding: 6rem 0;
+  background: var(--color-surface-muted);
+}
+
+.map-container {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+/* ---------- Testimonials ---------- */
+.testimonials-section {
+  padding: 6rem 0;
+  background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
+}
+
+.testimonial-card {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  padding: 2.25rem 1.75rem;
+  height: 100%;
+  backdrop-filter: blur(4px);
+}
+
+/* ---------- Gallery ---------- */
+.gallery img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- Footer ---------- */
+footer {
+  background: var(--color-primary-dark);
+  padding: 3.5rem 0 2rem;
+}
+
+/* ---------- Auth pages (login/register) ---------- */
+.auth-hero {
+  min-height: calc(100vh - 88px);
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, var(--color-primary-light), #ffffff);
+  padding: 3rem 0;
+}
+
+.auth-card {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.form-control:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.2rem rgba(36, 90, 141, 0.15);
+}
+
+/* ---------- Misc ---------- */
+.fade-in {
+  animation: fadeInUp 0.6s ease both;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .hero {
+    background-attachment: scroll;
+    min-height: 85vh;
+  }
+}
