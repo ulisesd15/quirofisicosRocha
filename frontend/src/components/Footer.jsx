@@ -15,14 +15,20 @@ const DAY_NAMES = {
   Sunday: 'Domingo',
 };
 
+// Backend day-of-week casing is inconsistent across endpoints (some routes store/compare
+// lowercase, others expect capitalized). Normalize before any lookup/comparison.
+const normalizeDay = (d) => (typeof d === 'string' && d.length ? d[0].toUpperCase() + d.slice(1).toLowerCase() : d);
+// Business hours time strings may come back as 'HH:MM' or 'HH:MM:SS' depending on data source.
+const stripSeconds = (t) => (typeof t === 'string' ? t.replace(/^(\d{1,2}:\d{2}):\d{2}$/, '$1') : t || '');
+
 function formatFooterHours(businessHours) {
   if (!Array.isArray(businessHours)) return [];
   return businessHours.map((day) => {
-    const stripSeconds = (t) => (t ? t.replace(/:00$/, '') : '');
+    const dayKey = normalizeDay(day.dayOfWeek);
     return {
-      key: day.day_of_week,
-      label: DAY_NAMES[day.day_of_week] || day.day_of_week,
-      text: day.is_open ? `${stripSeconds(day.open_time)} - ${stripSeconds(day.close_time)}` : 'Cerrado',
+      key: dayKey,
+      label: DAY_NAMES[dayKey] || day.dayOfWeek,
+      text: day.isOpen ? `${stripSeconds(day.openTime)} - ${stripSeconds(day.closeTime)}` : 'Cerrado',
     };
   });
 }
@@ -46,10 +52,10 @@ export default function Footer() {
     clinicService
       .getBusinessHours()
       .then((data) => {
-        const list = Array.isArray(data?.business_hours)
-          ? data.business_hours
-          : Array.isArray(data?.businessHours)
+        const list = Array.isArray(data?.businessHours)
           ? data.businessHours
+          : Array.isArray(data)
+          ? data
           : [];
         setHours(list);
       })

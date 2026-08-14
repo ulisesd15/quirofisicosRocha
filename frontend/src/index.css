@@ -389,3 +389,147 @@ footer {
     min-height: 85vh;
   }
 }
+
+/* ---------- Calendar / booking (BookAppointmentPage, ReschedulePage) ---------- */
+.calendar-day-btn {
+  min-width: 64px;
+}
+
+.calendar-day-btn.today:not(.btn-primary) {
+  border-width: 2px;
+  border-color: var(--color-accent);
+  color: var(--color-accent-dark);
+}
+
+.week-arrow {
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.calendar-container {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.calendar-nav-btn {
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-month-year {
+  color: var(--color-primary-dark);
+  text-transform: capitalize;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-day-header {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  padding: 0.35rem 0;
+}
+
+.calendar-day {
+  position: relative;
+  aspect-ratio: 1;
+  min-height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition-base), box-shadow var(--transition-base), background-color var(--transition-base);
+}
+
+.calendar-day.other-month {
+  color: var(--color-text-muted);
+  opacity: 0.4;
+  background: var(--color-surface-muted);
+}
+
+.calendar-day.disabled,
+.calendar-day.unavailable {
+  color: var(--color-text-muted);
+  background: var(--color-surface-muted);
+  cursor: not-allowed;
+}
+
+.calendar-day.available {
+  border-color: var(--color-primary-light);
+  cursor: pointer;
+}
+
+.calendar-day.available:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+  background: var(--color-primary-light);
+}
+
+.calendar-day.available::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.calendar-day.today {
+  border-color: var(--color-accent);
+  color: var(--color-accent-dark);
+}
+
+.calendar-day.selected,
+.calendar-day.today.selected {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.calendar-day.selected::after {
+  background: #fff;
+}
+
+.time-slot-btn {
+  border-radius: 999px;
+  font-weight: 600;
+  padding: 0.6rem 1rem;
+}
+
+@media (max-width: 480px) {
+  .calendar-day {
+    min-height: 36px;
+    font-size: 0.85rem;
+  }
+
+  .calendar-day-btn {
+    min-width: 52px;
+    padding: 0.5rem 0.6rem;
+  }
+
+  .week-arrow {
+    width: 34px;
+    height: 34px;
+  }
+}

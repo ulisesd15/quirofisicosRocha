@@ -14,5 +14,7 @@ export const clinicService = {
 
   getScheduleExceptions: () => api.get('/api/schedule-exceptions', { auth: false }),
 
+  getSlotsForWeek: (weekStartDate) => api.get(`/api/slots?weekStart=${weekStartDate}`, { auth: false }),
+
   getMapsKey: () => api.get('/api/config/maps-key', { auth: false }),
 };
