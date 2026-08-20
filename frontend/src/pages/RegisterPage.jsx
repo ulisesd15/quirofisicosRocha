@@ -61,7 +61,8 @@ export default function RegisterPage() {
 
     setSubmitting(true);
     try {
-      const result = await authService.register({ full_name, phone, email, password });
+      // Backend expects camelCase (`fullName`) — see routes/authRoutes.js.
+      const result = await authService.register({ fullName: full_name, phone, email, password });
       login(result.token, result.user);
       setSuccess(true);
       setMessage(result.message || 'Registro exitoso');

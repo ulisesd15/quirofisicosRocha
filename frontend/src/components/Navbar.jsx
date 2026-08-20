@@ -81,7 +81,7 @@ export default function Navbar() {
                     data-bs-toggle="dropdown"
                   >
                     <i className="fas fa-user me-1" />
-                    {user?.full_name || 'Usuario'}
+                    {user?.fullName || 'Usuario'}
                   </a>
                   <ul className="dropdown-menu dropdown-menu-end">
                     <li>

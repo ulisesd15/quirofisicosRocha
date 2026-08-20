@@ -36,7 +36,7 @@ export function storeSession(token, user) {
   localStorage.setItem('token', token);
   if (user) {
     localStorage.setItem('user_id', user.id);
-    localStorage.setItem('user_name', user.full_name || user.name || '');
+    localStorage.setItem('user_name', user.fullName || user.full_name || user.name || '');
     localStorage.setItem('user_email', user.email || '');
     localStorage.setItem('user_phone', user.phone || '');
     localStorage.setItem('user_role', user.role || 'user');

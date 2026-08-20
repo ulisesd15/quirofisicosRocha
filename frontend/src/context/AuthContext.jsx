@@ -16,7 +16,7 @@ function readStoredUser() {
   if (!token) return null;
   return {
     id: localStorage.getItem('user_id'),
-    full_name: localStorage.getItem('user_name') || '',
+    fullName: localStorage.getItem('user_name') || '',
     email: localStorage.getItem('user_email') || '',
     phone: localStorage.getItem('user_phone') || '',
     role: localStorage.getItem('user_role') || 'user',

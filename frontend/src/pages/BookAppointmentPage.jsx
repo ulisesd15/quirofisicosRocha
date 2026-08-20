@@ -49,7 +49,7 @@ export default function BookAppointmentPage() {
       time: selectedTime,
       note,
       ...(isLoggedIn
-        ? { userId: user.id, fullName: user.full_name, email: user.email, phone: user.phone }
+        ? { userId: user.id, fullName: user.fullName, email: user.email, phone: user.phone }
         : { fullName: guest.name, email: guest.email, phone: guest.phone }),
     };
 
