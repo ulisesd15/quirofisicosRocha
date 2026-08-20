@@ -27,11 +27,18 @@ router.get('/profile', authenticateToken, async (req, res) => {
 
     const userId = req.user.id;
     try {
+        // Use attribute exclusion (not a raw string list) so Sequelize resolves
+        // each field through the model's own `underscored: true` column mapping
+        // (e.g. createdAt -> created_at). A raw ['createdAt', ...] list bypasses
+        // that mapping and previously caused `Unknown column 'createdAt'` /
+        // "Database error" on every profile request — confirmed via live testing.
         const user = await User.findByPk(userId, {
-            attributes: ['id', 'fullName', 'email', 'phone', 'role', 'authProvider', 'isVerified', 'createdAt']
+            attributes: { exclude: ['password', 'googleId'] }
         });
         if (!user) return res.status(404).json({ error: 'User not found' });
-        res.json(user);
+        // User.toJSON() normalizes created_at/updated_at to camelCase for us.
+        const { password, ...safeUser } = user.toJSON();
+        res.json(safeUser);
     } catch (err) {
         console.error('Error fetching user profile:', err);
         res.status(500).json({ error: 'Database error' });
@@ -116,7 +123,7 @@ router.post('/login', async (req, res) => {
 /**
  * Registers a new user with email, phone, and password, returns JWT on success.
  */
-router.post('/auth/register', async (req, res) => {
+router.post('/register', async (req, res) => {
   const { fullName, phone, email, password } = req.body;
   if (!fullName || !phone || !email || !password) {
     return res.status(400).json({ success: false, message: 'Faltan campos requeridos' });
@@ -157,7 +164,7 @@ router.post('/auth/register', async (req, res) => {
  * PUT /auth/change-password
  * Allows a logged-in user to change their password.
  */
-router.put('/auth/change-password', authenticateToken, async (req, res) => {
+router.put('/change-password', authenticateToken, async (req, res) => {
     const { currentPassword, newPassword } = req.body;
     const userId = req.user.id;
 

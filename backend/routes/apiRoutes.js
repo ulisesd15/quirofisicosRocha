@@ -555,7 +555,12 @@ router.post('/appointments/:id/reschedule', authenticateToken, async (req, res) 
     const appointment = await Appointment.findOne({ where: whereClause });
     if (!appointment) return res.status(404).json({ message: 'Cita no encontrada o no autorizada.' });
 
-    // 2. Check if the new slot is available
+    // 2. Check if the new slot is available (allows up to 2 bookings per
+    // slot, matching the capacity rule used by POST /appointments and by
+    // /available-slots/:date — the reschedule check previously rejected any
+    // slot with even 1 existing booking, which was stricter than the rest
+    // of the app and caused the calendar to show slots as open that the
+    // reschedule endpoint would then reject).
     const existing = await Appointment.count({
       where: {
         date: newDate,
@@ -563,8 +568,8 @@ router.post('/appointments/:id/reschedule', authenticateToken, async (req, res) 
         status: ['pending', 'confirmed']
       }
     });
-    
-    if (existing > 0) return res.status(409).json({ message: 'El nuevo horario seleccionado ya no está disponible.' });
+
+    if (existing >= 2) return res.status(409).json({ message: 'El nuevo horario seleccionado ya no está disponible.' });
 
     // 3. Determine the new status based on user verification
     const isVerified = req.user.isVerified || false;

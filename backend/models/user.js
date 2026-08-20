@@ -10,6 +10,21 @@ module.exports = (sequelize, DataTypes) => {
         as: 'appointments',
       });
     }
+
+    // See Appointment.toJSON() for why this is needed: `underscored: true`
+    // does not camelCase the built-in timestamp attributes on output.
+    toJSON() {
+      const values = { ...this.get() };
+      if ('created_at' in values) {
+        values.createdAt = values.created_at;
+        delete values.created_at;
+      }
+      if ('updated_at' in values) {
+        values.updatedAt = values.updated_at;
+        delete values.updated_at;
+      }
+      return values;
+    }
   }
 
   User.init(
