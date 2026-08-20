@@ -533,3 +533,126 @@ footer {
     height: 34px;
   }
 }
+
+/* ── My Appointments / Reschedule / Settings — appointment status + cards ── */
+
+.status-badge {
+  border-radius: 999px;
+  padding: 0.35em 0.85em;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.status-badge.status-pending {
+  background: var(--color-warning);
+  color: var(--color-text);
+}
+
+.status-badge.status-confirmed {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.status-badge.status-completed {
+  background: var(--color-text-muted);
+  color: #fff;
+}
+
+.status-badge.status-cancelled {
+  background: #c0392b;
+  color: #fff;
+}
+
+.appointment-card {
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.appointment-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+}
+
+.appointment-date {
+  color: var(--color-text);
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.appointment-time {
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+  margin-top: 0.15rem;
+}
+
+.appointment-details {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.appointment-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.no-appointments {
+  text-align: center;
+  padding: 4rem 1rem;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  border: 2px dashed var(--color-border);
+}
+
+@media (max-width: 767px) {
+  .appointment-actions {
+    flex-direction: column;
+  }
+
+  .appointment-actions .btn {
+    width: 100%;
+  }
+}
+
+/* ── User Settings page ── */
+
+.settings-card {
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  background: var(--color-surface);
+}
+
+.settings-section {
+  border-bottom: 1px solid var(--color-border);
+  padding: 1.75rem 0;
+}
+
+.settings-section:first-child {
+  padding-top: 0;
+}
+
+.settings-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.settings-section h5 {
+  color: var(--color-primary-dark);
+  font-weight: 700;
+}
+
+@media (max-width: 767px) {
+  .settings-section {
+    padding: 1.25rem 0;
+  }
+}

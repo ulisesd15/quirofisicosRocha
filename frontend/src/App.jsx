@@ -8,13 +8,11 @@ import AuthSuccessPage from './pages/AuthSuccessPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 import BookAppointmentPage from './pages/BookAppointmentPage';
+import MyAppointmentsPage from './pages/MyAppointmentsPage';
+import ReschedulePage from './pages/ReschedulePage';
+import UserSettingsPage from './pages/UserSettingsPage';
 
-// Pages that still need to be migrated from the old frontendNew/public pages.
-// They are intentionally left out of the router for now — see the migration
-// roadmap — so this app only exposes routes that are fully implemented.
-// import MyAppointmentsPage from './pages/MyAppointmentsPage';
-// import ReschedulePage from './pages/ReschedulePage';
-// import UserSettingsPage from './pages/UserSettingsPage';
+// Admin panel migration is deferred — out of scope for now.
 
 export default function App() {
   return (
@@ -29,9 +27,9 @@ export default function App() {
         <Route path="/appointment" element={<BookAppointmentPage />} />
 
         <Route element={<ProtectedRoute />}>
-          {/* <Route path="/mis-citas" element={<MyAppointmentsPage />} /> */}
-          {/* <Route path="/reschedule/:id" element={<ReschedulePage />} /> */}
-          {/* <Route path="/user-settings" element={<UserSettingsPage />} /> */}
+          <Route path="/mis-citas" element={<MyAppointmentsPage />} />
+          <Route path="/reschedule/:id" element={<ReschedulePage />} />
+          <Route path="/user-settings" element={<UserSettingsPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />
