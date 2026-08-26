@@ -1,45 +1,27 @@
 {
-  "name": "quirofisicos-rocha",
   "private": true,
-  "version": "1.0.0",
-  "description": "Quirofísicos Rocha monorepo",
   "workspaces": [
     "frontend",
     "backend"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace backend",
-    "dev:frontend": "npm run dev --workspace frontendN",
-    "dev:backend": "npm run dev --workspace backend",
-    "build": "npm run build --workspace frontendN",
-    "start": "npm run start --workspace backend",
-    "lint": "npm run lint --workspace frontendN && npm run lint --workspace backend",
-    "test": "npm run test --workspace frontendN && npm run test --workspace backend",
-    "security-audit": "npm audit",
-    "db:migrate": "npm run db:migrate --workspace backend",
-    "db:migrate:undo": "npm run db:migrate:undo --workspace backend",
-    "db:seed": "npm run db:seed --workspace backend",
-    "db:reset": "npm run db:reset --workspace backend",
-    "setup-dev": "./setup-dev.sh",
-    "deploy": "./deploy-production.sh",
-    "prod": "npm run prod --workspace backend",
-    "stop": "npm run stop --workspace backend",
-    "restart": "npm run restart --workspace backend",
-    "logs": "npm run logs --workspace backend",
-    "monit": "npm run monit --workspace backend"
+    "start": "node server.js",
+    "dev:backend": "nodemon server.js",
+    "dev:frontend": "npm run dev --workspace @quirofisicos-rocha/frontend",
+    "build": "npm run build --workspace @quirofisicos-rocha/frontend",
+    "heroku-postbuild": "npm run build --workspace @quirofisicos-rocha/frontend"
   },
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
+  "dependencies": {
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "node-cron": "^4.0.0",
+    "passport": "^0.7.0"
   },
-  "keywords": [
-    "appointment",
-    "medical",
-    "react",
-    "vite",
-    "nodejs",
-    "mysql"
-  ],
-  "author": "Quirofísicos Rocha",
-  "license": "ISC"
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
 }
