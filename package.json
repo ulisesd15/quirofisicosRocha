@@ -1,45 +1,26 @@
 {
-  "name": "quirofisicos-rocha",
+  "name": "quirofisicosrocha",
   "private": true,
-  "version": "1.0.0",
-  "description": "Quirofísicos Rocha monorepo",
-  "workspaces": [
-    "frontend",
-    "backend"
-  ],
   "scripts": {
-    "dev": "npm run dev --workspace backend",
-    "dev:frontend": "npm run dev --workspace frontendN",
-    "dev:backend": "npm run dev --workspace backend",
-    "build": "npm run build --workspace frontendN",
-    "start": "npm run start --workspace backend",
-    "lint": "npm run lint --workspace frontendN && npm run lint --workspace backend",
-    "test": "npm run test --workspace frontendN && npm run test --workspace backend",
-    "security-audit": "npm audit",
-    "db:migrate": "npm run db:migrate --workspace backend",
-    "db:migrate:undo": "npm run db:migrate:undo --workspace backend",
-    "db:seed": "npm run db:seed --workspace backend",
-    "db:reset": "npm run db:reset --workspace backend",
-    "setup-dev": "./setup-dev.sh",
-    "deploy": "./deploy-production.sh",
-    "prod": "npm run prod --workspace backend",
-    "stop": "npm run stop --workspace backend",
-    "restart": "npm run restart --workspace backend",
-    "logs": "npm run logs --workspace backend",
-    "monit": "npm run monit --workspace backend"
+    "dev": "concurrently \"npm run dev --prefix frontend\" \"npm run dev --prefix backend\"",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "build": "npm run build --prefix frontend",
+    "preview": "npm run preview --prefix frontend",
+    "seed:menu": "npm run seed:menu --prefix backend",
+    "seed:users": "npm run seed:users --prefix backend",
+    "seed:all": "npm run seed:all --prefix backend"
   },
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   },
-  "keywords": [
-    "appointment",
-    "medical",
-    "react",
-    "vite",
-    "nodejs",
-    "mysql"
-  ],
-  "author": "Quirofísicos Rocha",
-  "license": "ISC"
+  "dependencies": {
+    "compression": "^1.8.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.6.2",
+    "helmet": "^8.3.0",
+    "passport": "^0.7.0"
+  }
 }
