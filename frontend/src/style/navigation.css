@@ -1,0 +1,231 @@
+:root {
+  --nav-bg: #143a6d;
+  --nav-bg-glass: rgba(20, 58, 109, 0.55);
+  --nav-shadow: 0 2px 12px rgba(33, 150, 243, 0.07);
+  --nav-link: #fff;
+  --nav-link-dark: #333;
+  --nav-link-hover: #64b5f6;
+  --nav-link-active: #1976d2;
+  --nav-sidebar-text: #3a2c1a;
+  --nav-sidebar-hover-bg: rgba(210, 180, 140, 0.13);
+  --nav-sidebar-hover-text: #1a1310;
+  --nav-sidebar-close: #bfae9c;
+  --nav-sidebar-close-hover: #a68c6d;
+  --nav-sidebar-shadow: 8px 0 32px 0 rgba(60, 60, 60, 0.13),
+    0 1.5px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* Main navbar */
+.main-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.custom-navbar {
+  background: var(--nav-bg) !important;
+  border-radius: 0 0 16px 16px;
+  box-shadow: var(--nav-shadow);
+  z-index: 1000;
+}
+
+/* Slide-in animation */
+.custom-navbar-slide {
+  transform: translateY(-100%);
+  opacity: 0;
+  transition:
+    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.custom-navbar-slide.visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.custom-navbar .navbar-brand,
+.custom-navbar .brand-title {
+  color: var(--nav-link) !important;
+}
+
+.custom-navbar .navbar-nav .main-nav-link {
+  color: var(--nav-link) !important;
+}
+
+/* ==================== Brand Logo & Title ==================== */
+.brand-logo {
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.12);
+  font-size: 2rem;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-title {
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--nav-link) !important;
+  font-size: 1.7rem;
+}
+
+/* ==================== Navigation Links ==================== */
+.main-nav-link {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--nav-link) !important;
+  transition: color 0.2s, background 0.2s;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+}
+
+.main-nav-link.active,
+.main-nav-link:hover {
+  color: var(--nav-link-hover) !important;
+  background: rgba(33, 150, 243, 0.07);
+}
+
+.navbar-nav .nav-item {
+  margin-left: 0.5rem;
+  margin-right: 0.5rem;
+}
+
+/* ==================== Dropdown Menu ==================== */
+.dropdown-menu {
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(33, 150, 243, 0.08);
+}
+
+.dropdown-item {
+  font-size: 1rem;
+}
+
+.dropdown-item:hover {
+  background: rgba(33, 150, 243, 0.07);
+  color: var(--nav-link-active);
+}
+
+/* ==================== Navbar Toggler (Hamburger) ==================== */
+.navbar-toggler {
+  border: none;
+  outline: none;
+  background: transparent;
+}
+
+.navbar-toggler:focus {
+  box-shadow: none;
+  outline: none;
+}
+
+.navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 1)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* ==================== Mobile Sidebar ==================== */
+.mobile-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 260px;
+  height: 100vh;
+  background: var(--nav-bg-glass);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  color: var(--nav-sidebar-text);
+  z-index: 1100;
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s, background 0.3s;
+  box-shadow: var(--nav-sidebar-shadow);
+  padding: 1.2rem 1rem 1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  border-top-right-radius: 28px;
+  border-bottom-right-radius: 28px;
+  border: 1.5px solid #e5ded7;
+}
+
+.mobile-sidebar.show {
+  transform: translateX(0);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 0.5rem 0 0;
+}
+
+.sidebar-nav li {
+  margin-bottom: 1.1rem;
+}
+
+.sidebar-nav a {
+  color: var(--nav-sidebar-text);
+  font-size: 1.08rem;
+  text-decoration: none;
+  padding: 0.48rem 0.9rem;
+  display: block;
+  border-radius: 10px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition: background 0.18s, color 0.18s;
+}
+
+.sidebar-nav a:hover {
+  background: var(--nav-sidebar-hover-bg);
+  color: var(--nav-sidebar-hover-text);
+}
+
+#closeSidebarBtn {
+  color: var(--nav-sidebar-close) !important;
+  background: none !important;
+  border: none !important;
+  font-size: 1.5rem;
+  transition: color 0.18s;
+}
+
+#closeSidebarBtn:hover {
+  color: var(--nav-sidebar-close-hover) !important;
+}
+
+/* ==================== Sidebar Overlay ==================== */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1099;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.sidebar-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ==================== Responsive Adjustments ==================== */
+@media (max-width: 991px) {
+  .custom-navbar .navbar-collapse {
+    background: var(--nav-bg);
+    border-radius: 0 0 16px 16px;
+    padding: 1rem;
+    margin-top: 0.5rem;
+  }
+
+  .custom-navbar .navbar-nav .main-nav-link {
+    color: var(--nav-link) !important;
+    display: block;
+    padding: 0.75rem 1rem;
+  }
+
+  .custom-navbar .navbar-nav .main-nav-link.active,
+  .custom-navbar .navbar-nav .main-nav-link:hover {
+    background: rgba(33, 150, 243, 0.15);
+  }
+}

@@ -1,29 +1,23 @@
-import { defineConfig } from 'vite';
+// frontend/vite.config.js
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-  root: 'frontend', // Serve from frontend/
+  plugins: [react({ jsxRuntime: "classic"})],
+
   server: {
     port: 5173,
     proxy: {
-      '/api': {
-        target: 'http://localhost:5001',
+      "/api": {
+        target: "http://localhost:5001",
         changeOrigin: true,
-        secure: false
-      }
-    }
+        secure: false,
+      },
+    },
   },
+
   build: {
-    rollupOptions: {
-      input: {
-        main: './frontend/index.html'
-      }
-    }
+    outDir: "dist",
+    emptyOutDir: true,
   },
-  css: {
-    preprocessorOptions: {
-      scss: {
-        additionalData: `@import "./frontend/style.css";`
-      }
-    }
-  }
 });

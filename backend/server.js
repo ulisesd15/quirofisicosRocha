@@ -9,20 +9,17 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const path = require('path');
 
-const { sequelize } = require('./backend/models');
-const apiRoutes = require('./backend/routes/apiRoutes');
-const authRoutes = require('./backend/routes/authRoutes');
-const adminRoutes = require('./backend/routes/adminRoutes');
+const { sequelize } = require('./models');
+const apiRoutes = require('./routes/apiRoutes');
+const authRoutes = require('./routes/authRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 5001;
 const isProduction = process.env.NODE_ENV === 'production';
 
 app.set('trust proxy', 1);
 
-// Load your Passport Google strategy here if that file exists and is required.
-// It must load after dotenv.config() and before passport.initialize().
-// require('./backend/config/passport');
 
 // --- Security ---
 app.use(
