@@ -1,6 +1,11 @@
 // frontend/src/pages/HomePage.jsx
 import React, { useEffect, useState } from "react";
 import "../style/style.css";
+const defaultAddress =
+    "Plaza Johnson, Av. Josefa Ortiz de Domínguez 1993, Independencia, 22055 Tijuana, B.C., México";
+
+  const STATIC_FALLBACK_URL =
+    "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3366.2155419434!2d-117.04064468536147!3d32.51311678103924!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x80d948771984693b%3A0x8b8b8b8b8b8b8b8b!2sAv.%20Josefa%20Ortiz%20de%20Dom%C3%ADnguez%201993%2C%20Independencia%2C%2022055%20Tijuana%2C%20B.C.%2C%20Mexico!5e0!3m2!1ses-419!2sus!4v1691234567890!5m2!1ses-419!2sus";
 
 export default function HomePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -473,14 +478,57 @@ function ServiceCard({ icon, title, text }) {
   );
 }
 
+
 function LocationSection({ businessHours, clinicSettings }) {
-  const address =
-    clinicSettings?.clinic_address ||
-    "Plaza Johnson, Av. Josefa Ortiz de Domínguez 1993, Independencia, 22055 Tijuana, B.C., México";
+ 
+
+  const address = clinicSettings?.clinic_address || defaultAddress;
   const phone = clinicSettings?.clinic_phone || "664-123-4567";
 
-  const mapsSrc =
-    "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3366.2!2d-117.04!3d32.513!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x80d948af9b3f9b3f%3A0x123456789abcdef0!2sPlaza%20Johnson%2C%20Tijuana%2C%20Mexico!5e0!3m2!1sen!2sus!4v1642089600000!5m2!1sen!2sus";
+  const [mapsSrc, setMapsSrc] = useState("");
+  const [fallbackMode, setFallbackMode] = useState(false);
+
+  // Static fallback URL copied from Google Maps "Embed map" for the exact clinic location
+  
+  useEffect(() => {
+    let cancelled = false;
+
+    async function initMap() {
+      try {
+        // Try to get API key from backend
+        const res = await fetch("/api/config/maps-key");
+        if (!res.ok) throw new Error("No maps key");
+        const data = await res.json();
+        const apiKey = data.apiKey;
+
+        if (!apiKey) throw new Error("Missing key");
+
+        // Build Maps Embed API URL (place search)
+        const embedUrl =
+          "https://www.google.com/maps/embed/v1/place" +
+          `?key=${encodeURIComponent(apiKey)}` +
+          `&q=${encodeURIComponent(address)}` +
+          "&zoom=15";
+
+        if (!cancelled) {
+          setMapsSrc(embedUrl);
+          setFallbackMode(false);
+        }
+      } catch (err) {
+        console.warn("Maps: using static fallback embed:", err);
+        if (!cancelled) {
+          setMapsSrc(STATIC_FALLBACK_URL);
+          setFallbackMode(true);
+          setMapsSrc(MAPS_FALLBACK_URL);
+        }
+      }
+    }
+
+    initMap();
+    return () => {
+      cancelled = true;
+    };
+  }, [address, STATIC_FALLBACK_URL]);
 
   return (
     <section id="contacto-section" className="location-section">
@@ -496,24 +544,36 @@ function LocationSection({ businessHours, clinicSettings }) {
         <div className="row align-items-center">
           <div className="col-lg-8">
             <div className="map-container">
-              <div className="ratio ratio-16x9">
-                <div id="map-container">
+              <div
+                id="map-container"
+                className="ratio ratio-16x9 map-frame"
+              >
+                {mapsSrc ? (
                   <iframe
                     id="google-map"
                     src={mapsSrc}
-                    width="100%"
-                    height="100%"
-                    style={{ border: 0 }}
-                    allowFullScreen=""
+                    title="Ubicación de Quirofísicos Rocha"
+                    allowFullScreen
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
-                    title="Google Map"
                   />
-                </div>
+                ) : (
+                  <div className="map-loading" role="status">
+                    <i className="fas fa-spinner fa-spin me-2" />
+                    Cargando mapa...
+                  </div>
+                )}
+
+                {fallbackMode && (
+                  <div className="map-fallback-indicator">
+                    
+                  </div>
+                )}
               </div>
             </div>
           </div>
           <div className="col-lg-4">
+            {/* Contact card unchanged */}
             <div className="ps-lg-4">
               <div className="card border-0 shadow-lg">
                 <div className="card-body p-4">
@@ -522,7 +582,7 @@ function LocationSection({ businessHours, clinicSettings }) {
                       className="fas fa-map-marker-alt medical-icon"
                       id="contacto"
                     />
-                    Información de Contacto
+                    Información
                   </h4>
                   <div className="mb-3">
                     <h6>
@@ -549,21 +609,8 @@ function LocationSection({ businessHours, clinicSettings }) {
                       Horarios:
                     </h6>
                     <div id="business-hours-info">
-                      <BusinessHoursInfo
-                        businessHours={businessHours}
-                      />
+                      <BusinessHoursInfo businessHours={businessHours} />
                     </div>
-                  </div>
-                  <div className="d-grid">
-                    <a
-                      href="https://www.google.com/maps/dir//Plaza+Johnson,+Av.+Josefa+Ortiz+de+Dom%C3%ADnguez+1993,+Independencia,+22055+Tijuana,+B.C.,+Mexico"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-success"
-                    >
-                      <i className="fas fa-directions me-2" />
-                      Cómo llegar
-                    </a>
                   </div>
                 </div>
               </div>

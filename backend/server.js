@@ -3,6 +3,8 @@ require('dotenv').config();
 
 const express = require('express');
 const passport = require('passport');
+require('./config/passport');
+
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
