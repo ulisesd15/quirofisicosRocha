@@ -53,22 +53,18 @@ router.get('/google', (req, res, next) => {
  */
 router.get('/google/callback',
   (req, res, next) => {
-    console.log('🔄 Google OAuth callback received');
-    console.log('Query params:', req.query);
-    passport.authenticate('google', { 
-      session: false, 
-      failureRedirect: '/login.html?error=oauthFailed' 
+    passport.authenticate('google', {
+      session: false,
+      failureRedirect: '/login?error=oauthFailed'
     })(req, res, next);
   },
   (req, res) => {
-    console.log('✅ Google OAuth success, generating token');
-    const { token } = req.user; // token is generated in passport.js
-    res.redirect(`/authSuccess.html?token=${token}`);
+    const { token } = req.user; // set by GoogleStrategy in passport config[file:1]
+    res.redirect(`/auth/success?token=${token}`);
   },
-  // Error handler
   (err, req, res, next) => {
     console.error('❌ Google OAuth error:', err);
-    res.redirect('/login.html?error=oauthFailed');
+    res.redirect('/login?error=oauthFailed');
   }
 );
 

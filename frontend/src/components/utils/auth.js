@@ -3,7 +3,7 @@ class AuthManager {
   constructor() {
     this.token = localStorage.getItem('user_token') || localStorage.getItem('token');
     this.userId = localStorage.getItem('user_id');
-    this.userName = localStorage.getItem('user_name');
+    this.userName = localStorage.getItem('userName');
     this.userRole = localStorage.getItem('user_role');
     console.debug('[AuthManager] initialized', { tokenPresent: !!this.token, userId: this.userId, userName: this.userName });
   }
@@ -26,7 +26,7 @@ class AuthManager {
   login(token, user) {
     this.token = token;
     this.userId = user.id;
-    this.userName = user.full_name;
+    this.userName = user.fullName;
     this.userRole = user.role;
     
     localStorage.setItem('user_token', token);
@@ -42,12 +42,14 @@ class AuthManager {
      * - On page load, auto-validates the token if the user appears to be logged in.
      */
 
-    localStorage.setItem('user_name', user.full_name);
+    localStorage.setItem('userName', user.fullName);
     localStorage.setItem('user_email', user.email);
       /**
        * Loads token and user info from localStorage.
        */
+    if (user.phone) {
     localStorage.setItem('user_phone', user.phone);
+  }
     localStorage.setItem('user_role', user.role || 'user');
   }
 
@@ -67,7 +69,7 @@ class AuthManager {
     localStorage.removeItem('user_token');
     localStorage.removeItem('token');
     localStorage.removeItem('user_id');
-    localStorage.removeItem('user_name');
+    localStorage.removeItem('userName');
     localStorage.removeItem('user_email');
     localStorage.removeItem('user_phone');
     localStorage.removeItem('user_role');
@@ -109,11 +111,11 @@ class AuthManager {
   // Get current user object
   getCurrentUser() {
     if (!this.isLoggedIn()) return null;
-    // Return fields expected across the codebase. Some parts expect `full_name`.
+    // Return fields expected across the codebase. Some parts expect `fullName`.
     return {
       id: this.userId,
-      full_name: this.userName || localStorage.getItem('user_name'),
-      name: this.userName || localStorage.getItem('user_name'),
+      fullName: this.userName || localStorage.getItem('userName'),
+      name: this.userName || localStorage.getItem('userName'),
       email: localStorage.getItem('user_email'),
       phone: localStorage.getItem('user_phone'),
       role: this.userRole || localStorage.getItem('user_role'),
@@ -147,8 +149,8 @@ class AuthManager {
        */
         const user = await response.json();
         // Update user info in case it changed
-        this.userName = user.full_name;
-        localStorage.setItem('user_name', user.full_name);
+        this.userName = user.fullName;
+        localStorage.setItem('userName', user.fullName);
         localStorage.setItem('user_email', user.email);
         localStorage.setItem('user_phone', user.phone);
         return true;
