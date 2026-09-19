@@ -1,8 +1,30 @@
-/* Enhanced Monthly Calendar Styles */
+/* =========================
+   Time Slot Card + Buttons
+   ========================= */
 
-/* Time Slot Buttons for Monthly View */
+/* Card container for each time slot */
+.time-slot-card {
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  padding: 1.2rem 0.5rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: box-shadow 0.2s, transform 0.2s;
+  width: 100%;
+  min-height: 60px;
+}
+
+.time-slot-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  transform: translateY(-2px) scale(1.03);
+}
+
+/* Unified Time Slot Button styles */
 .time-slot-btn {
-  border-radius: 8px;
+  border-radius: 2rem;              /* pill-shaped buttons */
   transition: all 0.2s ease;
   font-size: 0.9rem;
   padding: 10px 12px;
@@ -28,44 +50,50 @@
   box-shadow: 0 6px 12px rgba(13, 110, 253, 0.3);
 }
 
-/* Time Cards Container - Responsive Grid */
+/* Container/grid tweaks for time cards */
 #timeCards {
   gap: 8px;
 }
 
-#timeCards .col-6 {
-  padding: 0 4px;
-}
-
-#timeCards .col-md-4 {
-  padding: 0 4px;
-}
-
+#timeCards .col-6,
+#timeCards .col-md-4,
 #timeCards .col-lg-3 {
   padding: 0 4px;
 }
 
-/* Mobile Optimizations for Time Slots */
+/* Mobile & responsive tweaks for slots */
 @media (max-width: 768px) {
+  .time-slot-card {
+    padding: 0.7rem 0.2rem;
+    min-height: 40px;
+  }
+
   .time-slot-btn {
     font-size: 0.85rem;
     padding: 8px 10px;
     min-height: 40px;
   }
-  
+
   #timeCards .col-6 {
     flex: 0 0 calc(50% - 8px);
     max-width: calc(50% - 8px);
   }
 }
 
-@media (max-width: 576px) {
+@media (max-width: 600px) {
+  .time-slot-card {
+    padding: 0.7rem 0.2rem;
+    min-height: 40px;
+  }
+
   .time-slot-btn {
     font-size: 0.8rem;
     padding: 6px 8px;
     min-height: 36px;
   }
-  
+}
+
+@media (max-width: 576px) {
   #timeCards .col-6 {
     flex: 0 0 calc(50% - 6px);
     max-width: calc(50% - 6px);
@@ -79,7 +107,7 @@
     min-height: 48px;
     font-size: 1rem;
   }
-  
+
   #timeCards .col-lg-3 {
     flex: 0 0 calc(25% - 8px);
     max-width: calc(25% - 8px);
@@ -94,7 +122,10 @@
   }
 }
 
-/* Calendar Container */
+/* =========================
+   Calendar Container & Grid
+   ========================= */
+
 .calendar-container {
   background: white;
   border-radius: 12px;
@@ -285,22 +316,22 @@
   cursor: not-allowed;
 }
 
-/* Mobile Responsiveness */
+/* Mobile Responsiveness for calendar */
 @media (max-width: 768px) {
   .calendar-container {
     padding: 15px;
     margin: 10px;
   }
-  
+
   .calendar-month-year {
     font-size: 1.25rem;
   }
-  
+
   .calendar-day {
     min-height: 40px;
     font-size: 0.875rem;
   }
-  
+
   .calendar-day-header {
     font-size: 0.75rem;
     padding: 8px 2px;
@@ -312,7 +343,7 @@
     min-height: 36px;
     font-size: 0.8rem;
   }
-  
+
   .calendar-nav-btn {
     width: 36px;
     height: 36px;

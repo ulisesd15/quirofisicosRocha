@@ -5,11 +5,12 @@
     "backend"
   ],
   "scripts": {
-    "start": "node server.js",
-    "dev:backend": "nodemon server.js",
-    "dev:frontend": "npm run dev --workspace @quirofisicos-rocha/frontend",
-    "build": "npm run build --workspace @quirofisicos-rocha/frontend",
-    "heroku-postbuild": "npm run build --workspace @quirofisicos-rocha/frontend"
+  "start": "npm run start --workspace @quirofisicos-rocha/backend",
+  "dev:backend": "npm run dev --workspace @quirofisicos-rocha/backend",
+  "dev:frontend": "npm run dev --workspace @quirofisicos-rocha/frontend",
+  "build": "npm run build --workspace @quirofisicos-rocha/frontend",
+  "preview": "npm run preview --workspace @quirofisicos-rocha/frontend",
+  "heroku-postbuild": "npm run build --workspace @quirofisicos-rocha/frontend"
   },
   "dependencies": {
     "compression": "^1.7.4",

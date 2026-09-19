@@ -1,54 +1,76 @@
 // frontend/src/pages/AppointmentPage.jsx
 import React, { useState, useEffect } from 'react';
 import MonthlyCalendar from '../calendar/MonthlyCalendar';
-// (Optionally) import WeeklyCalendar when you port it
-// import WeeklyCalendar from '../components/calendar/WeeklyCalendar';
+import WeeklyCalendar from '../calendar/WeeklyCalendar';
+import TimeSlots from '../calendar/TimeSlots';
 import { useCalendar } from '../../../hooks/useCalendar';
-// import { useAuth } from '../hooks/useAuth'; // placeholder for your React auth
+import { useAuth } from '../../../hooks/useAuth';
+
 
 function AppointmentPage() {
+  // Calendar state (date only; slots handled by TimeSlots/useCalendar)
   const {
     selectedDate,
     selectDate,
-    // other values from useCalendar if you need them here
   } = useCalendar();
 
-  const [view, setView] = useState('week'); // 'week' or 'month'
+  // View: 'week' or 'month'
+  const [view, setView] = useState('week');
+
+  // Selected time (24h string, e.g. "14:30")
   const [selectedTime, setSelectedTime] = useState('');
+
+  // Optional note
   const [note, setNote] = useState('');
 
+  // Guest fields
   const [guestFieldsVisible, setGuestFieldsVisible] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
 
+  // UX state
   const [submitting, setSubmitting] = useState(false);
   const [notification, setNotification] = useState(null);
 
-  // Replace this with your actual auth hook / context
-  const isLoggedIn = false; // e.g. const { isLoggedIn, user } = useAuth();
-  const user = null;
+  // Auth (mirrors AuthManager usage from legacy JS)
+  const { isLoggedIn, user } = useAuth() || { isLoggedIn: false, user: null };
 
+  // Show/hide guest fields based on auth
   useEffect(() => {
-    // Same idea as AuthManager logic from appointment.js
     setGuestFieldsVisible(!isLoggedIn);
   }, [isLoggedIn]);
 
+  // Auto-dismiss notifications after 5 seconds (similar to showNotification)
+  useEffect(() => {
+    if (!notification) return;
+    const timer = setTimeout(() => {
+      setNotification(null);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [notification]);
+
   const handleSelectDate = (date) => {
     selectDate(date);
-    setSelectedTime(''); // reset time when date changes
+    // Reset time and any time-slot selection when date changes
+    setSelectedTime('');
   };
 
   const handleSelectTime = (time24) => {
     setSelectedTime(time24);
   };
 
-  const canSubmit = selectedDate && selectedTime;
+  // Basic submit guard: need date and time
+  const canSubmit = Boolean(selectedDate && selectedTime);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!canSubmit) {
-      setNotification({ type: 'danger', message: 'Por favor, selecciona una fecha y hora.' });
+      setNotification({
+        type: 'danger',
+        message: 'Por favor, selecciona una fecha y hora.',
+      });
       return;
     }
 
@@ -56,6 +78,7 @@ function AppointmentPage() {
     setNotification(null);
 
     const dateStr = selectedDate.toISOString().slice(0, 10);
+
     const appointmentData = {
       date: dateStr,
       time: selectedTime,
@@ -86,15 +109,21 @@ function AppointmentPage() {
         throw new Error(result.message || 'No se pudo agendar la cita.');
       }
 
-      setNotification({ type: 'success', message: '¡Cita agendada exitosamente! Serás redirigido.' });
+      setNotification({
+        type: 'success',
+        message: '¡Cita agendada exitosamente! Serás redirigido.',
+      });
 
+      // Redirect similar to legacy: logged-in -> mis-citas, guest -> inicio
       setTimeout(() => {
-        // Mimic legacy redirect logic
         window.location.href = isLoggedIn ? '/mis-citas' : '/';
       }, 2500);
     } catch (err) {
       console.error('Error booking appointment', err);
-      setNotification({ type: 'danger', message: err.message });
+      setNotification({
+        type: 'danger',
+        message: err.message,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -103,25 +132,57 @@ function AppointmentPage() {
   return (
     <section className="services-section">
       <div className="container">
-        {/* ... hero header, same texts as HTML ... */}
+        {/* Hero header (ported from appointment.html) */}
+        <div className="text-center mb-5">
+          <p className="section-subtitle">Reserva tu cita</p>
+          <h2>Agendar Consulta Quiropráctica</h2>
+          <p className="lead">Programa tu cita de manera fácil y rápida</p>
+        </div>
 
         <div className="row justify-content-center">
           <div className="col-lg-8">
+            {/* Notification container */}
             {notification && (
-              <div className={`alert alert-${notification.type} alert-dismissible fade show`} role="alert">
+              <div
+                className={`alert alert-${notification.type} alert-dismissible fade show mb-4`}
+                role="alert"
+              >
                 {notification.message}
-                {/* You can add a close button here if you want */}
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label="Close"
+                  onClick={() => setNotification(null)}
+                />
               </div>
             )}
 
             <div className="card border-0 shadow-lg">
               <div className="card-body p-5">
+                <div className="text-center mb-4">
+                  <h3 className="text-primary mb-2">
+                    <i className="fas fa-calendar-plus me-2" />
+                    Nueva Cita
+                  </h3>
+                  <p className="text-muted">
+                    Completa el formulario para agendar tu consulta
+                  </p>
+                  <div className="alert alert-info d-flex align-items-center mb-3">
+                    <i className="fas fa-info-circle me-2" />
+                    <small>
+                      <strong>Nota:</strong> Las citas deben agendarse con al
+                      menos 30 minutos de anticipación.
+                    </small>
+                  </div>
+                </div>
+
                 <form onSubmit={handleSubmit}>
-                  {/* Guest fields (controlled instead of DOM show/hide) */}
+                  {/* Guest fields (only when not logged in) */}
                   {guestFieldsVisible && (
                     <div className="mb-4">
                       <h5 className="mb-3">
-                        <i className="fas fa-user me-2" />Información Personal
+                        <i className="fas fa-user me-2" />
+                        Información Personal
                       </h5>
                       <div className="row">
                         <div className="col-md-6 mb-3">
@@ -130,7 +191,8 @@ function AppointmentPage() {
                             className="form-control"
                             value={guestName}
                             onChange={(e) => setGuestName(e.target.value)}
-                            required
+                            placeholder="Tu nombre completo"
+                            required={guestFieldsVisible}
                           />
                         </div>
                         <div className="col-md-6 mb-3">
@@ -139,7 +201,8 @@ function AppointmentPage() {
                             className="form-control"
                             value={guestPhone}
                             onChange={(e) => setGuestPhone(e.target.value)}
-                            required
+                            placeholder="664-123-4567"
+                            required={guestFieldsVisible}
                           />
                         </div>
                       </div>
@@ -150,31 +213,44 @@ function AppointmentPage() {
                           type="email"
                           value={guestEmail}
                           onChange={(e) => setGuestEmail(e.target.value)}
-                          required
+                          placeholder="tu@email.com"
+                          required={guestFieldsVisible}
                         />
                       </div>
                     </div>
                   )}
 
-                  {/* View toggle buttons */}
+                  {/* Date selection with view toggle */}
                   <div className="mb-4">
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <h5 className="mb-0">
-                        <i className="fas fa-calendar me-2" />Selecciona la Fecha
+                        <i className="fas fa-calendar me-2" />
+                        Selecciona la Fecha
                       </h5>
                       <div className="btn-group btn-group-sm" role="group">
                         <button
                           type="button"
-                          className={`btn btn-outline-secondary ${view === 'week' ? 'active' : ''}`}
-                          onClick={() => setView('week')}
+                          className={`btn btn-outline-secondary ${
+                            view === 'week' ? 'active' : ''
+                          }`}
+                          onClick={() => {
+                            setView('week');
+                            // Reset time when switching views
+                            setSelectedTime('');
+                          }}
                         >
                           <i className="fas fa-list me-1" />
                           Week
                         </button>
                         <button
                           type="button"
-                          className={`btn btn-outline-secondary ${view === 'month' ? 'active' : ''}`}
-                          onClick={() => setView('month')}
+                          className={`btn btn-outline-secondary ${
+                            view === 'month' ? 'active' : ''
+                          }`}
+                          onClick={() => {
+                            setView('month');
+                            setSelectedTime('');
+                          }}
                         >
                           <i className="fas fa-calendar-alt me-1" />
                           Month
@@ -182,19 +258,18 @@ function AppointmentPage() {
                       </div>
                     </div>
 
-                    {/* Calendar containers */}
+                    {/* Weekly view (React port of weeklyCalendar div) */}
                     {view === 'week' && (
                       <div id="weekViewContainer">
-                        {/* WeeklyCalendar will go here once you port it */}
-                        {/* <WeeklyCalendar
+                        <WeeklyCalendar
                           selectedDate={selectedDate}
                           onSelectDate={handleSelectDate}
                           onSelectTime={handleSelectTime}
-                        /> */}
-                        <p>Weekly calendar coming soon…</p>
+                        />
                       </div>
                     )}
 
+                    {/* Monthly view (React port of monthlyCalendar div) */}
                     {view === 'month' && (
                       <div id="monthViewContainer">
                         <MonthlyCalendar
@@ -205,21 +280,17 @@ function AppointmentPage() {
                     )}
                   </div>
 
-                  {/* Time slots (port of renderTimeSlots) */}
+                  {/* Time slots (React port of #timeCards + hidden input) */}
                   <div className="mb-4">
                     <h5 className="mb-3">
                       <i className="fas fa-clock me-2" />
                       Horario Disponible
                     </h5>
-                    {/* You’ll create a TimeSlots component that calls
-                        useCalendar.fetchAvailableSlots(date) and shows buttons.
-                        For now, this is just a placeholder. */}
-                    {/* <TimeSlots
+                    <TimeSlots
                       date={selectedDate}
                       selectedTime={selectedTime}
                       onSelectTime={handleSelectTime}
-                    /> */}
-                    <p>Time slots component coming soon…</p>
+                    />
                   </div>
 
                   {/* Notes */}
@@ -233,10 +304,11 @@ function AppointmentPage() {
                       rows={3}
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
-                      placeholder="Describe brevemente el motivo de tu consulta..."
+                      placeholder="Describe brevemente el motivo de tu consulta o cualquier información relevante..."
                     />
                   </div>
 
+                  {/* Submit */}
                   <button
                     className="btn btn-primary w-100"
                     type="submit"
@@ -255,6 +327,16 @@ function AppointmentPage() {
                     )}
                   </button>
                 </form>
+
+                {/* Navigation link back home */}
+                <div className="text-center mt-4">
+                  <p className="mb-0">
+                    <a href="/index.html" className="text-decoration-none">
+                      <i className="fas fa-home me-1" />
+                      Volver al inicio
+                    </a>
+                  </p>
+                </div>
               </div>
             </div>
           </div>

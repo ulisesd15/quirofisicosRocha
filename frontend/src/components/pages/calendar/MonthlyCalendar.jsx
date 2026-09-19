@@ -1,6 +1,7 @@
 // frontend/src/components/calendar/MonthlyCalendar.jsx
 import React from 'react';
 import { useCalendar } from '../../../hooks/useCalendar';
+import "../../../style/calendar.css"
 
 function MonthlyCalendar({ onSelectDate, selectedDate }) {
   const {
