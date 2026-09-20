@@ -21,7 +21,7 @@ export default function Navbar() {
     if (path.includes("/register")) return "register";
     if (path.includes("/appointment")) return "appointment";
     if (path.includes("/mis-citas")) return "my-appointments";
-    if (path.includes("/user-settings")) return "settings";
+    if (path.includes("/userSettings")) return "settings";
     if (path.includes("/admin")) return "admin";
     return "other";
   })();
@@ -161,7 +161,7 @@ export default function Navbar() {
               <li className="nav-item">
                 <Link 
                   className={`nav-link main-nav-link px-3 py-2 rounded-pill ${currentPage === "appointment" ? "active" : ""}`} 
-                  to="/appointment"
+                  to="/appointments/new"
                   onClick={closeMobileMenu}
                 >
                   <i className="fas fa-calendar-plus me-2 text-success" />
@@ -240,7 +240,7 @@ export default function Navbar() {
                         </Link>
                       </li>
                       <li>
-                        <Link className="dropdown-item rounded py-2 px-3 d-flex align-items-center gap-2" to="/user-settings" onClick={closeMobileMenu}>
+                        <Link className="dropdown-item rounded py-2 px-3 d-flex align-items-center gap-2" to="/userSettings" onClick={closeMobileMenu}>
                           <i className="fas fa-user-cog text-secondary" />
                           <span>Configuración de Cuenta</span>
                         </Link>
@@ -265,13 +265,13 @@ export default function Navbar() {
 
                         <ul className={`dropdown-sub-menu shadow-sm p-2 border-0 bg-light rounded ${subDropdownOpen ? 'd-block' : 'd-none'}`}>
                           <li>
-                            <Link className="dropdown-item rounded py-1 px-3 small d-flex align-items-center gap-2" to="/user-settings/medical-history" onClick={closeMobileMenu}>
+                            <Link className="dropdown-item rounded py-1 px-3 small d-flex align-items-center gap-2" to="/userSettings#medical-history" onClick={closeMobileMenu}>
                               <i className="fas fa-file-medical text-danger" />
                               <span>Historial Médico</span>
                             </Link>
                           </li>
                           <li>
-                            <Link className="dropdown-item rounded py-1 px-3 small d-flex align-items-center gap-2" to="/user-settings/notifications" onClick={closeMobileMenu}>
+                            <Link className="dropdown-item rounded py-1 px-3 small d-flex align-items-center gap-2" to="/userSettings#notifications" onClick={closeMobileMenu}>
                               <i className="fas fa-bell text-warning" />
                               <span>Notificaciones & Alertas</span>
                             </Link>

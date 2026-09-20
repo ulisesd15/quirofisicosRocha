@@ -6,6 +6,10 @@ import { BrowserRouter } from "react-router-dom";
 
 import App from "./App";
 
+// Registers window.authManager so login/register pages, the navbar,
+// and API helpers share one auth source of truth.
+import "./components/utils/auth";
+
 
 const rootElement = document.getElementById("root");
 

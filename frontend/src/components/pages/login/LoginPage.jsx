@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import "../../../style/style.css";      
 import "../../../style/navigation.css"; 
 
@@ -7,6 +7,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [form, setForm] = useState({
     email: "",
@@ -14,12 +15,41 @@ export default function LoginPage() {
   });
   const [message, setMessage] = useState("");
 
+  // Surface OAuth failures that redirect back here (e.g. ?error=oauthFailed)
   useEffect(() => {
-    const token =
-      localStorage.getItem("token") || localStorage.getItem("userToken");
-    if (token) {
-      navigate("/appointments/new", { replace: true });
+    if (searchParams.get("error")) {
+      setMessage("No se pudo iniciar sesión con Google. Inténtalo de nuevo.");
     }
+  }, [searchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkSession = async () => {
+      const token =
+        localStorage.getItem("token") || localStorage.getItem("userToken");
+
+      if (!token) return;
+
+      // Validate the token before bouncing the user away from the
+      // login page; an expired token should let them log in again.
+      if (window.authManager) {
+        const isValid = await window.authManager.validateToken();
+        if (cancelled) return;
+        if (isValid) {
+          navigate("/appointments/new", { replace: true });
+        }
+        return;
+      }
+
+      navigate("/appointments/new", { replace: true });
+    };
+
+    checkSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
 
   const handleChange = (e) => {
@@ -60,6 +90,9 @@ export default function LoginPage() {
           localStorage.setItem("userEmail", data.user.email);
           localStorage.setItem("userPhone", data.user.phone);
           localStorage.setItem("userRole", data.user.role || "user");
+
+          // Keep the navbar in sync even without authManager
+          window.dispatchEvent(new Event("authChange"));
         }
 
         if (data.user.role === "admin") {
@@ -68,7 +101,8 @@ export default function LoginPage() {
           navigate("/appointments/new");
         }
       } else {
-        setMessage(data.error || "Error al iniciar sesión");
+        // Backend auth routes return { success, message }
+        setMessage(data.message || data.error || "Error al iniciar sesión");
       }
     } catch (error) {
       console.error("Login error:", error);

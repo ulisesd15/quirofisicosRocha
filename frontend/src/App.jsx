@@ -13,6 +13,7 @@ import AppointmentPage from "./components/pages/appointment/AppointmentPage.jsx"
 import AuthSuccessPage from "./components/pages/login/AuthSuccessPage.jsx";
 import NotFoundPage from "./components/pages/err/NotFoundPage.jsx";
 import ReschedulePage from "./components/pages/appointment/ReschedulePage.jsx";
+import AdminPage from "./components/pages/admin/AdminPage.jsx";
 
 export default function App() {
   return (
@@ -35,6 +36,10 @@ export default function App() {
 
         {/* User settings */}
         <Route path="userSettings" element={<UserSettingsPage />} />
+
+        {/* Admin (placeholder until admin modules are migrated) */}
+        <Route path="admin" element={<AdminPage />} />
+        <Route path="admin/*" element={<AdminPage />} />
 
         {/* Future user pages */}
         {/* 

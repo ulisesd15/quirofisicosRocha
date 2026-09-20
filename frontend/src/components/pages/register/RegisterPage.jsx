@@ -107,6 +107,9 @@ export default function RegisterPage() {
           localStorage.setItem("userEmail", result.user.email);
           localStorage.setItem("userPhone", result.user.phone);
           localStorage.setItem("userRole", result.user.role || "user");
+
+          // Keep the navbar in sync even without authManager
+          window.dispatchEvent(new Event("authChange"));
         }
 
         setMessageType("success");
@@ -116,7 +119,8 @@ export default function RegisterPage() {
           navigate("/appointments/new");
         }, 1500);
       } else {
-        setMessage(result.error || "No se pudo registrar");
+        // Backend auth routes return { success, message }
+        setMessage(result.message || result.error || "No se pudo registrar");
       }
     } catch (error) {
       console.error("Error al registrar:", error);
@@ -209,7 +213,7 @@ export default function RegisterPage() {
                         name="password"
                         id="password"
                         type="password"
-                        placeholder="Mínimo 6 caracteres"
+                        placeholder="Mín. 6 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 especial"
                         value={form.password}
                         onChange={handleChange}
                         required

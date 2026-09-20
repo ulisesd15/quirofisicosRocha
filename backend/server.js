@@ -127,7 +127,9 @@ app.use('/api', (req, res) => {
 
 // --- Serve the Vite React build in production ---
 if (isProduction) {
-  const dist = path.join(__dirname, 'frontend', 'dist');
+  // The repo is a monorepo: the built frontend lives at <root>/frontend/dist,
+  // one level above backend/, so resolve from __dirname/..
+  const dist = path.join(__dirname, "..", "frontend", "dist");
 
   app.use(express.static(dist));
 

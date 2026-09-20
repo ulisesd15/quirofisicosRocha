@@ -87,7 +87,7 @@ router.get('/google/callback',(req, res, next) => {
       }
 
       return res.redirect(
-        `${FRONTEND_URL}/auth-success?token=${encodeURIComponent(token)}`
+        `${FRONTEND_URL}/auth/success?token=${encodeURIComponent(token)}`
       );
     } catch (error) {
       console.error('Error completing Google OAuth callback:', error);
