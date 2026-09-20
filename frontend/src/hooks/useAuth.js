@@ -1,76 +1,108 @@
-// frontend/src/hooks/useAuth.js
 import { useState, useEffect, useCallback } from 'react';
 
 export function useAuth() {
-  const [user, setUser] = useState(null);      // { id, fullName, email, phone, ... } or null
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Fetch current user/session on mount
-  useEffect(() => {
-    let isMounted = true;
-
-    async function fetchMe() {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Adjust this URL to match your backend (e.g. /api/me, /api/auth/me, etc.)
-        const res = await fetch('/api/auth/me', {
-          credentials: 'include',
-        });
-
-        if (!res.ok) {
-          // Not logged in or error
-          if (!isMounted) return;
-          setUser(null);
-          setLoading(false);
-          return;
-        }
-
-        const data = await res.json();
-        if (!isMounted) return;
-
-        // Expect something like { id, fullName, email, phone, ... }
-        setUser(data || null);
-        setLoading(false);
-      } catch (err) {
-        console.error('useAuth: error fetching current user', err);
-        if (!isMounted) return;
-        setUser(null);
-        setError(err);
-        setLoading(false);
+  const [authState, setAuthState] = useState(() => {
+    const token = localStorage.getItem('token') || localStorage.getItem('userToken');
+    let user = null;
+    
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        user = JSON.parse(storedUser);
       }
+    } catch (error) {
+      console.error("Error parsing stored user:", error);
     }
 
-    fetchMe();
+    // Fallback user builder if complete user object is missing
+    if (!user && token) {
+      user = {
+        id: localStorage.getItem('userId'),
+        fullName: localStorage.getItem('userName'),
+        email: localStorage.getItem('userEmail'),
+        phone: localStorage.getItem('userPhone'),
+        role: localStorage.getItem('userRole') || 'user',
+      };
+    }
+
+    const isLoggedIn = Boolean(token);
+    const isAdmin = localStorage.getItem('userRole') === 'admin' || user?.role === 'admin';
+
+    return {
+      isLoggedIn,
+      user: isLoggedIn ? user : null,
+      isAdmin,
+      loading: false,
+    };
+  });
+
+  // Sync state when login/logout events occur in the same or other tabs
+  useEffect(() => {
+    const syncAuthState = () => {
+      const token = localStorage.getItem('token') || localStorage.getItem('userToken');
+      let currentUser = null;
+
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          currentUser = JSON.parse(storedUser);
+        }
+      } catch (error) {
+        console.error("Error parsing stored user:", error);
+      }
+
+      if (!currentUser && token) {
+        currentUser = {
+          id: localStorage.getItem('userId'),
+          fullName: localStorage.getItem('userName'),
+          email: localStorage.getItem('userEmail'),
+          phone: localStorage.getItem('userPhone'),
+          role: localStorage.getItem('userRole') || 'user',
+        };
+      }
+
+      const loggedIn = Boolean(token);
+      const admin = localStorage.getItem('userRole') === 'admin' || currentUser?.role === 'admin';
+
+      setAuthState({
+        isLoggedIn: loggedIn,
+        user: loggedIn ? currentUser : null,
+        isAdmin: admin,
+        loading: false,
+      });
+    };
+
+    window.addEventListener("authChange", syncAuthState);
+    window.addEventListener("storage", syncAuthState);
 
     return () => {
-      isMounted = false;
+      window.removeEventListener("authChange", syncAuthState);
+      window.removeEventListener("storage", syncAuthState);
     };
   }, []);
 
-  const logout = useCallback(async () => {
-    try {
-      // Adjust to your logout endpoint
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (err) {
-      console.error('useAuth: logout error', err);
-    } finally {
-      setUser(null);
+  const logout = useCallback(() => {
+    if (window.authManager && typeof window.authManager.logout === "function") {
+      window.authManager.logout();
+    } else {
+      // Selectively remove auth keys instead of wiping entire localStorage
+      const authKeys = [
+        "token",
+        "userToken",
+        "user",
+        "userId",
+        "userName",
+        "userEmail",
+        "userPhone",
+        "userRole",
+      ];
+      authKeys.forEach((key) => localStorage.removeItem(key));
+      window.dispatchEvent(new Event("authChange"));
     }
   }, []);
 
-  const isLoggedIn = !!user;
-
   return {
-    user,
-    isLoggedIn,
-    loading,
-    error,
+    ...authState,
     logout,
   };
 }

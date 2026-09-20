@@ -65,12 +65,12 @@ export function useCalendar(initialDate = new Date()) {
       const data = await res.json();
       const arr = Array.isArray(data)
         ? data
-        : (Array.isArray(data.business_hours) ? data.business_hours
+        : (Array.isArray(data.businessHours) ? data.businessHours
           : (Array.isArray(data.businessHours) ? data.businessHours : []));
-      const normalized = arr.map(bh => ({ ...bh, day_of_week: bh.day_of_week.toLowerCase() }));
+      const normalized = arr.map(bh => ({ ...bh, dayOfWeek: bh.dayOfWeek.toLowerCase() }));
       setBusinessHours(normalized);
       const map = {};
-      normalized.forEach(bh => { map[bh.day_of_week.toLowerCase()] = bh; });
+      normalized.forEach(bh => { map[bh.dayOfWeek.toLowerCase()] = bh; });
       setBusinessHoursMap(map);
       return normalized;
     } catch (e) {
@@ -98,8 +98,8 @@ export function useCalendar(initialDate = new Date()) {
   const getScheduleException = useCallback((dateStr) => {
     if (!scheduleExceptions.length) return null;
     for (const ex of scheduleExceptions) {
-      if (ex.exception_type === 'single_day' && ex.start_date === dateStr) return ex;
-      if (ex.exception_type === 'date_range' && dateStr >= ex.start_date && dateStr <= ex.end_date) return ex;
+      if (ex.exceptionType === 'singleDay' && ex.startDate === dateStr) return ex;
+      if (ex.exceptionType === 'dateRange' && dateStr >= ex.startDate && dateStr <= ex.endDate) return ex;
     }
     return null;
   }, [scheduleExceptions]);
@@ -109,15 +109,15 @@ export function useCalendar(initialDate = new Date()) {
     const dateStr = formatDate(date);
     const exception = getScheduleException(dateStr);
     if (exception) {
-      if (exception.is_closed) return false;
-      if (exception.custom_open_time && exception.custom_close_time) return true;
+      if (exception.isClosed) return false;
+      if (exception.customOpenTime && exception.customCloseTime) return true;
     }
     if (!businessHours.length) return false;
     const dayOfWeek = getDayOfWeekString(date).toLowerCase();
     const businessDay = businessHoursMap[dayOfWeek];
     if (!businessDay) return false;
-    if (!businessDay.is_open) return false;
-    if (!businessDay.open_time || !businessDay.close_time) return false;
+    if (!businessDay.isOpen) return false;
+    if (!businessDay.openTime || !businessDay.closeTime) return false;
     return true;
   }, [businessHours, businessHoursMap, getScheduleException]);
 

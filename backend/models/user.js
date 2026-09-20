@@ -4,7 +4,6 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class User extends Model {
     static associate(models) {
-      // A user can have many appointments
       this.hasMany(models.Appointment, {
         foreignKey: 'userId',
         as: 'appointments',
@@ -17,7 +16,7 @@ module.exports = (sequelize, DataTypes) => {
       fullName: {
         type: DataTypes.STRING(100),
         allowNull: false,
-        field: 'fullName',         // map to DB column
+        field: 'fullName',
       },
       email: {
         type: DataTypes.STRING(100),
@@ -36,11 +35,11 @@ module.exports = (sequelize, DataTypes) => {
       authProvider: {
         type: DataTypes.STRING(50),
         defaultValue: 'local',
-        field: 'authProvider',     // map to DB column
+        field: 'authProvider',
       },
       googleId: {
         type: DataTypes.STRING(255),
-        field: 'googleId',         // map to DB column
+        field: 'googleId',
       },
       role: {
         type: DataTypes.ENUM('user', 'admin'),
@@ -51,14 +50,17 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: false,
+        field: 'isVerified',
       },
     },
     {
-      sequelize,
-      modelName: 'User',
-      tableName: 'users',           // match migration
-      underscored: true,            // createdAt / updatedAt
-    }
+  sequelize,
+  modelName: 'User',
+  tableName: 'users',
+  timestamps: true,
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+}
   );
 
   return User;

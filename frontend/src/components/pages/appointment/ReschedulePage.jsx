@@ -94,9 +94,9 @@ function ReschedulePage() {
 
   // Helper: current appointment date/time extraction (matches legacy JS)
   const getAppointmentDate = (apt) =>
-    !apt ? null : apt.appointment_date || apt.date;
+    !apt ? null : apt.appointmentDate || apt.date;
   const getAppointmentTime = (apt) =>
-    !apt ? null : apt.appointment_time || apt.time;
+    !apt ? null : apt.appointmentTime || apt.time;
   const getAppointmentDateISO = (apt) => {
     const dateStr = getAppointmentDate(apt);
     if (!dateStr) return null;
@@ -240,7 +240,7 @@ function ReschedulePage() {
           : {
               Authorization:
                 'Bearer ' +
-                (localStorage.getItem('user_token') ||
+                (localStorage.getItem('userToken') ||
                   localStorage.getItem('token') ||
                   ''),
             };
@@ -317,7 +317,7 @@ function ReschedulePage() {
           <strong>Hora actual:</strong> {formattedTime}
           <br />
           <strong>Servicio:</strong>{' '}
-          {currentAppointment.service_type || 'Consulta General'}
+          {currentAppointment.serviceType || 'Consulta General'}
           <br />
         </>
       );

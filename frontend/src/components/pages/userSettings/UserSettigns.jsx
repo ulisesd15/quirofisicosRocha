@@ -66,14 +66,14 @@ function UserSettingsPage() {
         const userData = await res.json();
 
         // Personal info
-        setFullName(userData.full_name || '');
+        setFullName(userData.fulName || '');
         setEmail(userData.email || '');
         setPhone(userData.phone || '');
 
         // Account info
-        setIsVerified(Boolean(userData.is_verified));
-        if (userData.created_at) {
-          const memberDate = new Date(userData.created_at).toLocaleDateString(
+        setIsVerified(Boolean(userData.isVerified));
+        if (userData.createdAt) {
+          const memberDate = new Date(userData.createdAt).toLocaleDateString(
             'es-ES',
             { year: 'numeric', month: 'long', day: 'numeric' }
           );
@@ -81,22 +81,22 @@ function UserSettingsPage() {
         }
 
         // Auth provider (hide password section if not local)
-        setAuthProvider(userData.auth_provider || 'local');
+        setAuthProvider(userData.authProvider || 'local');
 
         // Notification preferences (if backend stores them on profile)
-        if (typeof userData.email_notifications === 'boolean') {
-          setEmailNotifications(userData.email_notifications);
+        if (typeof userData.emailNotifications === 'boolean') {
+          setEmailNotifications(userData.emailNotifications);
         }
-        if (typeof userData.sms_notifications === 'boolean') {
-          setSmsNotifications(userData.sms_notifications);
+        if (typeof userData.smsNotifications === 'boolean') {
+          setSmsNotifications(userData.smsNotifications);
         }
 
         // Optionally sync auth context user
         if (setUser) {
           setUser(userData);
         }
-        if (setUserName && userData.full_name) {
-          setUserName(userData.full_name);
+        if (setUserName && userData.fullName) {
+          setUserName(userData.fullName);
         }
       } catch (err) {
         console.error('Error loading user data:', err);
@@ -133,7 +133,7 @@ function UserSettingsPage() {
     e.preventDefault();
 
     const formData = {
-      full_name: fullName,
+      fullName: fullName,
       email,
       phone,
     };
@@ -157,11 +157,11 @@ function UserSettingsPage() {
       showAlert('Información personal actualizada correctamente', 'success');
 
       // Update stored user name if it changed
-      if (setUserName && formData.full_name && formData.full_name !== userName) {
-        setUserName(formData.full_name);
+      if (setUserName && formData.fullName && formData.fullName !== userName) {
+        setUserName(formData.fullName);
       }
       if (setUser && user) {
-        setUser({ ...user, full_name: formData.full_name, email, phone });
+        setUser({ ...user, fullName: formData.fullName, email, phone });
       }
     } catch (err) {
       console.error('Error updating personal info:', err);
@@ -217,8 +217,8 @@ function UserSettingsPage() {
     e.preventDefault();
 
     const preferences = {
-      email_notifications: emailNotifications,
-      sms_notifications: smsNotifications,
+      emailNotifications: emailNotifications,
+      smsNotifications: smsNotifications,
     };
 
     try {

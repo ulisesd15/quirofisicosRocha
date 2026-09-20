@@ -1,3 +1,11 @@
+//middleware/authController.js
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const db = require('../config/database');
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// Register new user (traditional signup)
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../config/database');
@@ -53,6 +61,11 @@ const login = async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
+};
+
+module.exports = {
+  register,
+  login
 };
 
 module.exports = {

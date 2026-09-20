@@ -9,10 +9,10 @@ module.exports = {
     dialect: 'mysql',
     timezone: '-07:00',
     define: {
-      timestamps: true, // Automatically adds created_at and updated_at
-      underscored: true, // Maps camelCase in models to snake_case in the database
-      createdAt: 'created_at',
-      updatedAt: 'updated_at'
+      timestamps: true,
+      underscored: false,
+      createdAt: 'createdAt',
+      updatedAt: 'updatedAt',
     },
     pool: {
       max: 5,
@@ -29,10 +29,10 @@ module.exports = {
     dialect: 'mysql',
     logging: false,
     define: {
-      timestamps: true, // Automatically adds created_at and updated_at
-      underscored: true, // Maps camelCase in models to snake_case in the database
-      createdAt: 'created_at',
-      updatedAt: 'updated_at'
+      timestamps: true,
+      underscored: false,
+      createdAt: 'createdAt',
+      updatedAt: 'updatedAt'
     }
   },
   production: {

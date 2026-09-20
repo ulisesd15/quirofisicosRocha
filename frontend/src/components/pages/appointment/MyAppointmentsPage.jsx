@@ -12,7 +12,7 @@ function MyAppointmentsPage() {
 
   const [appointments, setAppointments] = useState([]);
   const [currentFilter, setCurrentFilter] = useState('all');
-  const [userInfo, setUserInfo] = useState({ full_name: 'Cargando...', email: 'Cargando...' });
+  const [userInfo, setUserInfo] = useState({ fullName: 'Cargando...', email: 'Cargando...' });
 
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState(null); // { type, message }
@@ -32,7 +32,7 @@ function MyAppointmentsPage() {
       authHeaders && authHeaders.Authorization
         ? authHeaders
         : {
-            Authorization: `Bearer ${localStorage.getItem('token') || localStorage.getItem('user_token') || ''}`,
+            Authorization: `Bearer ${localStorage.getItem('token') || localStorage.getItem('userToken') || ''}`,
           };
 
     const loadData = async () => {
@@ -51,7 +51,7 @@ function MyAppointmentsPage() {
 
         const user = await profileRes.json();
         setUserInfo({
-          full_name: user.full_name || 'Usuario',
+          fullName: user.fullName || 'Usuario',
           email: user.email || '',
         });
 
@@ -73,7 +73,7 @@ function MyAppointmentsPage() {
         // If first appointment has user info, use it to populate card (matching legacy behavior)
         const userInfoSource = list.length > 0 ? list[0] : user;
         setUserInfo({
-          full_name: userInfoSource.full_name || 'Usuario',
+          fullName: userInfoSource.fullName || 'Usuario',
           email: userInfoSource.email || user.email || '',
         });
 
@@ -109,7 +109,7 @@ function MyAppointmentsPage() {
         authHeaders && authHeaders.Authorization
           ? authHeaders
           : {
-              Authorization: `Bearer ${localStorage.getItem('token') || localStorage.getItem('user_token') || ''}`,
+              Authorization: `Bearer ${localStorage.getItem('token') || localStorage.getItem('userToken') || ''}`,
             };
 
       const res = await fetch(`/api/appointments/${id}/cancel`, {
@@ -280,12 +280,12 @@ function MyAppointmentsPage() {
             <div className="appointment-details mb-3">
               <small className="text-muted d-block">
                 <i className="fas fa-calendar-plus me-1" />
-                Agendada: {formatDateTime(appointment.created_at)}
+                Agendada: {formatDateTime(appointment.createdAt)}
               </small>
-              {appointment.updated_at !== appointment.created_at && (
+              {appointment.updatedAt !== appointment.createdAt && (
                 <small className="text-muted d-block">
                   <i className="fas fa-edit me-1" />
-                  Actualizada: {formatDateTime(appointment.updated_at)}
+                  Actualizada: {formatDateTime(appointment.updatedAt)}
                 </small>
               )}
             </div>
@@ -378,7 +378,7 @@ function MyAppointmentsPage() {
                   <div className="col-md-8">
                     <h5 className="card-title mb-1">
                       <i className="fas fa-user-circle text-primary me-2" />
-                      <span id="userFullName">{userInfo.full_name}</span>
+                      <span id="userFullName">{userInfo.fullName}</span>
                     </h5>
                     <p className="text-muted mb-0">
                       <i className="fas fa-envelope me-2" />

@@ -33,7 +33,7 @@ function TimeSlots({ date, selectedTime, onSelectTime }) {
   const businessDay = businessHoursMap[dayOfWeek];
 
   // If business closed or missing hours, show warning
-  if (!businessDay || !businessDay.is_open) {
+  if (!businessDay || !businessDay.isOpen) {
     return (
       <div className="alert alert-warning text-center">
         Sin horarios disponibles para este día.
@@ -50,8 +50,8 @@ function TimeSlots({ date, selectedTime, onSelectTime }) {
   }
 
   const now = new Date();
-  const openHM = businessDay.open_time?.slice(0, 5);
-  const closeHM = businessDay.close_time?.slice(0, 5);
+  const openHM = businessDay.openTime?.slice(0, 5);
+  const closeHM = businessDay.closeTime?.slice(0, 5);
 
   // Filter + annotate slots in a way similar to legacy renderTimeSlots
   const visibleSlots = useMemo(() => {

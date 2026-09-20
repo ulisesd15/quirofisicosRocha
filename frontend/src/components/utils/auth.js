@@ -1,171 +1,152 @@
+
 // Auth utility functions
 class AuthManager {
   constructor() {
-    this.token = localStorage.getItem('user_token') || localStorage.getItem('token');
-    this.userId = localStorage.getItem('user_id');
+    this.token = localStorage.getItem('token') || localStorage.getItem('userToken');
+    this.userId =  localStorage.getItem('userId');
     this.userName = localStorage.getItem('userName');
-    this.userRole = localStorage.getItem('user_role');
+    this.userRole =  localStorage.getItem('userRole');
     console.debug('[AuthManager] initialized', { tokenPresent: !!this.token, userId: this.userId, userName: this.userName });
   }
 
   // Check if user is logged in
   isLoggedIn() {
-    // Consider the user logged in if a token exists. User details may be loaded/validated separately.
-    return !!this.token;
+    return Boolean(this.getToken());
+  }
+
+  // Get current token dynamically
+  getToken() {
+    return localStorage.getItem('token') || localStorage.getItem('userToken');
   }
 
   // Get auth headers for API requests
   getAuthHeaders() {
+    const token = this.getToken();
     return {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.token}`
+      'Authorization': token ? `Bearer ${token}` : ''
     };
   }
 
-  // Store login data
+  // Store login data consistently (supports both formats to prevent mismatches)
   login(token, user) {
     this.token = token;
     this.userId = user.id;
-    this.userName = user.fullName;
+    this.userName = user.fullName || user.name;
     this.userRole = user.role;
-    
-    localStorage.setItem('user_token', token);
-    localStorage.setItem('token', token); // Keep both for compatibility
-    localStorage.setItem('user_id', user.id);
-    /**
-     * auth.js
-     *
-     * Provides an AuthManager class for handling authentication and user session management.
-     * - Handles login, logout, token storage, and user info storage in localStorage.
-     * - Provides utility methods for checking login status, admin status, and making authenticated API requests.
-     * - Exposes a global authManager instance for use throughout the app.
-     * - On page load, auto-validates the token if the user appears to be logged in.
-     */
 
-    localStorage.setItem('userName', user.fullName);
-    localStorage.setItem('user_email', user.email);
-      /**
-       * Loads token and user info from localStorage.
-       */
-    if (user.phone) {
-    localStorage.setItem('user_phone', user.phone);
-  }
-    localStorage.setItem('user_role', user.role || 'user');
+    localStorage.setItem("userToken", token);
+    localStorage.setItem("userId", String(user.id));
+    localStorage.setItem("userName", user.fullName || user.name || "");
+    localStorage.setItem("userEmail", user.email || "");
+    localStorage.setItem("userPhone", user.phone || "");
+    localStorage.setItem("userRole", user.role || "user");
+
+    // Store the complete user object
+    localStorage.setItem("user", JSON.stringify(user));
+
+    // Tell React components that authentication changed
+    window.dispatchEvent(new Event("authChange"));
+
+    console.debug("[AuthManager] Login successful", { tokenPresent: !!token, user });
   }
 
-  // Clear login data
+  // Clear login data completely
   logout() {
     this.token = null;
-      /**
-       * Returns true if a token and userId are present.
-       */
     this.userId = null;
     this.userName = null;
     this.userRole = null;
     
-      /**
-       * Returns headers for authenticated API requests.
-       */
-    localStorage.removeItem('user_token');
     localStorage.removeItem('token');
-    localStorage.removeItem('user_id');
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('userId');
     localStorage.removeItem('userName');
-    localStorage.removeItem('user_email');
-    localStorage.removeItem('user_phone');
-    localStorage.removeItem('user_role');
-      /**
-       * Stores token and user info in both the instance and localStorage.
-       */
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userPhone');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('user');
+
+    // Notify React components
+    window.dispatchEvent(new Event("authChange"));
+    console.debug("[AuthManager] Logout successful");
   }
 
   // Get user info
   getUserInfo() {
     return {
-      id: this.userId,
-      name: this.userName,
-      role: this.userRole,
-      token: this.token
+      id: this.userId ||  localStorage.getItem('userId'),
+      name: this.userName || localStorage.getItem('userName'),
+      role: this.userRole || localStorage.getItem('userRole'),
+      token: this.getToken()
     };
   }
 
-  // Get user data (alias for getUserInfo for compatibility)
+  // Get user data (alias for compatibility)
   getUserData() {
     return {
-      /**
-       * Clears token and user info from both the instance and localStorage.
-       */
-      id: this.userId,
-      name: this.userName,
-      email: localStorage.getItem('user_email'),
-      phone: localStorage.getItem('user_phone'),
-      role: this.userRole,
-      token: this.token
+      id: this.userId || localStorage.getItem('userId'),
+      name: this.userName || localStorage.getItem('userName'),
+      email: localStorage.getItem('userEmail'),
+      phone: localStorage.getItem('userPhone'),
+      role: this.userRole || localStorage.getItem('userRole'),
+      token: this.getToken()
     };
   }
 
   // Check if current user is admin
   isAdmin() {
-    return this.userRole === 'admin';
+    const role = this.userRole || localStorage.getItem('userRole');
+    return role === 'admin';
   }
 
   // Get current user object
   getCurrentUser() {
     if (!this.isLoggedIn()) return null;
-    // Return fields expected across the codebase. Some parts expect `fullName`.
+
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        return JSON.parse(storedUser);
+      } catch (error) {
+        console.error("Error parsing stored user JSON:", error);
+      }
+    }
+
     return {
-      id: this.userId,
+      id: this.userId || localStorage.getItem('userId'),
       fullName: this.userName || localStorage.getItem('userName'),
       name: this.userName || localStorage.getItem('userName'),
-      email: localStorage.getItem('user_email'),
-      phone: localStorage.getItem('user_phone'),
-      role: this.userRole || localStorage.getItem('user_role'),
-      token: this.token
+      email:  localStorage.getItem('userEmail'),
+      phone:  localStorage.getItem('userPhone'),
+      role: this.userRole || localStorage.getItem('userRole') || 'user',
+      token: this.getToken()
     };
-  }
-
-      /**
-       * Returns a more complete user info object (id, name, email, phone, role, token).
-       */
-  // Get token for API calls
-  getToken() {
-    return this.token;
   }
 
   // Validate token by making an API call
   async validateToken() {
-    if (!this.token) return false;
+    const token = this.getToken();
+    if (!token) return false;
 
     try {
       const response = await fetch('/api/auth/profile', {
-      /**
-       * Returns true if the user’s role is 'admin'.
-       */
         headers: this.getAuthHeaders()
       });
 
       if (response.ok) {
-      /**
-       * Returns the current user object if logged in, otherwise null.
-       */
         const user = await response.json();
-        // Update user info in case it changed
-        this.userName = user.fullName;
-        localStorage.setItem('userName', user.fullName);
-        localStorage.setItem('user_email', user.email);
-        localStorage.setItem('user_phone', user.phone);
+        this.userName = user.fullName || user.name;
+        localStorage.setItem('userName', user.fullName || user.name);
+        localStorage.setItem('userEmail', user.email);
+        localStorage.setItem('userPhone', user.phone || '');
+        localStorage.setItem('userRole', user.role || 'user');
         return true;
       } else {
-        // Token is invalid, clear storage
-      /**
-       * Returns the current token.
-       */
         this.logout();
         return false;
       }
     } catch (error) {
-      /**
-       * Validates the token by making an API call; updates user info or logs out if invalid.
-       */
       console.error('Token validation error:', error);
       return false;
     }
@@ -184,18 +165,15 @@ class AuthManager {
 
     const response = await fetch(url, config);
 
-    // If unauthorized, logout user
+    // If unauthorized, logout user and redirect to React login route
     if (response.status === 401 || response.status === 403) {
       this.logout();
-      window.location.href = '/login.html';
+      window.location.href = '/login';
       throw new Error('Session expired');
     }
 
     return response;
   }
-      /**
-       * Makes an authenticated API request; logs out and redirects if unauthorized.
-       */
 }
 
 // Create global auth manager instance
@@ -203,10 +181,7 @@ window.authManager = new AuthManager();
 
 // Auto-validate token on page load if user appears to be logged in
 document.addEventListener('DOMContentLoaded', async () => {
-  console.debug('[AuthManager] DOMContentLoaded - isLoggedIn:', window.authManager.isLoggedIn());
   if (window.authManager.isLoggedIn()) {
-    const valid = await window.authManager.validateToken();
-    console.debug('[AuthManager] token validation result:', valid);
+    await window.authManager.validateToken();
   }
-  // window.authManager.updateNavigation(); // Removed, not needed
 });

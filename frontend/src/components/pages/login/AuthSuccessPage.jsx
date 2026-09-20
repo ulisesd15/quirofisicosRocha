@@ -1,31 +1,37 @@
-// frontend/src/components/pages/AuthSuccessPage.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import "../../../style/style.css";
 import "../../../style/navigation.css";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 export default function AuthSuccessPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [error, setError] = useState("");
+  
+  // Guard ref to prevent double-execution in React StrictMode
+  const hasFetched = useRef(false);
 
   useEffect(() => {
     const token = searchParams.get("token");
 
     if (!token) {
       console.error("No token received from Google OAuth");
-      setError("Error al iniciar sesión con Google - No se recibió token");
+      setError("Error al iniciar sesión con Google: no se recibió el token.");
       navigate("/login?error=oauthFailed", { replace: true });
       return;
     }
 
-    // Store token for session persistence
-    localStorage.setItem("user_token", token);
-    localStorage.setItem("token", token);
+    if (hasFetched.current) return;
+    hasFetched.current = true;
 
     const fetchProfile = async () => {
       try {
-        const res = await fetch("/api/auth/profile", {
+        localStorage.setItem("token", token);
+        localStorage.setItem("userToken", token);
+
+        const res = await fetch(`${API_BASE_URL}/api/auth/profile`, {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
@@ -36,37 +42,65 @@ export default function AuthSuccessPage() {
           throw new Error(`Failed to fetch user profile: ${res.status}`);
         }
 
-        const user = await res.json(); // { id, fullName, email, phone, role, ... }[file:1]
+        const user = await res.json();
 
         const userObj = {
           id: user.id,
-          full_name: user.fullName,  // map backend fullName -> full_name for existing code
+          fullName: user.fullName || user.name || "Usuario",
           email: user.email,
+          phone: user.phone || "",
           role: user.role || "user",
+          authProvider: user.authProvider || "google",
+          isVerified: Boolean(user.isVerified),
         };
 
-        if (window.authManager) {
+        localStorage.setItem("userId", String(userObj.id));
+        localStorage.setItem("userName", userObj.fullName);
+        localStorage.setItem("userEmail", userObj.email);
+        localStorage.setItem("userPhone", userObj.phone);
+        localStorage.setItem("userRole", userObj.role);
+        localStorage.setItem("user", JSON.stringify(userObj));
+
+        if (
+          window.authManager &&
+          typeof window.authManager.login === "function"
+        ) {
           window.authManager.login(token, userObj);
-        } else {
-          localStorage.setItem("user_id", user.id);
-          localStorage.setItem("user_name", user.fullName);
-          localStorage.setItem("user_role", user.role || "user");
         }
 
-        // Redirect into the app (appointments page)
-        navigate("/appointments/new", { replace: true });
+        // Notify components in the current tab that authentication succeeded
+        window.dispatchEvent(new Event("authChange"));
+
+        // Force a small timeout or immediate replacement to ensure storage is committed
+        setTimeout(() => {
+          navigate("/", {
+            replace: true,
+            state: { justLoggedIn: true },
+          });
+        }, 50);
+
       } catch (err) {
         console.error("Error fetching user profile:", err);
-        setError("Error al obtener información del usuario. Inténtalo de nuevo más tarde.");
+
+        localStorage.removeItem("token");
+        localStorage.removeItem("userToken");
+        localStorage.removeItem("user");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("userName");
+        localStorage.removeItem("userEmail");
+        localStorage.removeItem("userPhone");
+        localStorage.removeItem("userRole");
+
+        setError("Error al obtener información de tu cuenta. Inténtalo de nuevo.");
         navigate("/login?error=oauthFailed", { replace: true });
       }
     };
 
     fetchProfile();
-  }, [searchParams, navigate]);
+  }, [navigate, searchParams]);
 
   return (
-    <section className="hero d-flex align-items-center justify-content-center">
+    <section className="hero d-flex align-items-center justify-content-center" style={{ minHeight: "100vh" }}>
       <div className="container">
         <div className="row justify-content-center">
           <div className="col-lg-6 col-md-8">
@@ -91,24 +125,7 @@ export default function AuthSuccessPage() {
                   Por favor espera mientras procesamos tu inicio de sesión...
                 </p>
 
-                {error && (
-                  <p className="text-danger mb-3">
-                    {error}
-                  </p>
-                )}
-
-                <div className="d-flex justify-content-center">
-                  <div
-                    className="progress"
-                    style={{ width: 200, height: 6 }}
-                  >
-                    <div
-                      className="progress-bar progress-bar-striped progress-bar-animated"
-                      role="progressbar"
-                      style={{ width: "100%" }}
-                    />
-                  </div>
-                </div>
+                {error && <p className="text-danger mb-3">{error}</p>}
               </div>
             </div>
           </div>

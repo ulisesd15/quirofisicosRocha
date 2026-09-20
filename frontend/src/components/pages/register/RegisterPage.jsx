@@ -1,31 +1,28 @@
-// frontend/src/components/pages/register/RegisterPage.jsx
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import "../../../style/style.css"; // hero + general styles
-import "../../../style/navigation.css"; // optional if you want nav styles here too
-const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+import "../../../style/style.css"; 
+import "../../../style/navigation.css"; 
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
-    full_name: "",
+    fullName: "",
     phone: "",
     email: "",
     password: "",
-    confirm_password: "",
+    confirmPassword: "",
   });
 
   const [message, setMessage] = useState("");
-  // "error" or "success" to control text color
   const [messageType, setMessageType] = useState("error");
 
-  // Redirect if already logged in (same logic as register.js)
   useEffect(() => {
     const token =
-      localStorage.getItem("token") || localStorage.getItem("user_token");
+      localStorage.getItem("token") || localStorage.getItem("userToken");
     if (token) {
-      // In React app, send them to the appointments flow
       navigate("/appointments/new", { replace: true });
     }
   }, [navigate]);
@@ -35,9 +32,8 @@ export default function RegisterPage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Helpers from register.js
   const isPasswordStrong = (password) =>
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/.test(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!\%*?&]{6,}$/.test(
       password
     );
 
@@ -50,20 +46,19 @@ export default function RegisterPage() {
     setMessageType("error");
 
     const {
-      full_name,
+      fullName,
       phone,
       email,
       password,
-      confirm_password,
+      confirmPassword,
     } = form;
 
-    // Validations (same messages as register.js)
-    if (!full_name || !phone || !email || !password || !confirm_password) {
+    if (!fullName || !phone || !email || !password || !confirmPassword) {
       setMessage("Faltan campos requeridos");
       return;
     }
 
-    if (password !== confirm_password) {
+    if (password !== confirmPassword) {
       setMessage("Las contraseñas no coinciden");
       return;
     }
@@ -86,33 +81,37 @@ export default function RegisterPage() {
     }
 
     try {
-      const res = await fetch("/api/auth/register", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ full_name, phone, email, password }),
+        body: JSON.stringify({ fullName, phone, email, password }),
       });
 
-      const result = await res.json();
-      console.log("Register response:", result);
+      const contentType = res.headers.get("content-type");
+      let result;
+      if (contentType && contentType.includes("application/json")) {
+        result = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(text || "Respuesta inesperada del servidor");
+      }
 
       if (res.ok) {
-        // AuthManager integration (same as register.js)
         if (window.authManager) {
           window.authManager.login(result.token, result.user);
         } else {
-          localStorage.setItem("user_token", result.token);
+          localStorage.setItem("userToken", result.token);
           localStorage.setItem("token", result.token);
-          localStorage.setItem("user_id", result.user.id);
-          localStorage.setItem("user_name", result.user.full_name);
-          localStorage.setItem("user_email", result.user.email);
-          localStorage.setItem("user_phone", result.user.phone);
-          localStorage.setItem("user_role", result.user.role || "user");
+          localStorage.setItem("userId", result.user.id);
+          localStorage.setItem("userName", result.user.fullName);
+          localStorage.setItem("userEmail", result.user.email);
+          localStorage.setItem("userPhone", result.user.phone);
+          localStorage.setItem("userRole", result.user.role || "user");
         }
 
         setMessageType("success");
         setMessage(result.message || "Registro exitoso");
 
-        // In your React app, send user to appointments page
         setTimeout(() => {
           navigate("/appointments/new");
         }, 1500);
@@ -122,18 +121,17 @@ export default function RegisterPage() {
     } catch (error) {
       console.error("Error al registrar:", error);
       setMessage(
-        "Error al registrar. Inténtalo de nuevo más tarde."
+        error.message || "Error al registrar. Inténtalo de nuevo más tarde."
       );
     }
   };
 
   const handleGoogleRegister = () => {
-    // Same behavior as register.js
     window.location.href = `${API_BASE_URL}/api/auth/google`;
   };
 
   return (
-    <section className="hero d-flex align-items-center justify-content-center">
+    <section className="hero d-flex align-items-center justify-content-center" style={{ minHeight: "100vh" }}>
       <div className="container">
         <div className="row justify-content-center">
           <div className="col-lg-6 col-md-8">
@@ -149,20 +147,19 @@ export default function RegisterPage() {
                   </p>
                 </div>
 
-                {/* Register Form */}
                 <form id="register-form" onSubmit={handleSubmit}>
                   <div className="row">
                     <div className="col-md-6 mb-3">
-                      <label htmlFor="full_name" className="form-label">
+                      <label htmlFor="fullName" className="form-label">
                         <i className="fas fa-user me-2" />
                         Nombre Completo
                       </label>
                       <input
                         className="form-control"
-                        name="full_name"
-                        id="full_name"
+                        name="fullName"
+                        id="fullName"
                         placeholder="Tu nombre completo"
-                        value={form.full_name}
+                        value={form.fullName}
                         onChange={handleChange}
                         required
                       />
@@ -220,7 +217,7 @@ export default function RegisterPage() {
                     </div>
                     <div className="col-md-6 mb-3">
                       <label
-                        htmlFor="confirm_password"
+                        htmlFor="confirmPassword"
                         className="form-label"
                       >
                         <i className="fas fa-lock me-2" />
@@ -228,11 +225,11 @@ export default function RegisterPage() {
                       </label>
                       <input
                         className="form-control"
-                        name="confirm_password"
-                        id="confirm_password"
+                        name="confirmPassword"
+                        id="confirmPassword"
                         type="password"
                         placeholder="Repite la contraseña"
-                        value={form.confirm_password}
+                        value={form.confirmPassword}
                         onChange={handleChange}
                         required
                       />
@@ -261,7 +258,6 @@ export default function RegisterPage() {
                   )}
                 </form>
 
-                {/* Google Register */}
                 <div className="d-grid mb-3">
                   <button
                     id="google-login"
@@ -278,7 +274,6 @@ export default function RegisterPage() {
                   </button>
                 </div>
 
-                {/* Navigation Links */}
                 <div className="text-center mt-4">
                   <p className="mb-2">
                     <Link
