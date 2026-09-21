@@ -134,6 +134,15 @@ class AuthManager {
         headers: this.getAuthHeaders()
       });
 
+      // Reject non-JSON answers (e.g. a dev server without an /api proxy
+      // answering with the SPA's index.html) instead of letting
+      // response.json() throw and look like an auth failure.
+      const contentType = response.headers.get('content-type') || '';
+      if (response.ok && !contentType.includes('application/json')) {
+        console.error('Token validation error: expected JSON from /api/auth/profile, got', contentType);
+        return false;
+      }
+
       if (response.ok) {
         const user = await response.json();
         this.userName = user.fullName || user.name;

@@ -37,7 +37,13 @@ export default function LoginPage() {
         const isValid = await window.authManager.validateToken();
         if (cancelled) return;
         if (isValid) {
-          navigate("/appointments/new", { replace: true });
+          // Admins land in the admin panel, everyone else on booking.
+          const role =
+            localStorage.getItem("userRole") ||
+            JSON.parse(localStorage.getItem("user") || "{}").role;
+          navigate(role === "admin" ? "/admin" : "/appointments/new", {
+            replace: true,
+          });
         }
         return;
       }

@@ -45,7 +45,19 @@ export default function AdminLayout() {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        if (!response.ok) throw new Error("Sesión inválida");
+        // A dev server without an /api proxy answers with the SPA's
+        // index.html (status 200), so verify we actually got JSON before
+        // parsing — otherwise response.json() throws and looks like an
+        // auth failure.
+        const contentType = response.headers.get("content-type") || "";
+        if (!response.ok || !contentType.includes("application/json")) {
+          // 401/403 means the token is expired or invalid: clear the stale
+          // session so the login page does not keep bouncing the user.
+          if (response.status === 401 || response.status === 403) {
+            window.authManager?.logout?.();
+          }
+          throw new Error("Sesión inválida");
+        }
 
         const user = await response.json();
 
@@ -55,6 +67,8 @@ export default function AdminLayout() {
           navigate("/", { replace: true });
           return;
         }
+
+        localStorage.setItem("userName", user.fullName || user.email || "");
 
         localStorage.setItem("userRole", user.role);
         setAdminName(user.fullName || user.email || "Administrador");
