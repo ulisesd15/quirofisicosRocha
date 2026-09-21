@@ -96,7 +96,7 @@ export default function LoginPage() {
         }
 
         if (data.user.role === "admin") {
-          navigate("/admin/adminOptions");
+          navigate("/admin");
         } else {
           navigate("/appointments/new");
         }

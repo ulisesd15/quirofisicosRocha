@@ -174,7 +174,7 @@ export default function Navbar() {
               <li className="nav-item">
                 <Link 
                   className={`nav-link main-nav-link px-3 py-2 rounded-pill ${currentPage === "admin" ? "active" : ""}`} 
-                  to="/admin/adminOptions"
+                  to="/admin"
                   onClick={closeMobileMenu}
                 >
                   <i className="fas fa-chart-line me-2 text-danger" />
@@ -282,7 +282,7 @@ export default function Navbar() {
                   ) : (
                     <>
                       <li>
-                        <Link className="dropdown-item rounded py-2 px-3 d-flex align-items-center gap-2" to="/admin/adminOptions" onClick={closeMobileMenu}>
+                        <Link className="dropdown-item rounded py-2 px-3 d-flex align-items-center gap-2" to="/admin" onClick={closeMobileMenu}>
                           <i className="fas fa-tachometer-alt text-danger" />
                           <span>Panel General Admin</span>
                         </Link>
@@ -313,15 +313,15 @@ export default function Navbar() {
 
                         <ul className={`dropdown-sub-menu shadow-sm p-2 border-0 bg-light rounded ${subDropdownOpen ? 'd-block' : 'd-none'}`}>
                           <li>
-                            <Link className="dropdown-item rounded py-1 px-3 small d-flex align-items-center gap-2" to="/admin/reports" onClick={closeMobileMenu}>
+                            <Link className="dropdown-item rounded py-1 px-3 small d-flex align-items-center gap-2" to="/admin/horarios" onClick={closeMobileMenu}>
                               <i className="fas fa-chart-bar text-info" />
-                              <span>Reportes & Estadísticas</span>
+                              <span>Gestión de Horarios</span>
                             </Link>
                           </li>
                           <li>
-                            <Link className="dropdown-item rounded py-1 px-3 small d-flex align-items-center gap-2" to="/admin/audit-logs" onClick={closeMobileMenu}>
+                            <Link className="dropdown-item rounded py-1 px-3 small d-flex align-items-center gap-2" to="/admin/servidor" onClick={closeMobileMenu}>
                               <i className="fas fa-history text-secondary" />
-                              <span>Auditoría del Sistema</span>
+                              <span>Estado del Servidor</span>
                             </Link>
                           </li>
                         </ul>
